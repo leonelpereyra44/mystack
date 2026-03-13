@@ -1,36 +1,149 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MyStack 📅
 
-## Getting Started
+Sistema SaaS de gestión de turnos y citas online. Permite a negocios crear su propia página de reservas donde sus clientes pueden agendar turnos 24/7.
 
-First, run the development server:
+## 🚀 Demo
 
+Cada negocio tiene su página pública en: `tudominio.com/nombre-del-negocio`
+
+## ✨ Características
+
+### Para Negocios (Dashboard)
+- ✅ Gestión de servicios (nombre, duración, precio)
+- ✅ Configuración de horarios de atención
+- ✅ Gestión de equipo/empleados
+- ✅ Vista de calendario con turnos
+- ✅ Confirmación/cancelación de turnos
+- ✅ Estadísticas básicas
+
+### Para Clientes
+- ✅ Página de reservas personalizada
+- ✅ Selección de servicio y horario
+- ✅ Ver disponibilidad en tiempo real
+- ✅ Confirmación por email
+
+### Próximamente
+- [ ] Notificaciones por email (Resend)
+- [ ] Recordatorios automáticos
+- [ ] Pagos online (Stripe)
+- [ ] Dominio personalizado
+- [ ] Integraciones (Google Calendar, WhatsApp)
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript
+- **Database**: PostgreSQL + Prisma ORM
+- **Auth**: NextAuth.js v5
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Hosting**: Vercel
+
+## 📦 Instalación
+
+### Prerrequisitos
+- Node.js 18+
+- PostgreSQL (local o cloud: Supabase, Neon, Vercel Postgres)
+
+### Setup
+
+1. **Clonar e instalar dependencias**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <tu-repo>
+cd turnosweb
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Configurar variables de entorno**
+```bash
+cp .env.example .env
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Edita `.env` con tus valores:
+```env
+DATABASE_URL="postgresql://..."
+NEXTAUTH_SECRET="genera-con-openssl-rand-base64-32"
+NEXTAUTH_URL="http://localhost:3000"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. **Configurar base de datos**
+```bash
+# Generar cliente Prisma
+npx prisma generate
 
-## Learn More
+# Crear tablas en la DB
+npx prisma db push
 
-To learn more about Next.js, take a look at the following resources:
+# (Opcional) Abrir Prisma Studio para ver datos
+npx prisma studio
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. **Iniciar servidor de desarrollo**
+```bash
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Abre [http://localhost:3000](http://localhost:3000)
 
-## Deploy on Vercel
+## 🚀 Deploy en Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Sube tu código a GitHub
+2. Importa el proyecto en [Vercel](https://vercel.com)
+3. Configura las variables de entorno:
+   - `DATABASE_URL` (usa Vercel Postgres o Supabase)
+   - `NEXTAUTH_SECRET`
+   - `NEXTAUTH_URL` (tu dominio de Vercel)
+4. Deploy! 🎉
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Base de datos recomendada para producción
+- [Vercel Postgres](https://vercel.com/storage/postgres) - Integración nativa
+- [Supabase](https://supabase.com) - Tier gratuito generoso
+- [Neon](https://neon.tech) - Serverless PostgreSQL
+
+## 📁 Estructura del Proyecto
+
+```
+src/
+├── app/
+│   ├── api/              # API Routes
+│   │   ├── auth/         # NextAuth endpoints
+│   │   ├── appointments/ # CRUD turnos
+│   │   ├── services/     # CRUD servicios
+│   │   ├── staff/        # CRUD equipo
+│   │   └── business/     # Config negocio
+│   ├── dashboard/        # Panel de admin
+│   │   ├── appointments/ # Gestión de turnos
+│   │   ├── services/     # Gestión de servicios
+│   │   ├── staff/        # Gestión de equipo
+│   │   ├── schedule/     # Config horarios
+│   │   └── settings/     # Configuración
+│   ├── [slug]/           # Página pública del negocio
+│   ├── login/            # Login
+│   ├── register/         # Registro
+│   └── page.tsx          # Landing page
+├── components/
+│   ├── ui/               # shadcn/ui components
+│   ├── dashboard/        # Componentes del dashboard
+│   └── booking/          # Componentes de reserva
+├── lib/
+│   ├── auth.ts           # Config NextAuth
+│   ├── prisma.ts         # Cliente Prisma
+│   └── utils.ts          # Utilidades
+└── types/                # TypeScript types
+```
+
+## 🔧 Scripts
+
+```bash
+npm run dev      # Desarrollo
+npm run build    # Build producción
+npm run start    # Iniciar producción
+npm run lint     # Linter
+```
+
+## 📝 Licencia
+
+MIT
+
+---
+
+Hecho con ❤️ usando Next.js y Vercel

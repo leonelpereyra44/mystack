@@ -1,0 +1,144 @@
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar, Clock, Users, TrendingUp } from "lucide-react";
+import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
+import { es } from "date-fns/locale";
+
+export default async function DashboardPage() {
+  const session = await auth();
+
+  const business = await prisma.business.findFirst({
+    where: { ownerId: session?.user?.id },
+    include: {
+      services: true,
+      staff: true,
+      appointments: {
+        where: {
+          date: {
+            gte: startOfMonth(new Date()),
+            lte: endOfMonth(new Date()),
+          },
+        },
+      },
+    },
+  });
+
+  if (!business) {
+    return null;
+  }
+
+  const todayAppointments = business.appointments.filter((apt) => {
+    const aptDate = new Date(apt.date);
+    const today = new Date();
+    return (
+      aptDate >= startOfDay(today) &&
+      aptDate <= endOfDay(today) &&
+      apt.status !== "CANCELLED"
+    );
+  });
+
+  const upcomingAppointments = business.appointments
+    .filter((apt) => {
+      const aptDate = new Date(apt.date);
+      return aptDate >= new Date() && apt.status !== "CANCELLED";
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5);
+
+  const stats = {
+    todayCount: todayAppointments.length,
+    monthCount: business.appointments.filter((a) => a.status !== "CANCELLED").length,
+    servicesCount: business.services.length,
+    staffCount: business.staff.length,
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Bienvenido de vuelta, {session?.user?.name}
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Turnos Hoy</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.todayCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Este Mes</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.monthCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Servicios</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.servicesCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Empleados</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.staffCount}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Upcoming Appointments */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Próximos Turnos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {upcomingAppointments.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No hay turnos próximos
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {upcomingAppointments.map((apt) => (
+                <div
+                  key={apt.id}
+                  className="flex items-center justify-between rounded-lg border p-4"
+                >
+                  <div>
+                    <p className="font-medium">{apt.customerName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {apt.customerEmail}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">
+                      {format(new Date(apt.date), "d MMM", { locale: es })}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {apt.startTime} - {apt.endTime}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
