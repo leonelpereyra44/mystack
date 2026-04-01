@@ -88,6 +88,13 @@ export function NewAppointmentModal({
   });
 
   const selectedDate = watch("date");
+  const selectedServiceId = watch("serviceId");
+  const selectedStaffId = watch("staffId");
+  const selectedTime = watch("startTime");
+
+  // Obtener el servicio seleccionado para mostrar su nombre
+  const selectedService = services.find(s => s.id === selectedServiceId);
+  const selectedStaff = staff.find(s => s.id === selectedStaffId);
 
   // Generar horarios disponibles (9:00 - 18:00, cada 30 min)
   const timeSlots = [];
@@ -168,8 +175,13 @@ export function NewAppointmentModal({
             <Select
               onValueChange={(value) => setValue("serviceId", value as string)}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un servicio" />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecciona un servicio">
+                  {selectedService 
+                    ? `${selectedService.name} - ${selectedService.duration} min - $${selectedService.price}`
+                    : "Selecciona un servicio"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {services.map((service) => (
@@ -191,8 +203,10 @@ export function NewAppointmentModal({
               <Select
                 onValueChange={(value) => setValue("staffId", value === "none" ? undefined : (value as string))}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sin asignar" />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sin asignar">
+                    {selectedStaff ? selectedStaff.name : "Sin asignar"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin asignar</SelectItem>
@@ -246,7 +260,9 @@ export function NewAppointmentModal({
             <Label htmlFor="startTime">Hora *</Label>
             <Select onValueChange={(value) => setValue("startTime", value as string)}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona un horario" />
+                <SelectValue placeholder="Selecciona un horario">
+                  {selectedTime || "Selecciona un horario"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {timeSlots.map((time) => (

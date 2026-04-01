@@ -92,7 +92,9 @@ export function BookingForm({
 
   const selectedServiceId = watch("serviceId");
   const selectedDate = watch("date");
+  const selectedStaffId = watch("staffId");
   const selectedService = services.find((s) => s.id === selectedServiceId);
+  const selectedStaff = staff.find((s) => s.id === selectedStaffId);
 
   const getDaySchedule = (date: Date) => {
     const dayOfWeek = date.getDay();
@@ -357,8 +359,10 @@ export function BookingForm({
               <div>
                 <Label>Profesional (opcional)</Label>
                 <Select onValueChange={(value) => setValue("staffId", value as string)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin preferencia" />
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Sin preferencia">
+                      {selectedStaff ? selectedStaff.name : "Sin preferencia"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {staff.map((member) => (

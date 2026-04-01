@@ -46,6 +46,7 @@ export default function NewServicePage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
@@ -54,6 +55,17 @@ export default function NewServicePage() {
       price: 0,
     },
   });
+
+  const selectedDuration = watch("duration");
+
+  const durationOptions: { [key: number]: string } = {
+    15: "15 minutos",
+    30: "30 minutos",
+    45: "45 minutos",
+    60: "1 hora",
+    90: "1 hora 30 min",
+    120: "2 horas",
+  };
 
   const onSubmit = async (data: ServiceFormData) => {
     setIsLoading(true);
@@ -144,8 +156,10 @@ export default function NewServicePage() {
                   defaultValue="30"
                   onValueChange={(value) => setValue("duration", parseInt(value || "30"))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona duración" />
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecciona duración">
+                      {durationOptions[selectedDuration] || "Selecciona duración"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="15">15 minutos</SelectItem>

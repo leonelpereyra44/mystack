@@ -64,6 +64,17 @@ export default function EditServicePage({ params }: EditServicePageProps) {
     },
   });
 
+  const selectedDuration = watch("duration");
+
+  const durationOptions: { [key: number]: string } = {
+    15: "15 minutos",
+    30: "30 minutos",
+    45: "45 minutos",
+    60: "1 hora",
+    90: "1 hora 30 min",
+    120: "2 horas",
+  };
+
   useEffect(() => {
     async function fetchService() {
       try {
@@ -179,11 +190,13 @@ export default function EditServicePage({ params }: EditServicePageProps) {
               <div className="space-y-2">
                 <Label htmlFor="duration">Duración *</Label>
                 <Select
-                  value={watch("duration")?.toString()}
+                  value={selectedDuration?.toString()}
                   onValueChange={(value) => value && setValue("duration", parseInt(value))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona duración" />
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecciona duración">
+                      {durationOptions[selectedDuration] || "Selecciona duración"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="15">15 minutos</SelectItem>
