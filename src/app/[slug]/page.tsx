@@ -4,12 +4,15 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { BookingForm } from "@/components/booking/booking-form";
 import { Store } from "lucide-react";
+import type { Metadata } from "next";
 
 interface BusinessPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: BusinessPageProps) {
+const siteUrl = process.env.NEXTAUTH_URL || "https://mystack.com";
+
+export async function generateMetadata({ params }: BusinessPageProps): Promise<Metadata> {
   const { slug } = await params;
   const business = await prisma.business.findUnique({
     where: { slug },
@@ -19,9 +22,34 @@ export async function generateMetadata({ params }: BusinessPageProps) {
     return { title: "Negocio no encontrado" };
   }
 
+  const title = `${business.name} - Reserva tu turno`;
+  const description = business.description || `Reserva tu turno en ${business.name}. Sistema de reservas online 24/7.`;
+
   return {
-    title: `${business.name} - Reserva tu turno`,
-    description: business.description || `Reserva tu turno en ${business.name}`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${siteUrl}/${slug}`,
+      siteName: "MyStack",
+      locale: "es_AR",
+      type: "website",
+      images: business.logo ? [
+        {
+          url: business.logo,
+          width: 400,
+          height: 400,
+          alt: business.name,
+        },
+      ] : undefined,
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+      images: business.logo ? [business.logo] : undefined,
+    },
   };
 }
 

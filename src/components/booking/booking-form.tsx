@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, addDays, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarIcon, Loader2, CheckCircle } from "lucide-react";
+import { CalendarIcon, Loader2, CheckCircle, Clock, MapPin, User, Mail, CalendarPlus, Phone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 
 interface Service {
   id: string;
@@ -68,6 +69,30 @@ const bookingSchema = z.object({
 
 type BookingFormData = z.infer<typeof bookingSchema>;
 
+interface AppointmentData {
+  id: string;
+  date: string;
+  dateFormatted: string;
+  startTime: string;
+  endTime: string;
+  service: {
+    name: string;
+    duration: number;
+    price: number;
+  };
+  staff: string | null;
+  business: {
+    name: string;
+    slug: string;
+    address: string | null;
+    phone: string | null;
+  };
+  customer: {
+    name: string;
+    email: string;
+  };
+}
+
 export function BookingForm({
   businessId,
   services,
@@ -77,6 +102,7 @@ export function BookingForm({
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [appointmentData, setAppointmentData] = useState<AppointmentData | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
@@ -197,6 +223,8 @@ export function BookingForm({
       });
 
       if (response.ok) {
+        const data = await response.json();
+        setAppointmentData(data.appointment);
         setIsSuccess(true);
       } else {
         const error = await response.json();
@@ -208,6 +236,154 @@ export function BookingForm({
       setIsLoading(false);
     }
   };
+
+  // Generate Google Calendar URL
+  const generateGoogleCalendarUrl = () => {
+    if (!appointmentData) return "";
+    
+    const { date, startTime, endTime, service, business, staff } = appointmentData;
+    
+    // Convert date and times to Google Calendar format (YYYYMMDDTHHmmss)
+    const startDateTime = `${date.replace(/-/g, "")}T${startTime.replace(":", "")}00`;
+    const endDateTime = `${date.replace(/-/g, "")}T${endTime.replace(":", "")}00`;
+    
+    const title = encodeURIComponent(`${service.name} - ${business.name}`);
+    const details = encodeURIComponent(
+      `Turno reservado:\n` +
+      `Servicio: ${service.name}\n` +
+      `Duración: ${service.duration} minutos\n` +
+      (staff ? `Profesional: ${staff}\n` : "") +
+      `Precio: $${service.price.toLocaleString("es-AR")}`
+    );
+    const location = business.address ? encodeURIComponent(business.address) : "";
+    
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${endDateTime}&details=${details}&location=${location}&sf=true&output=xml`;
+  };
+
+  if (isSuccess && appointmentData) {
+    return (
+      <Card className="overflow-hidden">
+        {/* Success Header */}
+        <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 text-center text-white">
+          <CheckCircle className="mx-auto h-16 w-16" />
+          <h2 className="mt-4 text-2xl font-bold">¡Reserva Confirmada!</h2>
+          <p className="mt-2 text-green-100">
+            Te enviamos un email de confirmación a {appointmentData.customer.email}
+          </p>
+        </div>
+        
+        <CardContent className="p-6">
+          {/* Appointment Summary */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Resumen de tu turno</h3>
+            
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <CalendarIcon className="h-5 w-5 text-primary mt-0.5" />
+                <div>
+                  <p className="font-medium capitalize">{appointmentData.dateFormatted}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {appointmentData.startTime} - {appointmentData.endTime}
+                  </p>
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div className="flex items-start gap-3">
+                <Clock className="h-5 w-5 text-primary mt-0.5" />
+                <div>
+                  <p className="font-medium">{appointmentData.service.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {appointmentData.service.duration} minutos · ${appointmentData.service.price.toLocaleString("es-AR")}
+                  </p>
+                </div>
+              </div>
+              
+              {appointmentData.staff && (
+                <>
+                  <Separator />
+                  <div className="flex items-center gap-3">
+                    <User className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">{appointmentData.staff}</p>
+                      <p className="text-sm text-muted-foreground">Profesional asignado</p>
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {appointmentData.business.address && (
+                <>
+                  <Separator />
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-5 w-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">{appointmentData.business.name}</p>
+                      <p className="text-sm text-muted-foreground">{appointmentData.business.address}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {appointmentData.business.phone && (
+                <>
+                  <Separator />
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-5 w-5 text-primary" />
+                    <p className="font-medium">{appointmentData.business.phone}</p>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            {/* Customer Info */}
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-3">
+                <Mail className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Confirmación enviada a</p>
+                  <p className="font-medium">{appointmentData.customer.email}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            <div className="space-y-3 pt-4">
+              <Button 
+                className="w-full gap-2" 
+                onClick={() => window.open(generateGoogleCalendarUrl(), "_blank")}
+              >
+                <CalendarPlus className="h-4 w-4" />
+                Agregar a Google Calendar
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  setIsSuccess(false);
+                  setAppointmentData(null);
+                  setStep(1);
+                  setAvailableSlots([]);
+                }}
+              >
+                Hacer otra reserva
+              </Button>
+            </div>
+            
+            {/* Important Notes */}
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 mt-4">
+              <p className="text-sm text-amber-800">
+                <strong>Importante:</strong> Si necesitas cancelar o modificar tu turno, 
+                utiliza el enlace que te enviamos por email.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isSuccess) {
     return (

@@ -139,12 +139,26 @@ export async function POST(request: Request) {
         message: "Reserva creada exitosamente",
         appointment: {
           id: appointment.id,
-          date: appointment.date,
+          date: format(appointmentDate, "yyyy-MM-dd"),
+          dateFormatted: format(appointmentDate, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }),
           startTime: appointment.startTime,
           endTime: appointment.endTime,
-          service: appointment.service.name,
-          staff: appointment.staff?.name,
-          business: appointment.business.name,
+          service: {
+            name: appointment.service.name,
+            duration: appointment.service.duration,
+            price: Number(appointment.service.price),
+          },
+          staff: appointment.staff?.name || null,
+          business: {
+            name: appointment.business.name,
+            slug: appointment.business.slug,
+            address: appointment.business.address || null,
+            phone: appointment.business.phone || null,
+          },
+          customer: {
+            name: customerName,
+            email: customerEmail,
+          },
         },
       },
       { status: 201 }

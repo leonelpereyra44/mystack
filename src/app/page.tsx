@@ -159,7 +159,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t py-12">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+          <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <div className="flex items-center gap-2">
               <Image 
                 src="/mystacklogosinfondo.png" 
@@ -169,6 +169,20 @@ export default function HomePage() {
                 className="h-6 w-auto"
               />
               <span className="font-bold">MyStack</span>
+            </div>
+            <div className="flex items-center gap-6 text-sm">
+              <Link 
+                href="/legal/terminos" 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Términos y Condiciones
+              </Link>
+              <Link 
+                href="/legal/privacidad" 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Política de Privacidad
+              </Link>
             </div>
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} MyStack. Todos los derechos reservados.
