@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ChangePasswordForm } from "./change-password-form";
 
 interface Business {
   id: string;
@@ -198,6 +199,9 @@ export function SettingsForm({ business }: SettingsFormProps) {
           </form>
         </CardContent>
       </Card>
+
+      {/* Change Password */}
+      <ChangePasswordForm />
 
       {/* Subscription */}
       <Card>
