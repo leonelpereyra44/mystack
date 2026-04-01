@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { BookingForm } from "@/components/booking/booking-form";
-import { Calendar } from "lucide-react";
+import { Store } from "lucide-react";
 
 interface BusinessPageProps {
   params: Promise<{ slug: string }>;
@@ -71,7 +71,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
               />
             ) : (
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <Calendar className="h-8 w-8" />
+                <Store className="h-8 w-8" />
               </div>
             )}
             <div>
@@ -120,9 +120,16 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
       {/* Footer */}
       <footer className="border-t py-6">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
             Powered by{" "}
-            <Link href="/" className="text-primary hover:underline">
+            <Link href="/" className="inline-flex items-center gap-1 text-primary hover:underline">
+              <Image 
+                src="/mystacklogosinfondo.png" 
+                alt="MyStack" 
+                width={16} 
+                height={16}
+                className="h-4 w-auto"
+              />
               MyStack
             </Link>
           </p>
