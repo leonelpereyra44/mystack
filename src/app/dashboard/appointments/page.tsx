@@ -2,10 +2,22 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { AppointmentsList } from "@/components/dashboard/appointments-list";
 import { NewAppointmentModal } from "@/components/dashboard/new-appointment-modal";
-import { startOfDay, endOfDay, addDays } from "date-fns";
+import { startOfDay, endOfDay, addDays, subDays } from "date-fns";
 
-export default async function AppointmentsPage() {
+const ITEMS_PER_PAGE = 10;
+
+interface AppointmentsPageProps {
+  searchParams: Promise<{
+    page?: string;
+    filter?: "upcoming" | "past" | "all";
+  }>;
+}
+
+export default async function AppointmentsPage({ searchParams }: AppointmentsPageProps) {
   const session = await auth();
+  const params = await searchParams;
+  const currentPage = Number(params?.page) || 1;
+  const filter = params?.filter || "upcoming";
 
   const business = await prisma.business.findFirst({
     where: { ownerId: session?.user?.id },
@@ -25,21 +37,49 @@ export default async function AppointmentsPage() {
     return null;
   }
 
-  // Get appointments for today and the next 7 days
   const today = new Date();
+  
+  // Build date filter
+  let dateFilter = {};
+  if (filter === "upcoming") {
+    dateFilter = {
+      date: {
+        gte: startOfDay(today),
+      },
+    };
+  } else if (filter === "past") {
+    dateFilter = {
+      date: {
+        lt: startOfDay(today),
+      },
+    };
+  }
+
+  // Get total count for pagination
+  const totalCount = await prisma.appointment.count({
+    where: {
+      businessId: business.id,
+      ...dateFilter,
+    },
+  });
+
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
+  // Get appointments with pagination
   const rawAppointments = await prisma.appointment.findMany({
     where: {
       businessId: business.id,
-      date: {
-        gte: startOfDay(today),
-        lte: endOfDay(addDays(today, 7)),
-      },
+      ...dateFilter,
     },
     include: {
       service: true,
       staff: true,
     },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    orderBy: filter === "past" 
+      ? [{ date: "desc" }, { startTime: "desc" }]
+      : [{ date: "asc" }, { startTime: "asc" }],
+    skip: (currentPage - 1) * ITEMS_PER_PAGE,
+    take: ITEMS_PER_PAGE,
   });
 
   // Convertir Decimal a number para evitar error de serialización
@@ -72,7 +112,12 @@ export default async function AppointmentsPage() {
         />
       </div>
 
-      <AppointmentsList appointments={appointments} />
+      <AppointmentsList 
+        appointments={appointments} 
+        currentPage={currentPage}
+        totalPages={totalPages}
+        filter={filter}
+      />
     </div>
   );
 }

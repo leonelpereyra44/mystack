@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Calendar, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +81,13 @@ export default function RegisterPage() {
         <CardHeader className="space-y-1 text-center">
           <div className="mb-4 flex justify-center">
             <Link href="/" className="flex items-center gap-2">
-              <Calendar className="h-8 w-8 text-primary" />
+              <Image 
+                src="/mystacklogosinfondo.png" 
+                alt="MyStack Logo" 
+                width={40} 
+                height={40}
+                className="h-10 w-auto"
+              />
               <span className="text-2xl font-bold">MyStack</span>
             </Link>
           </div>

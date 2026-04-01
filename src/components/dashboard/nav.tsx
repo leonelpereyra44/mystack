@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -58,7 +59,13 @@ export function DashboardNav({ business, user }: DashboardNavProps) {
     <aside className="flex w-64 flex-col border-r bg-card">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b px-6">
-        <Calendar className="h-6 w-6 text-primary" />
+        <Image 
+          src="/mystacklogosinfondo.png" 
+          alt="MyStack Logo" 
+          width={28} 
+          height={28}
+          className="h-7 w-auto"
+        />
         <span className="font-bold">MyStack</span>
       </div>
 
