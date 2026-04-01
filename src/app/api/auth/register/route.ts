@@ -104,8 +104,21 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Registration error:", error);
+    
+    // Mostrar más detalles del error
+    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    const errorDetails = error instanceof Error && 'code' in error ? (error as { code?: string }).code : undefined;
+    
+    // Errores comunes de Prisma
+    if (errorDetails === 'P2002') {
+      return NextResponse.json(
+        { error: "Ya existe un usuario o negocio con esos datos" },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: "Error al crear el usuario" },
+      { error: `Error al crear el usuario: ${errorMessage}` },
       { status: 500 }
     );
   }

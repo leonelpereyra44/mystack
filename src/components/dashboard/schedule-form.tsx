@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -77,10 +78,14 @@ export function ScheduleForm({ schedules, businessId }: ScheduleFormProps) {
       });
 
       if (response.ok) {
+        toast.success("Horarios guardados correctamente");
         router.refresh();
+      } else {
+        toast.error("Error al guardar los horarios");
       }
     } catch (error) {
       console.error("Error saving schedule:", error);
+      toast.error("Error al guardar los horarios");
     } finally {
       setIsLoading(false);
     }

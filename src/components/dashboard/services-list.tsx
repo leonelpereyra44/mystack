@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2, MoreHorizontal } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -57,10 +58,14 @@ export function ServicesList({ services, businessId }: ServicesListProps) {
       });
 
       if (response.ok) {
+        toast.success("Servicio eliminado correctamente");
         router.refresh();
+      } else {
+        toast.error("Error al eliminar el servicio");
       }
     } catch (error) {
       console.error("Error deleting service:", error);
+      toast.error("Error al eliminar el servicio");
     } finally {
       setIsDeleting(false);
       setDeleteId(null);
@@ -74,9 +79,11 @@ export function ServicesList({ services, businessId }: ServicesListProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !currentStatus }),
       });
+      toast.success(currentStatus ? "Servicio desactivado" : "Servicio activado");
       router.refresh();
     } catch (error) {
       console.error("Error toggling service:", error);
+      toast.error("Error al actualizar el servicio");
     }
   };
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2, MoreHorizontal, User } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,10 +55,14 @@ export function StaffList({ staff }: StaffListProps) {
       });
 
       if (response.ok) {
+        toast.success("Miembro eliminado correctamente");
         router.refresh();
+      } else {
+        toast.error("Error al eliminar el miembro");
       }
     } catch (error) {
       console.error("Error deleting staff:", error);
+      toast.error("Error al eliminar el miembro");
     } finally {
       setIsDeleting(false);
       setDeleteId(null);
@@ -71,9 +76,11 @@ export function StaffList({ staff }: StaffListProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !currentStatus }),
       });
+      toast.success(currentStatus ? "Miembro desactivado" : "Miembro activado");
       router.refresh();
     } catch (error) {
       console.error("Error toggling staff:", error);
+      toast.error("Error al actualizar el miembro");
     }
   };
 

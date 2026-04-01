@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,54 +33,94 @@ const serviceSchema = z.object({
   description: z.string().optional(),
   duration: z.number().min(5, "La duración mínima es 5 minutos"),
   price: z.number().min(0, "El precio no puede ser negativo"),
+  isActive: z.boolean(),
 });
 
 type ServiceFormData = z.infer<typeof serviceSchema>;
 
-export default function NewServicePage() {
+interface EditServicePageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function EditServicePage({ params }: EditServicePageProps) {
+  const { id } = use(params);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
       duration: 30,
       price: 0,
+      isActive: true,
     },
   });
+
+  useEffect(() => {
+    async function fetchService() {
+      try {
+        const response = await fetch(`/api/services/${id}`);
+        if (response.ok) {
+          const service = await response.json();
+          setValue("name", service.name);
+          setValue("description", service.description || "");
+          setValue("duration", service.duration);
+          setValue("price", Number(service.price));
+          setValue("isActive", service.isActive);
+        } else {
+          setError("Servicio no encontrado");
+        }
+      } catch {
+        setError("Error al cargar el servicio");
+      } finally {
+        setIsFetching(false);
+      }
+    }
+    fetchService();
+  }, [id, setValue]);
 
   const onSubmit = async (data: ServiceFormData) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/services", {
-        method: "POST",
+      const response = await fetch(`/api/services/${id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
       if (!response.ok) {
         const result = await response.json();
-        setError(result.error || "Error al crear el servicio");
+        setError(result.error || "Error al actualizar el servicio");
         return;
       }
 
-      toast.success("Servicio creado correctamente");
+      toast.success("Servicio actualizado correctamente");
       router.push("/dashboard/services");
       router.refresh();
     } catch {
-      setError("Error al crear el servicio");
+      setError("Error al actualizar el servicio");
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isFetching) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -91,18 +131,18 @@ export default function NewServicePage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Nuevo Servicio</h1>
+          <h1 className="text-3xl font-bold">Editar Servicio</h1>
           <p className="text-muted-foreground">
-            Agrega un nuevo servicio para tus clientes
+            Modifica la información del servicio
           </p>
         </div>
       </div>
 
       <Card className="max-w-2xl">
         <CardHeader>
-          <CardTitle>Detalles del Servicio</CardTitle>
+          <CardTitle>Datos del Servicio</CardTitle>
           <CardDescription>
-            Configura el nombre, duración y precio del servicio
+            Actualiza la información del servicio
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,9 +157,8 @@ export default function NewServicePage() {
               <Label htmlFor="name">Nombre del servicio *</Label>
               <Input
                 id="name"
-                placeholder="Ej: Corte de pelo"
                 {...register("name")}
-                disabled={isLoading}
+                placeholder="Ej: Corte de cabello"
               />
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name.message}</p>
@@ -130,9 +169,8 @@ export default function NewServicePage() {
               <Label htmlFor="description">Descripción</Label>
               <Textarea
                 id="description"
-                placeholder="Descripción opcional del servicio..."
                 {...register("description")}
-                disabled={isLoading}
+                placeholder="Describe el servicio..."
                 rows={3}
               />
             </div>
@@ -141,8 +179,8 @@ export default function NewServicePage() {
               <div className="space-y-2">
                 <Label htmlFor="duration">Duración *</Label>
                 <Select
-                  defaultValue="30"
-                  onValueChange={(value) => setValue("duration", parseInt(value || "30"))}
+                  value={watch("duration")?.toString()}
+                  onValueChange={(value) => value && setValue("duration", parseInt(value))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona duración" />
@@ -156,6 +194,11 @@ export default function NewServicePage() {
                     <SelectItem value="120">2 horas</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.duration && (
+                  <p className="text-sm text-destructive">
+                    {errors.duration.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -165,9 +208,8 @@ export default function NewServicePage() {
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="0.00"
                   {...register("price", { valueAsNumber: true })}
-                  disabled={isLoading}
+                  placeholder="0.00"
                 />
                 {errors.price && (
                   <p className="text-sm text-destructive">{errors.price.message}</p>
@@ -175,10 +217,22 @@ export default function NewServicePage() {
               </div>
             </div>
 
-            <div className="flex gap-4 pt-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                {...register("isActive")}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="isActive" className="font-normal">
+                Servicio activo (visible para reservas)
+              </Label>
+            </div>
+
+            <div className="flex gap-2 pt-4">
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Crear Servicio
+                Guardar Cambios
               </Button>
               <Link href="/dashboard/services">
                 <Button type="button" variant="outline">

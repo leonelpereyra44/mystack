@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { addMinutes, format } from "date-fns";
+import { es } from "date-fns/locale";
+import { sendAppointmentConfirmation } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -103,7 +105,20 @@ export async function POST(request: Request) {
       },
     });
 
-    // TODO: Send confirmation email
+    // Send confirmation email (non-blocking)
+    sendAppointmentConfirmation({
+      customerName,
+      customerEmail,
+      businessName: appointment.business.name,
+      serviceName: appointment.service.name,
+      staffName: appointment.staff?.name,
+      date: format(new Date(date), "EEEE d 'de' MMMM 'de' yyyy", { locale: es }),
+      startTime,
+      endTime,
+      appointmentId: appointment.id,
+      businessAddress: appointment.business.address || undefined,
+      businessPhone: appointment.business.phone || undefined,
+    }).catch(console.error);
 
     return NextResponse.json(
       {

@@ -6,6 +6,52 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+export async function GET(request: Request, { params }: RouteParams) {
+  try {
+    const session = await auth();
+    const { id } = await params;
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const business = await prisma.business.findFirst({
+      where: { ownerId: session.user.id },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const staff = await prisma.staff.findFirst({
+      where: { id, businessId: business.id },
+      include: {
+        schedules: {
+          orderBy: { dayOfWeek: "asc" },
+        },
+      },
+    });
+
+    if (!staff) {
+      return NextResponse.json(
+        { error: "Miembro no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(staff);
+  } catch (error) {
+    console.error("Error fetching staff:", error);
+    return NextResponse.json(
+      { error: "Error al obtener el miembro" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const session = await auth();

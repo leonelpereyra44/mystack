@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "sonner";
 import {
   Calendar,
   Clock,
@@ -85,9 +86,18 @@ export function AppointmentsList({ appointments }: AppointmentsListProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+      
+      const statusMessages: Record<string, string> = {
+        CONFIRMED: "Turno confirmado",
+        COMPLETED: "Turno completado",
+        CANCELLED: "Turno cancelado",
+        NO_SHOW: "Turno marcado como no asistió",
+      };
+      toast.success(statusMessages[status] || "Estado actualizado");
       router.refresh();
     } catch (error) {
       console.error("Error updating appointment:", error);
+      toast.error("Error al actualizar el turno");
     } finally {
       setIsUpdating(false);
       setCancelId(null);

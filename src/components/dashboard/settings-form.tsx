@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, Copy, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +75,7 @@ export function SettingsForm({ business }: SettingsFormProps) {
   const copyUrl = () => {
     navigator.clipboard.writeText(publicUrl);
     setCopied(true);
+    toast.success("¡Enlace copiado!");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -88,10 +90,14 @@ export function SettingsForm({ business }: SettingsFormProps) {
       });
 
       if (response.ok) {
+        toast.success("Cambios guardados correctamente");
         router.refresh();
+      } else {
+        toast.error("Error al guardar los cambios");
       }
     } catch (error) {
       console.error("Error updating business:", error);
+      toast.error("Error al guardar los cambios");
     } finally {
       setIsLoading(false);
     }
