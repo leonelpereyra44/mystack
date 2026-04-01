@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -72,6 +72,8 @@ export function NewAppointmentModal({
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   const {
     register,
@@ -96,14 +98,50 @@ export function NewAppointmentModal({
   const selectedService = services.find(s => s.id === selectedServiceId);
   const selectedStaff = staff.find(s => s.id === selectedStaffId);
 
-  // Generar horarios disponibles (9:00 - 18:00, cada 30 min)
-  const timeSlots = [];
-  for (let hour = 9; hour < 18; hour++) {
-    for (let min = 0; min < 60; min += 30) {
-      const time = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`;
-      timeSlots.push(time);
+  // Cargar horarios disponibles cuando cambia fecha, servicio o staff
+  const loadAvailableSlots = useCallback(async () => {
+    if (!selectedDate || !selectedServiceId) {
+      setAvailableSlots([]);
+      return;
     }
-  }
+
+    setLoadingSlots(true);
+    setValue("startTime", ""); // Reset selected time
+
+    try {
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const params = new URLSearchParams({
+        businessId,
+        date: dateStr,
+        serviceId: selectedServiceId,
+      });
+      
+      if (selectedStaffId) {
+        params.append("staffId", selectedStaffId);
+      }
+
+      const response = await fetch(`/api/appointments/available?${params}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableSlots(data.slots || []);
+      } else {
+        setAvailableSlots([]);
+      }
+    } catch (error) {
+      console.error("Error loading available slots:", error);
+      setAvailableSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [selectedDate, selectedServiceId, selectedStaffId, businessId, setValue]);
+
+  // Cargar slots cuando cambian las dependencias
+  useEffect(() => {
+    if (open && selectedServiceId && selectedDate) {
+      loadAvailableSlots();
+    }
+  }, [open, selectedServiceId, selectedDate, selectedStaffId, loadAvailableSlots]);
 
   const onSubmit = async (data: AppointmentFormData) => {
     setIsLoading(true);
@@ -258,20 +296,35 @@ export function NewAppointmentModal({
           {/* Hora */}
           <div className="space-y-2">
             <Label htmlFor="startTime">Hora *</Label>
-            <Select onValueChange={(value) => setValue("startTime", value as string)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un horario">
-                  {selectedTime || "Selecciona un horario"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {timeSlots.map((time) => (
-                  <SelectItem key={time} value={time}>
-                    {time}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!selectedServiceId ? (
+              <p className="text-sm text-muted-foreground py-2">
+                Selecciona un servicio primero
+              </p>
+            ) : loadingSlots ? (
+              <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando horarios...
+              </div>
+            ) : availableSlots.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">
+                No hay horarios disponibles para esta fecha
+              </p>
+            ) : (
+              <Select onValueChange={(value) => setValue("startTime", value as string)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un horario">
+                    {selectedTime || "Selecciona un horario"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSlots.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {errors.startTime && (
               <p className="text-sm text-destructive">{errors.startTime.message}</p>
             )}
