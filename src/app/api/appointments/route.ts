@@ -29,6 +29,64 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get business to check settings
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Check if customer already has an active appointment (if multiple not allowed)
+    if (!business.allowMultipleBookings) {
+      const existingCustomerAppointment = await prisma.appointment.findFirst({
+        where: {
+          businessId,
+          customerEmail: customerEmail.toLowerCase(),
+          status: { in: ["PENDING", "CONFIRMED"] },
+          // Only future appointments
+          OR: [
+            { date: { gt: new Date() } },
+            {
+              date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+              // Today but future time - we'll filter this in the response
+            },
+          ],
+        },
+        include: {
+          service: true,
+        },
+        orderBy: [{ date: "asc" }, { startTime: "asc" }],
+      });
+
+      if (existingCustomerAppointment) {
+        // Check if it's actually in the future
+        const aptDate = new Date(existingCustomerAppointment.date);
+        const [aptHour, aptMin] = existingCustomerAppointment.startTime.split(":").map(Number);
+        aptDate.setHours(aptHour, aptMin, 0, 0);
+
+        if (aptDate > new Date()) {
+          return NextResponse.json(
+            { 
+              error: "Ya tenés un turno activo",
+              code: "EXISTING_APPOINTMENT",
+              existingAppointment: {
+                id: existingCustomerAppointment.id,
+                date: format(new Date(existingCustomerAppointment.date), "EEEE d 'de' MMMM", { locale: es }),
+                startTime: existingCustomerAppointment.startTime,
+                serviceName: existingCustomerAppointment.service.name,
+              }
+            },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     // Get service to calculate end time
     const service = await prisma.service.findUnique({
       where: { id: serviceId },

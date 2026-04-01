@@ -22,16 +22,17 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { name, description, phone, email, address } = body;
+    const { name, description, phone, email, address, allowMultipleBookings } = body;
 
     const updatedBusiness = await prisma.business.update({
       where: { id: business.id },
       data: {
-        name: name || business.name,
-        description: description || null,
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
+        name: name !== undefined ? name : business.name,
+        description: description !== undefined ? description : business.description,
+        phone: phone !== undefined ? phone : business.phone,
+        email: email !== undefined ? email : business.email,
+        address: address !== undefined ? address : business.address,
+        allowMultipleBookings: allowMultipleBookings !== undefined ? allowMultipleBookings : business.allowMultipleBookings,
       },
     });
 

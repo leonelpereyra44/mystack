@@ -93,6 +93,13 @@ interface AppointmentData {
   };
 }
 
+interface ExistingAppointmentError {
+  id: string;
+  date: string;
+  startTime: string;
+  serviceName: string;
+}
+
 export function BookingForm({
   businessId,
   services,
@@ -105,6 +112,7 @@ export function BookingForm({
   const [appointmentData, setAppointmentData] = useState<AppointmentData | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [existingAppointment, setExistingAppointment] = useState<ExistingAppointmentError | null>(null);
 
   const {
     register,
@@ -227,8 +235,14 @@ export function BookingForm({
         setAppointmentData(data.appointment);
         setIsSuccess(true);
       } else {
-        const error = await response.json();
-        alert(error.message || "Error al crear la reserva");
+        const errorData = await response.json();
+        
+        // Check if it's an existing appointment error
+        if (errorData.code === "EXISTING_APPOINTMENT" && errorData.existingAppointment) {
+          setExistingAppointment(errorData.existingAppointment);
+        } else {
+          alert(errorData.error || "Error al crear la reserva");
+        }
       }
     } catch {
       alert("Error al crear la reserva");
@@ -259,6 +273,72 @@ export function BookingForm({
     
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${endDateTime}&details=${details}&location=${location}&sf=true&output=xml`;
   };
+
+  // Show existing appointment message
+  if (existingAppointment) {
+    return (
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-center text-white">
+          <CalendarIcon className="mx-auto h-16 w-16" />
+          <h2 className="mt-4 text-2xl font-bold">Ya tenés un turno reservado</h2>
+          <p className="mt-2 text-amber-100">
+            Solo podés tener un turno activo a la vez
+          </p>
+        </div>
+        
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Tu turno actual</h3>
+            
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <CalendarIcon className="h-5 w-5 text-primary mt-0.5" />
+                <div>
+                  <p className="font-medium capitalize">{existingAppointment.date}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {existingAppointment.startTime} hs
+                  </p>
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div className="flex items-start gap-3">
+                <Clock className="h-5 w-5 text-primary mt-0.5" />
+                <div>
+                  <p className="font-medium">{existingAppointment.serviceName}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-3 pt-4">
+              <Button 
+                className="w-full gap-2"
+                onClick={() => window.location.href = `/appointments/${existingAppointment.id}/reschedule`}
+              >
+                <CalendarPlus className="h-4 w-4" />
+                Reprogramar mi turno
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="w-full"
+                onClick={() => setExistingAppointment(null)}
+              >
+                Volver
+              </Button>
+            </div>
+            
+            <div className="rounded-lg bg-muted/50 p-4 mt-4">
+              <p className="text-sm text-muted-foreground">
+                Si necesitas cancelar tu turno actual, revisá el email de confirmación que te enviamos.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isSuccess && appointmentData) {
     return (

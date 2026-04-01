@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Copy, ExternalLink } from "lucide-react";
+import { Loader2, Copy, ExternalLink, Info } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ interface Business {
   phone: string | null;
   email: string | null;
   address: string | null;
+  allowMultipleBookings: boolean;
   subscription: {
     plan: string;
     status: string;
@@ -55,6 +56,8 @@ export function SettingsForm({ business }: SettingsFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [allowMultiple, setAllowMultiple] = useState(business.allowMultipleBookings);
+  const [savingBookingSettings, setSavingBookingSettings] = useState(false);
 
   const {
     register,
@@ -78,6 +81,29 @@ export function SettingsForm({ business }: SettingsFormProps) {
     setCopied(true);
     toast.success("¡Enlace copiado!");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleBookingSettingsChange = async (allowMultipleBookings: boolean) => {
+    setSavingBookingSettings(true);
+    try {
+      const response = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowMultipleBookings }),
+      });
+
+      if (response.ok) {
+        setAllowMultiple(allowMultipleBookings);
+        toast.success("Configuración actualizada");
+        router.refresh();
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSavingBookingSettings(false);
+    }
   };
 
   const onSubmit = async (data: BusinessFormData) => {
@@ -197,6 +223,54 @@ export function SettingsForm({ business }: SettingsFormProps) {
               Guardar Cambios
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Booking Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuración de Reservas</CardTitle>
+          <CardDescription>
+            Controla cómo los clientes pueden hacer reservas
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base">Permitir múltiples reservas</Label>
+              <p className="text-sm text-muted-foreground">
+                {allowMultiple 
+                  ? "Los clientes pueden tener varios turnos activos al mismo tiempo"
+                  : "Los clientes solo pueden tener 1 turno activo a la vez"
+                }
+              </p>
+            </div>
+            <Button
+              variant={allowMultiple ? "default" : "outline"}
+              size="sm"
+              disabled={savingBookingSettings}
+              onClick={() => handleBookingSettingsChange(!allowMultiple)}
+            >
+              {savingBookingSettings ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : allowMultiple ? (
+                "Activado"
+              ) : (
+                "Desactivado"
+              )}
+            </Button>
+          </div>
+          
+          <div className="rounded-lg bg-muted/50 p-4 flex gap-3">
+            <Info className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">¿Cuándo activar?</p>
+              <ul className="mt-1 space-y-1">
+                <li>• <strong>Desactivado:</strong> Ideal para barberías, peluquerías, consultorios (evita reservas duplicadas)</li>
+                <li>• <strong>Activado:</strong> Ideal para gimnasios, clases grupales, canchas (un cliente puede reservar varias clases)</li>
+              </ul>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
