@@ -6,6 +6,12 @@ import { es } from "date-fns/locale";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Helper para parsear fecha UTC correctamente
+function parseUTCDate(dateValue: Date | string): Date {
+  const d = new Date(dateValue);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+}
+
 // Este endpoint es llamado por Vercel Cron cada día a las 9:00 AM
 // Envía recordatorios para las citas del día siguiente
 
@@ -47,7 +53,7 @@ export async function GET(request: Request) {
 
     for (const appointment of appointments) {
       try {
-        const formattedDate = format(new Date(appointment.date), "EEEE d 'de' MMMM", {
+        const formattedDate = format(parseUTCDate(appointment.date), "EEEE d 'de' MMMM", {
           locale: es,
         });
 

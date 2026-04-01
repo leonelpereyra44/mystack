@@ -5,6 +5,12 @@ import { es } from "date-fns/locale";
 import { sendAppointmentCancellation } from "@/lib/email";
 import { notifyAppointmentCancelled } from "@/lib/notifications";
 
+// Helper para parsear fecha UTC correctamente
+function parseUTCDate(dateValue: Date | string): Date {
+  const d = new Date(dateValue);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+}
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -37,11 +43,12 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Check if appointment is in the past
-    const appointmentDate = new Date(appointment.date);
+    const appointmentDate = parseUTCDate(appointment.date);
     const [hours, minutes] = appointment.startTime.split(":").map(Number);
-    appointmentDate.setHours(hours, minutes, 0, 0);
+    const appointmentDateTime = new Date(appointmentDate);
+    appointmentDateTime.setHours(hours, minutes, 0, 0);
 
-    if (appointmentDate < new Date()) {
+    if (appointmentDateTime < new Date()) {
       return NextResponse.json(
         { error: "No es posible cancelar un turno pasado" },
         { status: 400 }
@@ -61,7 +68,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       businessName: appointment.business.name,
       serviceName: appointment.service.name,
       staffName: appointment.staff?.name,
-      date: format(new Date(appointment.date), "EEEE d 'de' MMMM 'de' yyyy", { locale: es }),
+      date: format(appointmentDate, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }),
       startTime: appointment.startTime,
       endTime: appointment.endTime,
       appointmentId: appointment.id,
@@ -72,7 +79,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       appointment.business.ownerId,
       appointment.customerName,
       appointment.service.name,
-      format(new Date(appointment.date), "d 'de' MMMM", { locale: es })
+      format(appointmentDate, "d 'de' MMMM", { locale: es })
     ).catch(console.error);
 
     return NextResponse.json({ message: "Turno cancelado exitosamente" });

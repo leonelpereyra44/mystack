@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
+
+// Helper para parsear fecha UTC correctamente
+function parseUTCDate(dateString: string | Date): Date {
+  const d = new Date(dateString);
+  // Ajustar para usar UTC
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+}
 import {
   Calendar,
   Mail,
@@ -125,7 +132,7 @@ export function AppointmentsList({
 
   // Group appointments by date
   const groupedAppointments = appointments.reduce((groups, apt) => {
-    const dateKey = format(new Date(apt.date), "yyyy-MM-dd");
+    const dateKey = format(parseUTCDate(apt.date), "yyyy-MM-dd");
     if (!groups[dateKey]) {
       groups[dateKey] = [];
     }
@@ -206,7 +213,7 @@ export function AppointmentsList({
         {Object.entries(groupedAppointments).map(([dateKey, dayAppointments]) => (
           <div key={dateKey}>
             <h3 className="mb-3 font-semibold text-sm md:text-base">
-              {format(new Date(dateKey), "EEEE, d 'de' MMMM", { locale: es })}
+              {format(parseUTCDate(dateKey), "EEEE, d 'de' MMMM", { locale: es })}
             </h3>
             <div className="space-y-3">
               {dayAppointments.map((apt) => {
@@ -222,7 +229,7 @@ export function AppointmentsList({
                           <div className="flex items-center gap-3">
                             <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-2.5 py-1.5 min-w-[60px]">
                               <span className="text-xs text-muted-foreground">
-                                {format(new Date(apt.date), "d MMM", { locale: es })}
+                                {format(parseUTCDate(apt.date), "d MMM", { locale: es })}
                               </span>
                               <span className="text-base font-bold">{apt.startTime}</span>
                             </div>
@@ -278,7 +285,7 @@ export function AppointmentsList({
                         <div className="flex items-center gap-4">
                           <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-3 py-2 min-w-[70px]">
                             <span className="text-xs text-muted-foreground">
-                              {format(new Date(apt.date), "d MMM", { locale: es })}
+                              {format(parseUTCDate(apt.date), "d MMM", { locale: es })}
                             </span>
                             <span className="text-lg font-bold">{apt.startTime}</span>
                             <span className="text-xs text-muted-foreground">

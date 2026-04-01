@@ -4,6 +4,7 @@ import { addMinutes, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { sendAppointmentConfirmation } from "@/lib/email";
 import { notifyNewAppointment } from "@/lib/notifications";
+import { parseDateString } from "@/lib/utils";
 
 export async function POST(request: Request) {
   try {
@@ -47,11 +48,14 @@ export async function POST(request: Request) {
     const endDate = addMinutes(startDate, service.duration);
     const endTime = format(endDate, "HH:mm");
 
+    // Parse date correctly to avoid timezone issues
+    const appointmentDate = parseDateString(date);
+
     // Check for conflicting appointments
     const existingAppointment = await prisma.appointment.findFirst({
       where: {
         businessId,
-        date: new Date(date),
+        date: appointmentDate,
         status: { notIn: ["CANCELLED"] },
         OR: [
           {
@@ -90,7 +94,7 @@ export async function POST(request: Request) {
         businessId,
         serviceId,
         staffId: staffId || null,
-        date: new Date(date),
+        date: appointmentDate,
         startTime,
         endTime,
         customerName,
@@ -113,7 +117,7 @@ export async function POST(request: Request) {
       businessName: appointment.business.name,
       serviceName: appointment.service.name,
       staffName: appointment.staff?.name,
-      date: format(new Date(date), "EEEE d 'de' MMMM 'de' yyyy", { locale: es }),
+      date: format(appointmentDate, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }),
       startTime,
       endTime,
       appointmentId: appointment.id,
@@ -126,7 +130,7 @@ export async function POST(request: Request) {
       appointment.business.ownerId,
       customerName,
       appointment.service.name,
-      format(new Date(date), "d 'de' MMMM", { locale: es }),
+      format(appointmentDate, "d 'de' MMMM", { locale: es }),
       startTime
     ).catch(console.error);
 

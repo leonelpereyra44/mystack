@@ -5,6 +5,12 @@ import { Calendar, Clock, Users, TrendingUp } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 
+// Helper para parsear fecha UTC correctamente
+function parseUTCDate(dateValue: Date | string): Date {
+  const d = new Date(dateValue);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+}
+
 export default async function DashboardPage() {
   const session = await auth();
 
@@ -29,7 +35,7 @@ export default async function DashboardPage() {
   }
 
   const todayAppointments = business.appointments.filter((apt) => {
-    const aptDate = new Date(apt.date);
+    const aptDate = parseUTCDate(apt.date);
     const today = new Date();
     return (
       aptDate >= startOfDay(today) &&
@@ -40,10 +46,10 @@ export default async function DashboardPage() {
 
   const upcomingAppointments = business.appointments
     .filter((apt) => {
-      const aptDate = new Date(apt.date);
-      return aptDate >= new Date() && apt.status !== "CANCELLED";
+      const aptDate = parseUTCDate(apt.date);
+      return aptDate >= startOfDay(new Date()) && apt.status !== "CANCELLED";
     })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .sort((a, b) => parseUTCDate(a.date).getTime() - parseUTCDate(b.date).getTime())
     .slice(0, 5);
 
   const stats = {
@@ -127,7 +133,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-medium">
-                      {format(new Date(apt.date), "d MMM", { locale: es })}
+                      {format(parseUTCDate(apt.date), "d MMM", { locale: es })}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {apt.startTime} - {apt.endTime}

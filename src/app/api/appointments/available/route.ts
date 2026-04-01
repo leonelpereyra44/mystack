@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { addMinutes, format } from "date-fns";
+import { parseDateString } from "@/lib/utils";
 
 export async function GET(request: Request) {
   try {
@@ -18,8 +19,9 @@ export async function GET(request: Request) {
     }
 
     // Get business schedule for that day
-    const dateObj = new Date(date);
-    const dayOfWeek = dateObj.getDay();
+    // Parse date correctly to avoid timezone issues
+    const dateObj = parseDateString(date);
+    const dayOfWeek = dateObj.getUTCDay(); // Use UTC day
 
     const schedule = await prisma.businessSchedule.findUnique({
       where: {
