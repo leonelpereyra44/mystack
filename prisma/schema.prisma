@@ -255,3 +255,29 @@ enum SubscriptionStatus {
   PAST_DUE
   TRIALING
 }
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String
+  link        String?          // URL para navegar al hacer click
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  NEW_APPOINTMENT
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_CONFIRMED
+  REMINDER
+}

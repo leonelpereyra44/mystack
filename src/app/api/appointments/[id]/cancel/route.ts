@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { sendAppointmentCancellation } from "@/lib/email";
+import { notifyAppointmentCancelled } from "@/lib/notifications";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -65,6 +66,14 @@ export async function POST(request: Request, { params }: RouteParams) {
       endTime: appointment.endTime,
       appointmentId: appointment.id,
     }).catch(console.error);
+
+    // Send push notification to business owner (non-blocking)
+    notifyAppointmentCancelled(
+      appointment.business.ownerId,
+      appointment.customerName,
+      appointment.service.name,
+      format(new Date(appointment.date), "d 'de' MMMM", { locale: es })
+    ).catch(console.error);
 
     return NextResponse.json({ message: "Turno cancelado exitosamente" });
   } catch (error) {

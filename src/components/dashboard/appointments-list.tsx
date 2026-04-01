@@ -222,7 +222,10 @@ export function AppointmentsList({
                   <Card key={apt.id}>
                     <CardContent className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-4">
-                        <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-3 py-2">
+                        <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-3 py-2 min-w-[70px]">
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(apt.date), "d MMM", { locale: es })}
+                          </span>
                           <span className="text-lg font-bold">{apt.startTime}</span>
                           <span className="text-xs text-muted-foreground">
                             {apt.endTime}

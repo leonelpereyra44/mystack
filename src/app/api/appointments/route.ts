@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { addMinutes, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { sendAppointmentConfirmation } from "@/lib/email";
+import { notifyNewAppointment } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   try {
@@ -119,6 +120,15 @@ export async function POST(request: Request) {
       businessAddress: appointment.business.address || undefined,
       businessPhone: appointment.business.phone || undefined,
     }).catch(console.error);
+
+    // Send push notification to business owner (non-blocking)
+    notifyNewAppointment(
+      appointment.business.ownerId,
+      customerName,
+      appointment.service.name,
+      format(new Date(date), "d 'de' MMMM", { locale: es }),
+      startTime
+    ).catch(console.error);
 
     return NextResponse.json(
       {
