@@ -10,6 +10,7 @@ export async function GET(request: Request) {
     const date = searchParams.get("date");
     const serviceId = searchParams.get("serviceId");
     const staffId = searchParams.get("staffId");
+    const excludeAppointmentId = searchParams.get("excludeAppointmentId");
 
     if (!businessId || !date || !serviceId) {
       return NextResponse.json(
@@ -79,6 +80,7 @@ export async function GET(request: Request) {
         date: dateObj,
         status: { notIn: ["CANCELLED"] },
         ...(staffId && { staffId }),
+        ...(excludeAppointmentId && { id: { not: excludeAppointmentId } }),
       },
     });
 

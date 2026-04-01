@@ -18,6 +18,7 @@ interface AppointmentEmailData {
 
 export async function sendAppointmentConfirmation(data: AppointmentEmailData) {
   const cancelUrl = `${process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "http://localhost:3000"}/appointments/${data.appointmentId}/cancel`;
+  const rescheduleUrl = `${process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "http://localhost:3000"}/appointments/${data.appointmentId}/reschedule`;
 
   try {
     const result = await resend.emails.send({
@@ -32,7 +33,7 @@ export async function sendAppointmentConfirmation(data: AppointmentEmailData) {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
           </head>
           <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+            <div style="background: linear-gradient(135deg, #12b5a2 0%, #0ea5e9 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
               <h1 style="color: white; margin: 0; font-size: 24px;">¡Turno Confirmado!</h1>
             </div>
             
@@ -41,7 +42,7 @@ export async function sendAppointmentConfirmation(data: AppointmentEmailData) {
               
               <p>Tu turno ha sido confirmado exitosamente. Aquí están los detalles:</p>
               
-              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #12b5a2;">
                 <p style="margin: 8px 0;"><strong>📍 Negocio:</strong> ${data.businessName}</p>
                 <p style="margin: 8px 0;"><strong>💈 Servicio:</strong> ${data.serviceName}</p>
                 ${data.staffName ? `<p style="margin: 8px 0;"><strong>👤 Profesional:</strong> ${data.staffName}</p>` : ""}
@@ -51,11 +52,14 @@ export async function sendAppointmentConfirmation(data: AppointmentEmailData) {
                 ${data.businessPhone ? `<p style="margin: 8px 0;"><strong>📞 Teléfono:</strong> ${data.businessPhone}</p>` : ""}
               </div>
               
-              <p style="font-size: 14px; color: #666;">
-                Si necesitas cancelar o reprogramar tu turno, haz clic en el siguiente enlace:
+              <p style="font-size: 14px; color: #666; text-align: center;">
+                ¿Necesitas hacer cambios?
               </p>
               
               <div style="text-align: center; margin: 25px 0;">
+                <a href="${rescheduleUrl}" style="display: inline-block; background: #12b5a2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; margin-right: 10px;">
+                  Reprogramar Turno
+                </a>
                 <a href="${cancelUrl}" style="display: inline-block; background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">
                   Cancelar Turno
                 </a>

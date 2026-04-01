@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock, User, Scissors, Loader2, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { Calendar, Clock, User, Scissors, Loader2, AlertTriangle, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -148,8 +149,18 @@ export function CancelAppointmentForm({ appointment }: CancelAppointmentFormProp
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Sí, cancelar turno
         </Button>
+        <Link href={`/appointments/${appointment.id}/reschedule`} className="w-full">
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            disabled={isLoading}
+          >
+            <CalendarDays className="h-4 w-4" />
+            Prefiero reprogramar
+          </Button>
+        </Link>
         <Button
-          variant="outline"
+          variant="ghost"
           className="w-full"
           onClick={() => router.back()}
           disabled={isLoading}
