@@ -7,7 +7,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       {/* Header */}
-      <header className="container mx-auto px-4 py-6">
+      <header className="container mx-auto px-4 py-4 md:py-6">
         <nav className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image 
@@ -15,45 +15,54 @@ export default function HomePage() {
               alt="MyStack Logo" 
               width={40} 
               height={40}
-              className="h-10 w-auto"
+              className="h-8 w-auto md:h-10"
             />
-            <span className="text-2xl font-bold">MyStack</span>
+            <span className="text-xl md:text-2xl font-bold">MyStack</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <Link href="/login">
-              <Button variant="ghost">Iniciar Sesión</Button>
+              <Button variant="ghost" size="sm" className="md:size-default">
+                Iniciar Sesión
+              </Button>
             </Link>
             <Link href="/register">
-              <Button>Comenzar Gratis</Button>
+              <Button size="sm" className="md:size-default">
+                <span className="hidden sm:inline">Comenzar Gratis</span>
+                <span className="sm:hidden">Comenzar</span>
+              </Button>
             </Link>
           </div>
         </nav>
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <h1 className="text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl">
+      <section className="container mx-auto px-4 py-12 md:py-20 text-center">
+        <h1 className="text-3xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
           Gestiona tus turnos
           <span className="text-primary"> de forma simple</span>
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-xl text-muted-foreground">
+        <p className="mx-auto mt-4 md:mt-6 max-w-2xl text-base md:text-xl text-muted-foreground">
           La plataforma más fácil para que tus clientes reserven citas online.
           Sin llamadas, sin WhatsApp, disponible 24/7.
         </p>
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Link href="/register">
-            <Button size="lg" className="gap-2">
+        <div className="mt-8 md:mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+          <Link href="/register" className="w-full sm:w-auto">
+            <Button size="lg" className="gap-2 w-full sm:w-auto">
               Crear mi página gratis <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-          <Link href="#demo">
-            <Button size="lg" variant="outline">
+          <Link href="#demo" className="w-full sm:w-auto">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto">
               Ver demo
             </Button>
           </Link>
         </div>
-        <p className="mt-4 text-sm text-muted-foreground">
-          ✓ Sin tarjeta de crédito &nbsp; ✓ Setup en 5 minutos &nbsp; ✓ Gratis para siempre
+        <p className="mt-4 text-xs md:text-sm text-muted-foreground">
+          <span className="block sm:inline">✓ Sin tarjeta de crédito</span>
+          <span className="hidden sm:inline"> &nbsp; </span>
+          <span className="block sm:inline">✓ Setup en 5 minutos</span>
+          <span className="hidden sm:inline"> &nbsp; </span>
+          <span className="block sm:inline">✓ Gratis para siempre</span>
         </p>
       </section>
 

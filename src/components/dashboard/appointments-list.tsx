@@ -205,7 +205,7 @@ export function AppointmentsList({
       <div className="space-y-6">
         {Object.entries(groupedAppointments).map(([dateKey, dayAppointments]) => (
           <div key={dateKey}>
-            <h3 className="mb-3 font-semibold">
+            <h3 className="mb-3 font-semibold text-sm md:text-base">
               {format(new Date(dateKey), "EEEE, d 'de' MMMM", { locale: es })}
             </h3>
             <div className="space-y-3">
@@ -215,81 +215,141 @@ export function AppointmentsList({
 
                 return (
                   <Card key={apt.id}>
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-3 py-2 min-w-[70px]">
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(apt.date), "d MMM", { locale: es })}
-                          </span>
-                          <span className="text-lg font-bold">{apt.startTime}</span>
+                    <CardContent className="p-3 md:p-4">
+                      {/* Mobile: Stack layout */}
+                      <div className="flex flex-col gap-3 md:hidden">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-2.5 py-1.5 min-w-[60px]">
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(apt.date), "d MMM", { locale: es })}
+                              </span>
+                              <span className="text-base font-bold">{apt.startTime}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{apt.customerName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {apt.service.name}
+                              </p>
+                            </div>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm"><MoreHorizontal className="h-4 w-4" /></Button>} />
+                            <DropdownMenuContent align="end">
+                              {apt.status === "PENDING" && (
+                                <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Confirmar
+                                </DropdownMenuItem>
+                              )}
+                              {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
+                                <>
+                                  <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Completado
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    No asistió
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Cancelar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Badge variant={status.variant} className="text-xs">
+                            <StatusIcon className="mr-1 h-3 w-3" />
+                            {status.label}
+                          </Badge>
                           <span className="text-xs text-muted-foreground">
                             {apt.endTime}
                           </span>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{apt.customerName}</p>
-                            <Badge variant={status.variant}>
-                              <StatusIcon className="mr-1 h-3 w-3" />
-                              {status.label}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {apt.service.name}
-                            {apt.staff && ` • ${apt.staff.name}`}
-                          </p>
-                          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {apt.customerEmail}
-                            </span>
-                            {apt.customerPhone && (
-                              <span className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                {apt.customerPhone}
-                              </span>
-                            )}
-                          </div>
-                        </div>
                       </div>
 
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>} />
-                        <DropdownMenuContent align="end">
-                          {apt.status === "PENDING" && (
-                            <DropdownMenuItem
-                              onClick={() => updateStatus(apt.id, "CONFIRMED")}
-                            >
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Confirmar
-                            </DropdownMenuItem>
-                          )}
-                          {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
-                            <>
+                      {/* Desktop: Row layout */}
+                      <div className="hidden md:flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-3 py-2 min-w-[70px]">
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(apt.date), "d MMM", { locale: es })}
+                            </span>
+                            <span className="text-lg font-bold">{apt.startTime}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {apt.endTime}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{apt.customerName}</p>
+                              <Badge variant={status.variant}>
+                                <StatusIcon className="mr-1 h-3 w-3" />
+                                {status.label}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {apt.service.name}
+                              {apt.staff && ` • ${apt.staff.name}`}
+                            </p>
+                            <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                {apt.customerEmail}
+                              </span>
+                              {apt.customerPhone && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {apt.customerPhone}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>} />
+                          <DropdownMenuContent align="end">
+                            {apt.status === "PENDING" && (
                               <DropdownMenuItem
-                                onClick={() => updateStatus(apt.id, "COMPLETED")}
+                                onClick={() => updateStatus(apt.id, "CONFIRMED")}
                               >
                                 <CheckCircle className="mr-2 h-4 w-4" />
-                                Marcar completado
+                                Confirmar
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => updateStatus(apt.id, "NO_SHOW")}
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                No asistió
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => setCancelId(apt.id)}
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Cancelar turno
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            )}
+                            {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => updateStatus(apt.id, "COMPLETED")}
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Marcar completado
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => updateStatus(apt.id, "NO_SHOW")}
+                                >
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  No asistió
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => setCancelId(apt.id)}
+                                >
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Cancelar turno
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </CardContent>
                   </Card>
                 );
