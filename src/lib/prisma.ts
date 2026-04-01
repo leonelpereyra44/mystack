@@ -7,8 +7,8 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // Usar DIRECT_URL para conexión directa (sin pgbouncer)
-  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  // Usar DATABASE_URL (con pooler) para producción, DIRECT_URL solo para desarrollo local
+  const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL;
   
   if (!connectionString) {
     throw new Error("DATABASE_URL or DIRECT_URL is not defined");
