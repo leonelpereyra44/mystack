@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, Users, TrendingUp } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
+import { LimitWarningBanner } from "@/components/dashboard/limit-warning-banner";
+import { PLAN_LIMITS } from "@/lib/plan-limits";
 
 // Helper para parsear fecha UTC correctamente
 function parseUTCDate(dateValue: Date | string): Date {
@@ -19,6 +21,7 @@ export default async function DashboardPage() {
     include: {
       services: true,
       staff: true,
+      subscription: true,
       appointments: {
         where: {
           date: {
@@ -33,6 +36,10 @@ export default async function DashboardPage() {
   if (!business) {
     return null;
   }
+
+  // Obtener plan actual
+  const plan = (business.subscription?.plan || "FREE") as keyof typeof PLAN_LIMITS;
+  const limits = PLAN_LIMITS[plan];
 
   const todayAppointments = business.appointments.filter((apt) => {
     const aptDate = parseUTCDate(apt.date);
@@ -52,9 +59,14 @@ export default async function DashboardPage() {
     .sort((a, b) => parseUTCDate(a.date).getTime() - parseUTCDate(b.date).getTime())
     .slice(0, 5);
 
+  // Contar solo reservas no canceladas del mes
+  const monthReservations = business.appointments.filter(
+    (a) => a.status !== "CANCELLED"
+  ).length;
+
   const stats = {
     todayCount: todayAppointments.length,
-    monthCount: business.appointments.filter((a) => a.status !== "CANCELLED").length,
+    monthCount: monthReservations,
     servicesCount: business.services.length,
     staffCount: business.staff.length,
   };
@@ -67,6 +79,13 @@ export default async function DashboardPage() {
           Bienvenido de vuelta, {session?.user?.name}
         </p>
       </div>
+
+      {/* Limit Warning Banner */}
+      <LimitWarningBanner
+        currentReservations={monthReservations}
+        maxReservations={limits.maxReservationsPerMonth}
+        plan={plan}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-4 lg:gap-4">

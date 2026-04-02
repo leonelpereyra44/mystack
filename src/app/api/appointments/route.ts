@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { addMinutes, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { sendAppointmentConfirmation } from "@/lib/email";
-import { notifyNewAppointment } from "@/lib/notifications";
+import { notifyNewAppointment, checkAndNotifyReservationLimit } from "@/lib/notifications";
 import { parseDateString } from "@/lib/utils";
 import { canCreateReservation } from "@/lib/plan-limits";
 
@@ -205,6 +205,16 @@ export async function POST(request: Request) {
       format(appointmentDate, "d 'de' MMMM", { locale: es }),
       startTime
     ).catch(console.error);
+
+    // Check and notify if approaching reservation limit (non-blocking)
+    if (reservationCheck.usage) {
+      checkAndNotifyReservationLimit(
+        appointment.business.ownerId,
+        businessId,
+        reservationCheck.usage.current + 1, // +1 porque acabamos de crear una
+        reservationCheck.usage.limit
+      ).catch(console.error);
+    }
 
     return NextResponse.json(
       {
