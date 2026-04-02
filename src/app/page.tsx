@@ -609,9 +609,9 @@ function PricingCard({
   popular?: boolean;
 }) {
   return (
-    <Card className={`relative border-2 ${popular ? "border-[oklch(0.65_0.14_175)] shadow-xl shadow-[oklch(0.65_0.14_175)]/20" : "border-slate-200"}`}>
+    <Card className={`relative overflow-visible border-2 ${popular ? "border-[oklch(0.65_0.14_175)] shadow-xl shadow-[oklch(0.65_0.14_175)]/20" : "border-slate-200"}`}>
       {popular && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] text-white text-sm font-medium rounded-full">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] text-white text-sm font-medium rounded-full whitespace-nowrap">
           Más Popular
         </div>
       )}
