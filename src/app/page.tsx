@@ -11,7 +11,23 @@ import {
   Star,
   ArrowRight,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
+
+// FAQ Item Component
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  return (
+    <details className="group bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <summary className="flex items-center justify-between p-6 cursor-pointer list-none hover:bg-slate-50 transition-colors">
+        <span className="font-semibold text-slate-900 text-left pr-4">{question}</span>
+        <ChevronDown className="h-5 w-5 text-slate-500 flex-shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="px-6 pb-6 text-slate-600 leading-relaxed">
+        {answer}
+      </div>
+    </details>
+  );
+}
 
 // JSON-LD Structured Data
 const jsonLd = {
@@ -364,6 +380,46 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* FAQ Section */}
+      <section id="faq" className="py-24 bg-slate-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+              Preguntas Frecuentes
+            </h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+              Resolvemos tus dudas más comunes sobre MyStack.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <FAQItem
+              question="¿Necesito conocimientos técnicos para usar MyStack?"
+              answer="No, MyStack está diseñado para ser súper simple. Te registrás, configurás tus servicios y horarios, y ya podés compartir tu link de reservas con tus clientes. Todo en menos de 5 minutos."
+            />
+            <FAQItem
+              question="¿Cómo reciben los clientes la confirmación de su turno?"
+              answer="Automáticamente enviamos un email de confirmación al cliente con todos los detalles: fecha, hora, servicio y la opción de agregar el turno a su Google Calendar. También pueden cancelar o reprogramar desde el mismo email."
+            />
+            <FAQItem
+              question="¿Puedo usar MyStack desde el celular?"
+              answer="¡Sí! MyStack es 100% responsive. Tanto vos como tus clientes pueden usarlo desde cualquier dispositivo: celular, tablet o computadora."
+            />
+            <FAQItem
+              question="¿Qué pasa si supero las 150 reservas del plan gratuito?"
+              answer="Cuando te acerques al límite, te avisaremos. Podés actualizar al Plan Profesional en cualquier momento para tener reservas ilimitadas, staff ilimitado y muchas más funciones."
+            />
+            <FAQItem
+              question="¿Cómo funciona el pago del Plan Profesional?"
+              answer="El pago es mensual a través de Mercado Pago. Podés pagar con tarjeta de crédito o débito. La suscripción se renueva automáticamente y podés cancelar cuando quieras sin compromisos."
+            />
+            <FAQItem
+              question="¿Puedo tener varios empleados o profesionales?"
+              answer="En el plan gratuito podés tener 1 profesional. Con el Plan Profesional, podés agregar todos los profesionales que necesites, cada uno con sus propios horarios y servicios."
+            />
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-24 bg-slate-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -413,6 +469,7 @@ export default function HomePage() {
               <ul className="space-y-2 text-sm text-slate-600">
                 <li><Link href="#features" className="hover:text-[oklch(0.65_0.14_175)]">Características</Link></li>
                 <li><Link href="#pricing" className="hover:text-[oklch(0.65_0.14_175)]">Precios</Link></li>
+                <li><Link href="#faq" className="hover:text-[oklch(0.65_0.14_175)]">Preguntas Frecuentes</Link></li>
                 <li><Link href="/register" className="hover:text-[oklch(0.65_0.14_175)]">Registro</Link></li>
               </ul>
             </div>
