@@ -72,7 +72,15 @@ function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md relative">
+      {isLoading && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Iniciando sesión...</p>
+          </div>
+        </div>
+      )}
       <CardHeader className="space-y-1 text-center">
         <div className="mb-4 flex justify-center">
           <Link href="/" className="flex items-center gap-2">

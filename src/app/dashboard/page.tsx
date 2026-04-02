@@ -69,41 +69,41 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Turnos Hoy</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
+            <CardTitle className="text-xs lg:text-sm font-medium">Turnos Hoy</CardTitle>
+            <Calendar className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.todayCount}</div>
+          <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
+            <div className="text-xl lg:text-2xl font-bold">{stats.todayCount}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Este Mes</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
+            <CardTitle className="text-xs lg:text-sm font-medium">Este Mes</CardTitle>
+            <TrendingUp className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.monthCount}</div>
+          <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
+            <div className="text-xl lg:text-2xl font-bold">{stats.monthCount}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Servicios</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
+            <CardTitle className="text-xs lg:text-sm font-medium">Servicios</CardTitle>
+            <Clock className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.servicesCount}</div>
+          <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
+            <div className="text-xl lg:text-2xl font-bold">{stats.servicesCount}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Empleados</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
+            <CardTitle className="text-xs lg:text-sm font-medium">Empleados</CardTitle>
+            <Users className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.staffCount}</div>
+          <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
+            <div className="text-xl lg:text-2xl font-bold">{stats.staffCount}</div>
           </CardContent>
         </Card>
       </div>
