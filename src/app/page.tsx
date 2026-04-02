@@ -326,48 +326,39 @@ export default function HomePage() {
               Elige el plan que mejor se adapte a tu negocio. Sin costos ocultos.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <PricingCard
-              name="Gratis"
+              name="Gratuito"
               price="$0"
-              description="Para empezar a probar"
+              period=""
+              description="Ideal para empezar"
               features={[
-                "1 usuario",
-                "Hasta 50 citas/mes",
-                "Página de reservas",
-                "Notificaciones email",
+                "1 profesional",
+                "Hasta 150 reservas/mes",
+                "Página de reservas con tu URL",
+                "Notificaciones por email",
+                "Calendario de disponibilidad",
+                "Soporte por email",
               ]}
               buttonText="Comenzar Gratis"
               buttonVariant="outline"
             />
             <PricingCard
               name="Profesional"
-              price="$19"
-              description="Para profesionales independientes"
+              price="$15.000"
+              period="/mes"
+              description="Para negocios en crecimiento"
               features={[
-                "3 usuarios",
-                "Citas ilimitadas",
-                "Personalización de marca",
-                "Recordatorios SMS",
-                "Soporte prioritario",
+                "Staff ilimitado",
+                "Reservas ilimitadas",
+                "Recordatorios automáticos",
+                "Reportes y estadísticas",
+                "Sin marca MyStack",
+                "Soporte prioritario WhatsApp",
               ]}
               buttonText="Comenzar Prueba"
               buttonVariant="primary"
               popular
-            />
-            <PricingCard
-              name="Negocio"
-              price="$49"
-              description="Para equipos en crecimiento"
-              features={[
-                "Usuarios ilimitados",
-                "Múltiples ubicaciones",
-                "API & Integraciones",
-                "Reportes avanzados",
-                "Soporte dedicado",
-              ]}
-              buttonText="Contactar Ventas"
-              buttonVariant="outline"
             />
           </div>
         </div>
@@ -544,6 +535,7 @@ function TestimonialCard({
 function PricingCard({
   name,
   price,
+  period = "/mes",
   description,
   features,
   buttonText,
@@ -552,6 +544,7 @@ function PricingCard({
 }: {
   name: string;
   price: string;
+  period?: string;
   description: string;
   features: string[];
   buttonText: string;
@@ -570,7 +563,7 @@ function PricingCard({
         <p className="text-sm text-slate-500 mb-4">{description}</p>
         <div className="mb-6">
           <span className="text-4xl font-bold text-slate-900">{price}</span>
-          <span className="text-slate-500">/mes</span>
+          {period && <span className="text-slate-500">{period}</span>}
         </div>
         <ul className="space-y-3 mb-8">
           {features.map((feature, i) => (

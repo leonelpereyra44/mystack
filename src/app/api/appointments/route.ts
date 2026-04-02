@@ -5,6 +5,7 @@ import { es } from "date-fns/locale";
 import { sendAppointmentConfirmation } from "@/lib/email";
 import { notifyNewAppointment } from "@/lib/notifications";
 import { parseDateString } from "@/lib/utils";
+import { canCreateReservation } from "@/lib/plan-limits";
 
 export async function POST(request: Request) {
   try {
@@ -26,6 +27,19 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Faltan campos requeridos" },
         { status: 400 }
+      );
+    }
+
+    // Check plan limits for reservations
+    const reservationCheck = await canCreateReservation(businessId);
+    if (!reservationCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: reservationCheck.reason,
+          code: "PLAN_LIMIT_REACHED",
+          usage: reservationCheck.usage,
+        },
+        { status: 403 }
       );
     }
 

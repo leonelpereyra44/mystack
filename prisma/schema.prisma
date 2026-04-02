@@ -229,15 +229,22 @@ enum AppointmentStatus {
 // ============================================
 
 model Subscription {
-  id               String             @id @default(cuid())
-  businessId       String             @unique
-  plan             SubscriptionPlan   @default(FREE)
-  status           SubscriptionStatus @default(ACTIVE)
-  stripeCustomerId String?
-  stripeSubId      String?
-  currentPeriodEnd DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id                    String             @id @default(cuid())
+  businessId            String             @unique
+  plan                  SubscriptionPlan   @default(FREE)
+  status                SubscriptionStatus @default(ACTIVE)
+  
+  // Mercado Pago
+  mpCustomerId          String?            // ID del cliente en MP
+  mpSubscriptionId      String?            // ID de la suscripción en MP
+  mpPreapprovalId       String?            // ID del preapproval plan
+  
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  cancelledAt           DateTime?
+  
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -245,9 +252,8 @@ model Subscription {
 }
 
 enum SubscriptionPlan {
-  FREE
-  BASIC
-  PRO
+  FREE  // Gratuito: 150 reservas/mes, 1 staff
+  PRO   // Profesional: $15.000/mes, ilimitado
 }
 
 enum SubscriptionStatus {

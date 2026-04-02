@@ -19,9 +19,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ChangePasswordForm } from "./change-password-form";
+import { SubscriptionCard } from "./subscription-card";
 
 interface Business {
   id: string;
@@ -278,31 +277,7 @@ export function SettingsForm({ business }: SettingsFormProps) {
       <ChangePasswordForm />
 
       {/* Subscription */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Plan Actual</CardTitle>
-          <CardDescription>
-            Gestiona tu suscripción
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant={business.subscription?.plan === "FREE" ? "secondary" : "default"}>
-                {business.subscription?.plan || "FREE"}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                {business.subscription?.plan === "FREE"
-                  ? "Plan gratuito con funciones limitadas"
-                  : "Acceso a todas las funciones"}
-              </span>
-            </div>
-            {business.subscription?.plan === "FREE" && (
-              <Button variant="outline">Mejorar Plan</Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <SubscriptionCard />
 
       {/* Danger Zone */}
       <Card className="border-destructive">

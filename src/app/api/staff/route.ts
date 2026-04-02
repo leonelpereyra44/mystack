@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { canCreateStaff } from "@/lib/plan-limits";
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +19,19 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Negocio no encontrado" },
         { status: 404 }
+      );
+    }
+
+    // Check plan limits for staff
+    const staffCheck = await canCreateStaff(business.id);
+    if (!staffCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: staffCheck.reason,
+          code: "PLAN_LIMIT_REACHED",
+          usage: staffCheck.usage,
+        },
+        { status: 403 }
       );
     }
 
