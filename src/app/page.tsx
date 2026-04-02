@@ -389,6 +389,7 @@ export default function HomePage() {
               <ul className="space-y-2 text-sm text-slate-600">
                 <li><Link href="/legal/terminos" className="hover:text-[oklch(0.65_0.14_175)]">Términos y Condiciones</Link></li>
                 <li><Link href="/legal/privacidad" className="hover:text-[oklch(0.65_0.14_175)]">Política de Privacidad</Link></li>
+                <li><Link href="/legal/cookies" className="hover:text-[oklch(0.65_0.14_175)]">Política de Cookies</Link></li>
               </ul>
             </div>
             <div>
