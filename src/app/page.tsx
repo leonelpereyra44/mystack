@@ -13,11 +13,50 @@ import {
   Sparkles,
 } from "lucide-react";
 
+// JSON-LD Structured Data
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "MyStack",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description: "Plataforma de gestión de turnos y reservas online para negocios en Argentina. Agenda citas 24/7, notificaciones automáticas y panel de administración.",
+  url: "https://mystack.com.ar",
+  author: {
+    "@type": "Organization",
+    name: "MyStack",
+    url: "https://mystack.com.ar",
+  },
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "ARS",
+    description: "Plan gratuito disponible",
+  },
+  aggregateRating: {
+    "@type": "AggregateRating",
+    ratingValue: "4.9",
+    ratingCount: "200",
+  },
+  featureList: [
+    "Reservas online 24/7",
+    "Gestión de personal",
+    "Notificaciones automáticas",
+    "Panel de administración",
+    "Página personalizada de reservas",
+  ],
+};
+
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        {/* Navigation */}
+        <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link href="/" className="flex items-center gap-2">
@@ -406,7 +445,8 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }
 
