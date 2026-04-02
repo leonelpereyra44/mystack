@@ -225,7 +225,7 @@ export function SubscriptionCard() {
             <div className="flex items-center justify-between pt-4 border-t">
               <div>
                 <p className="font-semibold">
-                  $15.000 <span className="text-muted-foreground font-normal">/mes</span>
+                  $1.000 <span className="text-muted-foreground font-normal">/mes</span>
                 </p>
                 {data.subscription.currentPeriodEnd && (
                   <p className="text-sm text-muted-foreground">
@@ -250,7 +250,7 @@ export function SubscriptionCard() {
                 <div className="flex-1">
                   <h4 className="font-semibold">Mejora a Plan Profesional</h4>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Desbloquea todo el potencial de MyStack por solo $15.000/mes
+                    Desbloquea todo el potencial de MyStack por solo $1.000/mes
                   </p>
                   <ul className="space-y-1 mb-4">
                     {PRO_FEATURES.slice(0, 3).map((feature, i) => (

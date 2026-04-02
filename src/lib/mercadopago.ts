@@ -28,7 +28,7 @@ export const PLANS = {
   },
   PRO: {
     name: "Profesional",
-    price: 15000, // $15.000 ARS
+    price: 1000, // $1.000 ARS (temporal para testing)
     maxReservations: Infinity,
     maxStaff: Infinity,
     features: [

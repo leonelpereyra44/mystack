@@ -345,7 +345,7 @@ export default function HomePage() {
             />
             <PricingCard
               name="Profesional"
-              price="$15.000"
+              price="$1.000"
               period="/mes"
               description="Para negocios en crecimiento"
               features={[
