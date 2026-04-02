@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Copy, ExternalLink, Info } from "lucide-react";
+import { Loader2, Copy, ExternalLink, Info, Check } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { ChangePasswordForm } from "./change-password-form";
 import { SubscriptionCard } from "./subscription-card";
+import { BUSINESS_TYPES, getBusinessType } from "@/lib/business-types";
 
 interface Business {
   id: string;
@@ -30,6 +31,7 @@ interface Business {
   phone: string | null;
   email: string | null;
   address: string | null;
+  businessType: string;
   allowMultipleBookings: boolean;
   subscription: {
     plan: string;
@@ -57,6 +59,8 @@ export function SettingsForm({ business }: SettingsFormProps) {
   const [copied, setCopied] = useState(false);
   const [allowMultiple, setAllowMultiple] = useState(business.allowMultipleBookings);
   const [savingBookingSettings, setSavingBookingSettings] = useState(false);
+  const [businessType, setBusinessType] = useState(business.businessType);
+  const [savingBusinessType, setSavingBusinessType] = useState(false);
 
   const {
     register,
@@ -102,6 +106,29 @@ export function SettingsForm({ business }: SettingsFormProps) {
       toast.error("Error al guardar");
     } finally {
       setSavingBookingSettings(false);
+    }
+  };
+
+  const handleBusinessTypeChange = async (newType: string) => {
+    setSavingBusinessType(true);
+    try {
+      const response = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessType: newType }),
+      });
+
+      if (response.ok) {
+        setBusinessType(newType);
+        toast.success("Tipo de negocio actualizado");
+        router.refresh();
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSavingBusinessType(false);
     }
   };
 
@@ -153,6 +180,55 @@ export function SettingsForm({ business }: SettingsFormProps) {
           </div>
           {copied && (
             <p className="mt-2 text-sm text-green-600">¡Enlace copiado!</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Business Type */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tipo de Negocio</CardTitle>
+          <CardDescription>
+            Elige el icono que mejor represente tu negocio
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {BUSINESS_TYPES.map((type) => {
+              const Icon = type.icon;
+              const isSelected = businessType === type.id;
+              return (
+                <button
+                  key={type.id}
+                  type="button"
+                  disabled={savingBusinessType}
+                  onClick={() => handleBusinessTypeChange(type.id)}
+                  className={`relative flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-muted hover:border-muted-foreground/30"
+                  } ${savingBusinessType ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                >
+                  {isSelected && (
+                    <div className="absolute top-1 right-1">
+                      <Check className="h-4 w-4 text-primary" />
+                    </div>
+                  )}
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-full ${type.color} text-white`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs text-center font-medium leading-tight">
+                    {type.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {savingBusinessType && (
+            <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Guardando...
+            </div>
           )}
         </CardContent>
       </Card>

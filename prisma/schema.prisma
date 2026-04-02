@@ -88,6 +88,7 @@ model Business {
   slug        String   @unique // URL: /peluqueria-juan
   description String?  @db.Text
   logo        String?
+  businessType String  @default("store") // store, barbershop, salon, spa, gym, sports, medical, restaurant, other
   phone       String?
   email       String?
   address     String?

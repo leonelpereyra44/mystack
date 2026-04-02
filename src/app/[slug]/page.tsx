@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { BookingForm } from "@/components/booking/booking-form";
-import { Store } from "lucide-react";
+import { getBusinessType } from "@/lib/business-types";
 import type { Metadata } from "next";
 
 interface BusinessPageProps {
@@ -83,6 +83,10 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
     price: Number(service.price),
   }));
 
+  // Obtener el tipo de negocio y su icono
+  const businessTypeConfig = getBusinessType(business.businessType);
+  const BusinessIcon = businessTypeConfig.icon;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/50">
       {/* Header */}
@@ -98,8 +102,8 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                 className="h-16 w-16 rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <Store className="h-8 w-8" />
+              <div className={`flex h-16 w-16 items-center justify-center rounded-full ${businessTypeConfig.color} text-white`}>
+                <BusinessIcon className="h-8 w-8" />
               </div>
             )}
             <div>
