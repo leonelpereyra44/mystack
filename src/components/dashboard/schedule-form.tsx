@@ -127,16 +127,16 @@ export function ScheduleForm({ schedules, businessId }: ScheduleFormProps) {
               </div>
 
               {schedule.isOpen && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <div className="flex items-center gap-2">
-                    <Label className="text-sm">Desde</Label>
+                    <Label className="text-sm min-w-[40px]">Desde</Label>
                     <Select
                       value={schedule.openTime}
                       onValueChange={(value) =>
                         updateSchedule(index, "openTime", value || "09:00")
                       }
                     >
-                      <SelectTrigger className="w-24">
+                      <SelectTrigger className="w-20 sm:w-24">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -150,14 +150,14 @@ export function ScheduleForm({ schedules, businessId }: ScheduleFormProps) {
                   </div>
                   <span className="text-muted-foreground">-</span>
                   <div className="flex items-center gap-2">
-                    <Label className="text-sm">Hasta</Label>
+                    <Label className="text-sm min-w-[40px]">Hasta</Label>
                     <Select
                       value={schedule.closeTime}
                       onValueChange={(value) =>
                         updateSchedule(index, "closeTime", value || "18:00")
                       }
                     >
-                      <SelectTrigger className="w-24">
+                      <SelectTrigger className="w-20 sm:w-24">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

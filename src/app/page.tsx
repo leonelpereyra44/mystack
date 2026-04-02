@@ -34,15 +34,17 @@ export default function HomePage() {
                 <span className="text-[oklch(0.55_0.15_230)]">stack</span>
               </span>
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link href="/login">
-                <Button variant="ghost" className="text-slate-600 hover:text-[oklch(0.65_0.14_175)]">
-                  Iniciar Sesión
+                <Button variant="ghost" className="text-slate-600 hover:text-[oklch(0.65_0.14_175)] text-sm px-2 sm:px-4">
+                  <span className="hidden sm:inline">Iniciar Sesión</span>
+                  <span className="sm:hidden">Ingresar</span>
                 </Button>
               </Link>
               <Link href="/register">
-                <Button className="bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] hover:opacity-90 text-white shadow-lg shadow-[oklch(0.65_0.14_175)]/25">
-                  Comenzar Gratis
+                <Button className="bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] hover:opacity-90 text-white shadow-lg shadow-[oklch(0.65_0.14_175)]/25 text-sm px-3 sm:px-4">
+                  <span className="hidden sm:inline">Comenzar Gratis</span>
+                  <span className="sm:hidden">Comenzar</span>
                 </Button>
               </Link>
             </div>
