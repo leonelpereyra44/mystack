@@ -81,9 +81,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const body = await request.json();
 
+    // Whitelist: solo permitir campos seguros
+    const data: {
+      name?: string;
+      description?: string;
+      duration?: number;
+      price?: number;
+      isActive?: boolean;
+    } = {};
+    
+    if ("name" in body) data.name = body.name;
+    if ("description" in body) data.description = body.description;
+    if ("duration" in body) data.duration = body.duration;
+    if ("price" in body) data.price = body.price;
+    if ("isActive" in body) data.isActive = body.isActive;
+
     const service = await prisma.service.update({
       where: { id },
-      data: body,
+      data,
     });
 
     return NextResponse.json(service);

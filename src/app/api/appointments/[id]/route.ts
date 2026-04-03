@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { AppointmentStatus } from "@prisma/client";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -40,9 +41,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const body = await request.json();
 
+    // Whitelist: solo permitir campos seguros
+    const data: { status?: AppointmentStatus; notes?: string } = {};
+    
+    if ("status" in body) data.status = body.status as AppointmentStatus;
+    if ("notes" in body) data.notes = body.notes;
+
     const appointment = await prisma.appointment.update({
       where: { id },
-      data: body,
+      data,
     });
 
     // TODO: Send email notification if status changed

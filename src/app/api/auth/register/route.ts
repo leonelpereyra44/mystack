@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function generateSlug(name: string): string {
   return name
@@ -15,6 +16,10 @@ function generateSlug(name: string): string {
 
 export async function POST(request: Request) {
   try {
+    // Rate limiting: 10 requests por minuto por IP
+    const { limited, response } = await checkRateLimit(request);
+    if (limited) return response;
+
     const body = await request.json();
     const { name, email, password, businessName } = body;
 

@@ -6,9 +6,13 @@ import { sendAppointmentConfirmation } from "@/lib/email";
 import { notifyNewAppointment, checkAndNotifyReservationLimit } from "@/lib/notifications";
 import { parseDateString } from "@/lib/utils";
 import { canCreateReservation } from "@/lib/plan-limits";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
+    // Rate limiting: 10 requests por minuto por IP
+    const { limited, response } = await checkRateLimit(request);
+    if (limited) return response;
     const body = await request.json();
     const {
       businessId,
