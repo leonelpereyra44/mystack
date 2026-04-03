@@ -4,13 +4,24 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { BookingForm } from "@/components/booking/booking-form";
 import { getBusinessType } from "@/lib/business-types";
+import { MapPin, Phone, Clock, Users } from "lucide-react";
 import type { Metadata } from "next";
 
 interface BusinessPageProps {
   params: Promise<{ slug: string }>;
 }
 
-const siteUrl = process.env.NEXTAUTH_URL || "https://mystack.com";
+const siteUrl = process.env.NEXTAUTH_URL || "https://mystack.com.ar";
+
+const DAYS_OF_WEEK = [
+  "Domingo",
+  "Lunes", 
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
 
 export async function generateMetadata({ params }: BusinessPageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -87,86 +98,194 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
   const businessTypeConfig = getBusinessType(business.businessType);
   const BusinessIcon = businessTypeConfig.icon;
 
+  // Agrupar horarios por día para mostrar
+  const schedulesByDay = business.schedules.reduce((acc, schedule) => {
+    if (!acc[schedule.dayOfWeek]) {
+      acc[schedule.dayOfWeek] = [];
+    }
+    acc[schedule.dayOfWeek].push(schedule);
+    return acc;
+  }, {} as Record<number, typeof business.schedules>);
+
+  // Generar JSON-LD LocalBusiness
+  const localBusinessJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: business.name,
+    description: business.description || `Reserva tu turno en ${business.name}`,
+    url: `${siteUrl}/${business.slug}`,
+    image: business.logo || undefined,
+    address: business.address ? {
+      "@type": "PostalAddress",
+      streetAddress: business.address,
+      addressCountry: "AR",
+    } : undefined,
+    telephone: business.phone || undefined,
+    openingHoursSpecification: business.schedules.map((schedule) => ({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][schedule.dayOfWeek],
+      opens: schedule.openTime,
+      closes: schedule.closeTime,
+    })),
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      name: "Servicios",
+      itemListElement: services.map((service) => ({
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: service.name,
+          description: service.description || undefined,
+        },
+        price: service.price,
+        priceCurrency: "ARS",
+      })),
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/50">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            {business.logo ? (
-              <Image
-                src={business.logo}
-                alt={business.name}
-                width={64}
-                height={64}
-                className="h-16 w-16 rounded-full object-cover"
-              />
-            ) : (
-              <div className={`flex h-16 w-16 items-center justify-center rounded-full ${businessTypeConfig.color} text-white`}>
-                <BusinessIcon className="h-8 w-8" />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+      />
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/50">
+        {/* Header */}
+        <header className="border-b bg-card">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex items-center gap-4">
+              {business.logo ? (
+                <Image
+                  src={business.logo}
+                  alt={business.name}
+                  width={80}
+                  height={80}
+                  className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
+                />
+              ) : (
+                <div className={`flex h-20 w-20 items-center justify-center rounded-full ${businessTypeConfig.color} text-white shadow-lg`}>
+                  <BusinessIcon className="h-10 w-10" />
+                </div>
+              )}
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold">{business.name}</h1>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${businessTypeConfig.color} text-white`}>
+                    {businessTypeConfig.label}
+                  </span>
+                </div>
+                {business.description && (
+                  <p className="text-muted-foreground mt-1">{business.description}</p>
+                )}
               </div>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold">{business.name}</h1>
-              {business.description && (
-                <p className="text-muted-foreground">{business.description}</p>
+            </div>
+            
+            {/* Contact Info */}
+            <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
+              {business.address && (
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4" />
+                  <span>{business.address}</span>
+                </div>
+              )}
+              {business.phone && (
+                <div className="flex items-center gap-1.5">
+                  <Phone className="h-4 w-4" />
+                  <span>{business.phone}</span>
+                </div>
               )}
             </div>
           </div>
-          {business.address && (
-            <p className="mt-4 text-sm text-muted-foreground">
-              📍 {business.address}
-            </p>
-          )}
-          {business.phone && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              📞 {business.phone}
-            </p>
-          )}
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="mx-auto max-w-2xl">
-          <h2 className="mb-6 text-xl font-semibold">Reserva tu turno</h2>
-          
-          {services.length === 0 ? (
-            <div className="rounded-lg border bg-card p-8 text-center">
-              <p className="text-muted-foreground">
-                Este negocio aún no tiene servicios disponibles.
-              </p>
-            </div>
-          ) : (
-            <BookingForm
-              businessId={business.id}
-              services={services}
-              staff={business.staff}
-              schedules={business.schedules}
-              timezone={business.timezone}
-            />
-          )}
-        </div>
-      </main>
+        {/* Business Info Cards */}
+        <div className="container mx-auto px-4 py-6">
+          <div className="mx-auto max-w-2xl grid gap-4 md:grid-cols-2 mb-8">
+            {/* Horarios */}
+            {business.schedules.length > 0 && (
+              <div className="rounded-lg border bg-card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Horarios de atención</h3>
+                </div>
+                <div className="space-y-1.5 text-sm">
+                  {Object.entries(schedulesByDay).map(([day, schedules]) => (
+                    <div key={day} className="flex justify-between">
+                      <span className="text-muted-foreground">{DAYS_OF_WEEK[parseInt(day)]}</span>
+                      <span className="font-medium">
+                        {schedules.map(s => `${s.openTime} - ${s.closeTime}`).join(", ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-      {/* Footer */}
-      <footer className="border-t py-6">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-            Powered by{" "}
-            <Link href="/" className="inline-flex items-center gap-1 text-primary hover:underline">
-              <Image 
-                src="/mystacklogosinfondo.png" 
-                alt="MyStack" 
-                width={16} 
-                height={16}
-                className="h-4 w-auto"
+            {/* Profesionales */}
+            {business.staff.length > 0 && (
+              <div className="rounded-lg border bg-card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Nuestro equipo</h3>
+                </div>
+                <div className="space-y-2">
+                  {business.staff.map((member) => (
+                    <div key={member.id} className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm">{member.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Booking Form */}
+          <div className="mx-auto max-w-2xl">
+            <h2 className="mb-6 text-xl font-semibold flex items-center gap-2">
+              <span className="h-8 w-1 bg-primary rounded-full"></span>
+              Reserva tu turno
+            </h2>
+            
+            {services.length === 0 ? (
+              <div className="rounded-lg border bg-card p-8 text-center">
+                <p className="text-muted-foreground">
+                  Este negocio aún no tiene servicios disponibles.
+                </p>
+              </div>
+            ) : (
+              <BookingForm
+                businessId={business.id}
+                services={services}
+                staff={business.staff}
+                schedules={business.schedules}
+                timezone={business.timezone}
               />
-              MyStack
-            </Link>
-          </p>
+            )}
+          </div>
         </div>
-      </footer>
-    </div>
+
+        {/* Footer */}
+        <footer className="border-t py-6 mt-8">
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+              Powered by{" "}
+              <Link href="/" className="inline-flex items-center gap-1 text-primary hover:underline">
+                <Image 
+                  src="/mystacklogosinfondo.png" 
+                  alt="MyStack" 
+                  width={16} 
+                  height={16}
+                  className="h-4 w-auto"
+                />
+                MyStack
+              </Link>
+            </p>
+          </div>
+        </footer>
+      </div>
+    </>
   );
 }

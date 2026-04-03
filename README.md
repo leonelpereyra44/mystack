@@ -2,9 +2,11 @@
 
 Sistema SaaS de gestión de turnos y citas online. Permite a negocios crear su propia página de reservas donde sus clientes pueden agendar turnos 24/7.
 
-## 🚀 Demo
+## 🌐 Producción
 
-Cada negocio tiene su página pública en: `tudominio.com/nombre-del-negocio`
+**URL**: [https://mystack.com.ar](https://mystack.com.ar)
+
+Cada negocio tiene su página pública en: `mystack.com.ar/nombre-del-negocio`
 
 ## ✨ Características
 
@@ -14,28 +16,49 @@ Cada negocio tiene su página pública en: `tudominio.com/nombre-del-negocio`
 - ✅ Gestión de equipo/empleados
 - ✅ Vista de calendario con turnos
 - ✅ Confirmación/cancelación de turnos
-- ✅ Estadísticas básicas
+- ✅ Estadísticas del negocio
+- ✅ Selector de tipo de negocio (14 categorías con iconos)
+- ✅ Logo y descripción personalizados
 
 ### Para Clientes
 - ✅ Página de reservas personalizada
-- ✅ Selección de servicio y horario
+- ✅ Selección de servicio, profesional y horario
 - ✅ Ver disponibilidad en tiempo real
-- ✅ Confirmación por email
+- ✅ Confirmación por email con botón para Google Calendar
+- ✅ Cancelación y reprogramación desde el email
+
+### Monetización
+- ✅ Plan Gratuito: 150 reservas/mes, 1 profesional
+- ✅ Plan Profesional ($15.000 ARS/mes): Ilimitado
+- ✅ Pagos con Mercado Pago (suscripciones recurrentes)
+- ✅ Webhooks para sincronización de pagos
+- ✅ Avisos de límite de reservas (al 80%)
+
+### SEO y Marketing
+- ✅ Meta tags dinámicos (OG, Twitter Cards)
+- ✅ Sitemap dinámico con negocios
+- ✅ JSON-LD SoftwareApplication + FAQPage (home)
+- ✅ JSON-LD LocalBusiness (páginas de negocios)
+- ✅ robots.txt
 
 ### Próximamente
-- [ ] Notificaciones por email (Resend)
-- [ ] Recordatorios automáticos
-- [ ] Pagos online (Stripe)
+- [ ] Recordatorios automáticos por email (24h antes)
+- [ ] Recordatorios por WhatsApp
+- [ ] Integración con Google Calendar
+- [ ] Reportes y estadísticas avanzadas
 - [ ] Dominio personalizado
-- [ ] Integraciones (Google Calendar, WhatsApp)
+- [ ] App móvil
 
 ## 🛠️ Tech Stack
 
-- **Framework**: Next.js 14+ (App Router)
+- **Framework**: Next.js 16+ (App Router)
 - **Language**: TypeScript
-- **Database**: PostgreSQL + Prisma ORM
+- **Database**: PostgreSQL (Supabase)
+- **ORM**: Prisma
 - **Auth**: NextAuth.js v5
 - **Styling**: Tailwind CSS + shadcn/ui
+- **Email**: Resend
+- **Payments**: Mercado Pago
 - **Hosting**: Vercel
 
 ## 📦 Instalación

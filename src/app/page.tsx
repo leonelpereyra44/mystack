@@ -29,8 +29,8 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   );
 }
 
-// JSON-LD Structured Data
-const jsonLd = {
+// JSON-LD Structured Data - SoftwareApplication
+const softwareJsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "MyStack",
@@ -63,12 +63,72 @@ const jsonLd = {
   ],
 };
 
+// JSON-LD FAQPage
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "¿Necesito conocimientos técnicos para usar MyStack?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No, MyStack está diseñado para ser súper simple. Te registrás, configurás tus servicios y horarios, y ya podés compartir tu link de reservas con tus clientes. Todo en menos de 5 minutos.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "¿Cómo reciben los clientes la confirmación de su turno?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Automáticamente enviamos un email de confirmación al cliente con todos los detalles: fecha, hora, servicio y la opción de agregar el turno a su Google Calendar.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "¿Puedo usar MyStack desde el celular?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "¡Sí! MyStack es 100% responsive. Tanto vos como tus clientes pueden usarlo desde cualquier dispositivo: celular, tablet o computadora.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "¿Qué pasa si supero las 150 reservas del plan gratuito?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Cuando te acerques al límite, te avisaremos. Podés actualizar al Plan Profesional en cualquier momento para tener reservas ilimitadas, staff ilimitado y muchas más funciones.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "¿Cómo funciona el pago del Plan Profesional?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "El pago es mensual a través de Mercado Pago. Podés pagar con tarjeta de crédito o débito. La suscripción se renueva automáticamente y podés cancelar cuando quieras sin compromisos.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "¿Puedo tener varios empleados o profesionales?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "En el plan gratuito podés tener 1 profesional. Con el Plan Profesional, podés agregar todos los profesionales que necesites, cada uno con sus propios horarios y servicios.",
+      },
+    },
+  ],
+};
+
 export default function HomePage() {
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         {/* Navigation */}
