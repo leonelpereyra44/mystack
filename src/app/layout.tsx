@@ -19,10 +19,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "MyStack - Sistema de Reservas y Turnos Online",
+    default: "MyStack - Sistema de Reservas y Turnos Online para negocios",
     template: "%s | MyStack",
   },
-  description: "Sistema de reservas online para negocios en Argentina. Agenda 24/7, notificaciones y panel de administración en un solo lugar.",
+  description: "Sistema de reservas online para negocios en Argentina. Agenda 24/7, notificaciones automáticas y panel de administración en un solo lugar.",
   keywords: [
     "turnos online",
     "reservas online", 
