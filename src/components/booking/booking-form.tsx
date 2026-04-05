@@ -262,11 +262,11 @@ export function BookingForm({
   };
 
   // Recargar slots cuando cambia el staff seleccionado
-  const handleStaffChange = (staffId: string) => {
-    setValue("staffId", staffId);
+  const handleStaffChange = (staffId: string | null) => {
+    setValue("staffId", staffId || "");
     setValue("time", ""); // Reset time selection
     if (selectedDate) {
-      loadAvailableSlots(selectedDate, staffId);
+      loadAvailableSlots(selectedDate, staffId || undefined);
     }
   };
 
