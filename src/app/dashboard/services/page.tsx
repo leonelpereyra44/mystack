@@ -44,7 +44,7 @@ export default async function ServicesPage() {
         </Link>
       </div>
 
-      <ServicesList services={services} businessId={business.id} />
+      <ServicesList services={services} />
     </div>
   );
 }
