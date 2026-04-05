@@ -27,12 +27,16 @@ export async function generateMetadata({ params }: BusinessPageProps): Promise<M
   const { slug } = await params;
   const business = await prisma.business.findUnique({
     where: { slug },
+    include: {
+      subscription: true,
+    },
   });
 
   if (!business) {
     return { title: "Negocio no encontrado" };
   }
 
+  const isPro = business.subscription?.plan === "PRO" && business.subscription?.status === "ACTIVE";
   const title = `${business.name} - Reserva tu turno`;
   const description = business.description || `Reserva tu turno en ${business.name}. Sistema de reservas online 24/7.`;
 
@@ -43,7 +47,8 @@ export async function generateMetadata({ params }: BusinessPageProps): Promise<M
       title,
       description,
       url: `${siteUrl}/${slug}`,
-      siteName: "MyStack",
+      // White-label: No mostrar siteName para usuarios PRO
+      ...(isPro ? {} : { siteName: "MyStack" }),
       locale: "es_AR",
       type: "website",
       images: business.logo ? [
@@ -81,12 +86,16 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
       schedules: {
         orderBy: { dayOfWeek: "asc" },
       },
+      subscription: true,
     },
   });
 
   if (!business) {
     notFound();
   }
+
+  // White-label: Determinar si es PRO para ocultar branding
+  const isPro = business.subscription?.plan === "PRO" && business.subscription?.status === "ACTIVE";
 
   // Convertir Decimal a number para evitar error de serialización
   const services = business.services.map((service) => ({
@@ -274,24 +283,26 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="border-t py-6 mt-8">
-          <div className="container mx-auto px-4 text-center">
-            <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-              Powered by{" "}
-              <Link href="/" className="inline-flex items-center gap-1 text-primary hover:underline">
-                <Image 
-                  src="/mystacklogosinfondo.png" 
-                  alt="MyStack" 
-                  width={16} 
-                  height={16}
-                  className="h-4 w-auto"
-                />
-                MyStack
-              </Link>
-            </p>
-          </div>
-        </footer>
+        {/* Footer - White-label: Ocultar branding para usuarios PRO */}
+        {!isPro && (
+          <footer className="border-t py-6 mt-8">
+            <div className="container mx-auto px-4 text-center">
+              <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                Powered by{" "}
+                <Link href="/" className="inline-flex items-center gap-1 text-primary hover:underline">
+                  <Image 
+                    src="/mystacklogosinfondo.png" 
+                    alt="MyStack" 
+                    width={16} 
+                    height={16}
+                    className="h-4 w-auto"
+                  />
+                  MyStack
+                </Link>
+              </p>
+            </div>
+          </footer>
+        )}
       </div>
     </>
   );
