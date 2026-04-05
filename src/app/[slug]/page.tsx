@@ -98,7 +98,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
   const businessTypeConfig = getBusinessType(business.businessType);
   const BusinessIcon = businessTypeConfig.icon;
 
-  // Agrupar horarios por día para mostrar
+  // Agrupar horarios por día para mostrar (solo días abiertos)
   const schedulesByDay = business.schedules.reduce((acc, schedule) => {
     if (!acc[schedule.dayOfWeek]) {
       acc[schedule.dayOfWeek] = [];
@@ -107,7 +107,8 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
     return acc;
   }, {} as Record<number, typeof business.schedules>);
 
-  // Generar JSON-LD LocalBusiness
+  // Generar JSON-LD LocalBusiness (solo días abiertos)
+  const openSchedules = business.schedules.filter(s => s.isOpen);
   const localBusinessJsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -121,7 +122,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
       addressCountry: "AR",
     } : undefined,
     telephone: business.phone || undefined,
-    openingHoursSpecification: business.schedules.map((schedule) => ({
+    openingHoursSpecification: openSchedules.map((schedule) => ({
       "@type": "OpeningHoursSpecification",
       dayOfWeek: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][schedule.dayOfWeek],
       opens: schedule.openTime,
@@ -209,14 +210,20 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                   <h3 className="font-semibold">Horarios de atención</h3>
                 </div>
                 <div className="space-y-1.5 text-sm">
-                  {Object.entries(schedulesByDay).map(([day, schedules]) => (
-                    <div key={day} className="flex justify-between">
-                      <span className="text-muted-foreground">{DAYS_OF_WEEK[parseInt(day)]}</span>
-                      <span className="font-medium">
-                        {schedules.map(s => `${s.openTime} - ${s.closeTime}`).join(", ")}
-                      </span>
-                    </div>
-                  ))}
+                  {Object.entries(schedulesByDay).map(([day, schedules]) => {
+                    const isOpen = schedules.some(s => s.isOpen);
+                    return (
+                      <div key={day} className="flex justify-between">
+                        <span className="text-muted-foreground">{DAYS_OF_WEEK[parseInt(day)]}</span>
+                        <span className={`font-medium ${!isOpen ? "text-muted-foreground" : ""}`}>
+                          {isOpen 
+                            ? schedules.filter(s => s.isOpen).map(s => `${s.openTime} - ${s.closeTime}`).join(", ")
+                            : "Cerrado"
+                          }
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
