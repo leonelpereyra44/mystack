@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -113,6 +113,8 @@ export function BookingForm({
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [existingAppointment, setExistingAppointment] = useState<ExistingAppointmentError | null>(null);
+  const [daysAvailability, setDaysAvailability] = useState<Record<string, { hasSlots: boolean; slotsCount: number }>>({});
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
 
   const {
     register,
@@ -128,6 +130,35 @@ export function BookingForm({
   const selectedDate = watch("date");
   const selectedStaffId = watch("staffId");
   const selectedService = services.find((s) => s.id === selectedServiceId);
+
+  // Cargar disponibilidad cuando cambia el servicio o staff
+  const loadAvailability = useCallback(async () => {
+    if (!selectedServiceId) return;
+    
+    setLoadingAvailability(true);
+    try {
+      let url = `/api/appointments/availability?businessId=${businessId}&serviceId=${selectedServiceId}&days=60`;
+      if (selectedStaffId) {
+        url += `&staffId=${selectedStaffId}`;
+      }
+      
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setDaysAvailability(data.availability || {});
+      }
+    } catch (error) {
+      console.error("Error loading availability:", error);
+    } finally {
+      setLoadingAvailability(false);
+    }
+  }, [businessId, selectedServiceId, selectedStaffId]);
+
+  useEffect(() => {
+    if (selectedServiceId) {
+      loadAvailability();
+    }
+  }, [selectedServiceId, selectedStaffId, loadAvailability]);
   const selectedStaff = staff.find((s) => s.id === selectedStaffId);
 
   const getDaySchedule = (date: Date) => {
@@ -138,7 +169,22 @@ export function BookingForm({
   const isDateDisabled = (date: Date) => {
     if (isBefore(date, startOfDay(new Date()))) return true;
     const schedule = getDaySchedule(date);
-    return !schedule?.isOpen;
+    if (!schedule?.isOpen) return true;
+    
+    // Si tenemos info de disponibilidad, verificar si hay slots
+    const dateKey = format(date, "yyyy-MM-dd");
+    if (daysAvailability[dateKey] !== undefined) {
+      return !daysAvailability[dateKey].hasSlots;
+    }
+    
+    return false;
+  };
+
+  // Obtener días con disponibilidad para resaltar en el calendario
+  const getDaysWithAvailability = () => {
+    return Object.entries(daysAvailability)
+      .filter(([_, info]) => info.hasSlots)
+      .map(([dateStr]) => new Date(dateStr + "T12:00:00"));
   };
 
   const generateTimeSlots = (date: Date, duration: number) => {
@@ -567,10 +613,22 @@ export function BookingForm({
               </span>
               Elige fecha y hora
             </CardTitle>
+            {loadingAvailability && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Cargando disponibilidad...
+              </p>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Fecha</Label>
+              <Label className="flex items-center gap-2">
+                Fecha
+                <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Disponible
+                </span>
+              </Label>
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -580,6 +638,12 @@ export function BookingForm({
                 toDate={addDays(new Date(), 60)}
                 locale={es}
                 className="rounded-md border"
+                modifiers={{
+                  available: getDaysWithAvailability(),
+                }}
+                modifiersClassNames={{
+                  available: "bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 border border-emerald-200",
+                }}
               />
               {errors.date && (
                 <p className="mt-2 text-sm text-destructive">
