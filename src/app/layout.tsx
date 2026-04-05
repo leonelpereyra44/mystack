@@ -1,17 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
 
 const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
 });
 
 const siteUrl = process.env.NEXTAUTH_URL || "https://mystack.com.ar";
 
 export const viewport: Viewport = {
-  themeColor: "#12b5a2",
+  themeColor: "#00A693",
   width: "device-width",
   initialScale: 1,
 };
@@ -109,7 +115,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>
         <SessionProvider>
           {children}
           <Toaster />
