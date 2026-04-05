@@ -171,7 +171,7 @@ export function BookingForm({
     return slots;
   };
 
-  const loadAvailableSlots = async (date: Date) => {
+  const loadAvailableSlots = async (date: Date, staffIdParam?: string) => {
     if (!selectedService) return;
     
     setLoadingSlots(true);
@@ -179,15 +179,20 @@ export function BookingForm({
     // Generate all possible slots
     const allSlots = generateTimeSlots(date, selectedService.duration);
     
-    // In a real app, you'd check against existing appointments
-    // For now, we'll just show all slots
     try {
-      const response = await fetch(
-        `/api/appointments/available?businessId=${businessId}&date=${format(
-          date,
-          "yyyy-MM-dd"
-        )}&serviceId=${selectedService.id}`
-      );
+      // Construir URL con parámetros opcionales
+      let url = `/api/appointments/available?businessId=${businessId}&date=${format(
+        date,
+        "yyyy-MM-dd"
+      )}&serviceId=${selectedService.id}`;
+      
+      // Agregar staffId si se seleccionó un staff específico
+      const staffToUse = staffIdParam || selectedStaffId;
+      if (staffToUse) {
+        url += `&staffId=${staffToUse}`;
+      }
+      
+      const response = await fetch(url);
       
       if (response.ok) {
         const data = await response.json();
@@ -207,6 +212,15 @@ export function BookingForm({
       setValue("date", date);
       setValue("time", "");
       loadAvailableSlots(date);
+    }
+  };
+
+  // Recargar slots cuando cambia el staff seleccionado
+  const handleStaffChange = (staffId: string) => {
+    setValue("staffId", staffId);
+    setValue("time", ""); // Reset time selection
+    if (selectedDate) {
+      loadAvailableSlots(selectedDate, staffId);
     }
   };
 
@@ -614,13 +628,14 @@ export function BookingForm({
             {staff.length > 0 && (
               <div>
                 <Label>Profesional (opcional)</Label>
-                <Select onValueChange={(value) => setValue("staffId", value as string)}>
+                <Select onValueChange={handleStaffChange} value={selectedStaffId || ""}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sin preferencia">
                       {selectedStaff ? selectedStaff.name : "Sin preferencia"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Sin preferencia</SelectItem>
                     {staff.map((member) => (
                       <SelectItem key={member.id} value={member.id}>
                         {member.name}
@@ -628,6 +643,9 @@ export function BookingForm({
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Selecciona un profesional para ver sus horarios disponibles
+                </p>
               </div>
             )}
           </CardContent>

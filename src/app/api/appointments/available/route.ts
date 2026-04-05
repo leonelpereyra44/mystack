@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { addMinutes, format } from "date-fns";
 import { parseDateString } from "@/lib/utils";
 
 export async function GET(request: Request) {
@@ -19,12 +18,12 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get business schedule for that day
     // Parse date correctly to avoid timezone issues
     const dateObj = parseDateString(date);
-    const dayOfWeek = dateObj.getUTCDay(); // Use UTC day
+    const dayOfWeek = dateObj.getUTCDay();
 
-    const schedule = await prisma.businessSchedule.findUnique({
+    // Get business schedule for that day
+    const businessSchedule = await prisma.businessSchedule.findUnique({
       where: {
         businessId_dayOfWeek: {
           businessId,
@@ -33,7 +32,7 @@ export async function GET(request: Request) {
       },
     });
 
-    if (!schedule || !schedule.isOpen) {
+    if (!businessSchedule || !businessSchedule.isOpen) {
       return NextResponse.json({ slots: [] });
     }
 
@@ -49,9 +48,48 @@ export async function GET(request: Request) {
       );
     }
 
-    // Generate all possible slots
-    const [openHour, openMin] = schedule.openTime.split(":").map(Number);
-    const [closeHour, closeMin] = schedule.closeTime.split(":").map(Number);
+    // Determinar el horario efectivo a usar
+    let effectiveOpenTime = businessSchedule.openTime;
+    let effectiveCloseTime = businessSchedule.closeTime;
+
+    // Si se seleccionó un staff específico, usar sus horarios
+    if (staffId) {
+      const staffSchedule = await prisma.staffSchedule.findUnique({
+        where: {
+          staffId_dayOfWeek: {
+            staffId,
+            dayOfWeek,
+          },
+        },
+      });
+
+      // Si el staff no trabaja ese día, no hay slots disponibles
+      if (!staffSchedule || !staffSchedule.isWorking) {
+        return NextResponse.json({ slots: [] });
+      }
+
+      // Usar el horario del staff (intersección con el del negocio)
+      const staffStartMinutes = timeToMinutes(staffSchedule.startTime);
+      const staffEndMinutes = timeToMinutes(staffSchedule.endTime);
+      const businessStartMinutes = timeToMinutes(businessSchedule.openTime);
+      const businessEndMinutes = timeToMinutes(businessSchedule.closeTime);
+
+      // La intersección es el máximo de los inicios y el mínimo de los cierres
+      const effectiveStartMinutes = Math.max(staffStartMinutes, businessStartMinutes);
+      const effectiveEndMinutes = Math.min(staffEndMinutes, businessEndMinutes);
+
+      // Si no hay intersección válida, no hay slots
+      if (effectiveStartMinutes >= effectiveEndMinutes) {
+        return NextResponse.json({ slots: [] });
+      }
+
+      effectiveOpenTime = minutesToTime(effectiveStartMinutes);
+      effectiveCloseTime = minutesToTime(effectiveEndMinutes);
+    }
+
+    // Generate all possible slots based on effective schedule
+    const [openHour, openMin] = effectiveOpenTime.split(":").map(Number);
+    const [closeHour, closeMin] = effectiveCloseTime.split(":").map(Number);
 
     const allSlots: string[] = [];
     let currentHour = openHour;
@@ -74,6 +112,8 @@ export async function GET(request: Request) {
     }
 
     // Get existing appointments for that day
+    // Si hay staffId, filtrar solo por ese staff
+    // Si no hay staffId (cualquiera), necesitamos verificar disponibilidad de ALGÚN staff
     const existingAppointments = await prisma.appointment.findMany({
       where: {
         businessId,
@@ -129,4 +169,15 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
