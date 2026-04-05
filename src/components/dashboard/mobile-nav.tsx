@@ -14,6 +14,7 @@ import {
   LogOut,
   ExternalLink,
   Menu,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ const navItems = [
   { href: "/dashboard/services", icon: Briefcase, label: "Servicios" },
   { href: "/dashboard/staff", icon: Users, label: "Equipo" },
   { href: "/dashboard/schedule", icon: Clock, label: "Horarios" },
+  { href: "/dashboard/analytics", icon: BarChart3, label: "Reportes" },
   { href: "/dashboard/settings", icon: Settings, label: "Configuración" },
 ];
 
