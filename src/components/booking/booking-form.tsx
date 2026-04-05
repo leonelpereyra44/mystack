@@ -637,7 +637,7 @@ export function BookingForm({
                 fromDate={new Date()}
                 toDate={addDays(new Date(), 60)}
                 locale={es}
-                className="rounded-md border"
+                className="rounded-md border w-full max-w-full [&_.rdp-month]:w-full"
                 modifiers={{
                   available: getDaysWithAvailability(),
                 }}
@@ -664,13 +664,14 @@ export function BookingForm({
                     No hay horarios disponibles para esta fecha
                   </p>
                 ) : (
-                  <div className="mt-2 grid grid-cols-4 gap-2">
+                  <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {availableSlots.map((slot) => (
                       <Button
                         key={slot}
                         type="button"
                         variant={watch("time") === slot ? "default" : "outline"}
                         size="sm"
+                        className="text-sm"
                         onClick={() => {
                           setValue("time", slot);
                           if (step === 2) setStep(3);
