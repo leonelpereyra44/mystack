@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, MoreHorizontal, User } from "lucide-react";
+import { Pencil, Trash2, MoreHorizontal, User, Search, Filter } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface StaffMember {
   id: string;
@@ -44,6 +52,25 @@ export function StaffList({ staff }: StaffListProps) {
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+
+  // Filtrar y ordenar staff
+  const filteredStaff = useMemo(() => {
+    return staff.filter((member) => {
+      // Filtro por búsqueda (nombre, email, teléfono)
+      const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+        (member.phone?.includes(searchTerm) ?? false);
+      
+      // Filtro por estado
+      const matchesStatus = statusFilter === "all" ||
+        (statusFilter === "active" && member.isActive) ||
+        (statusFilter === "inactive" && !member.isActive);
+      
+      return matchesSearch && matchesStatus;
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [staff, searchTerm, statusFilter]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -105,8 +132,46 @@ export function StaffList({ staff }: StaffListProps) {
 
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {staff.map((member) => (
+      {/* Filtros y búsqueda */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nombre, email o teléfono..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={(value) => value && setStatusFilter(value as "all" | "active" | "inactive")}>
+          <SelectTrigger className="w-[140px]">
+            <Filter className="mr-2 h-4 w-4" />
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="active">Activos</SelectItem>
+            <SelectItem value="inactive">Inactivos</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Resultados */}
+      {filteredStaff.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Search className="h-12 w-12 text-muted-foreground" />
+            <p className="mt-4 text-muted-foreground">
+              No se encontraron miembros con los filtros aplicados
+            </p>
+            <Button variant="outline" className="mt-4" onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}>
+              Limpiar filtros
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredStaff.map((member) => (
           <Card key={member.id}>
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
@@ -157,7 +222,8 @@ export function StaffList({ staff }: StaffListProps) {
             </CardContent>
           </Card>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Delete Dialog */}
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
