@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { ChangePasswordForm } from "./change-password-form";
 import { SubscriptionCard } from "./subscription-card";
+import { BookingPreview } from "./booking-preview";
 import { BUSINESS_TYPES, getBusinessType } from "@/lib/business-types";
 
 interface Business {
@@ -166,21 +167,24 @@ export function SettingsForm({ business }: SettingsFormProps) {
             Comparte este enlace con tus clientes para que puedan reservar turnos
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
             <Input value={publicUrl} readOnly className="font-mono" />
-            <Button variant="outline" size="icon" onClick={copyUrl}>
-              <Copy className="h-4 w-4" />
+            <Button variant="outline" size="icon" onClick={copyUrl} title="Copiar enlace">
+              {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </Button>
             <a href={`/${business.slug}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" title="Abrir en nueva pestaña">
                 <ExternalLink className="h-4 w-4" />
               </Button>
             </a>
           </div>
-          {copied && (
-            <p className="mt-2 text-sm text-green-600">¡Enlace copiado!</p>
-          )}
+          <div className="flex items-center gap-2">
+            <BookingPreview slug={business.slug} />
+            <span className="text-sm text-muted-foreground">
+              Visualiza cómo ven tus clientes tu página de reservas
+            </span>
+          </div>
         </CardContent>
       </Card>
 

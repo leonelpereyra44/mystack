@@ -12,7 +12,7 @@ export default async function ServicesPage() {
     where: { ownerId: session?.user?.id },
     include: {
       services: {
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
       },
     },
   });
