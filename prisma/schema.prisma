@@ -114,6 +114,7 @@ model Business {
   appointments Appointment[]
   schedules   BusinessSchedule[]
   subscription Subscription?
+  blockedTimes BlockedTime[]
 
   @@map("businesses")
 }
@@ -174,6 +175,7 @@ model Staff {
   business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   appointments Appointment[]
   schedules    StaffSchedule[]
+  blockedTimes BlockedTime[]
 
   @@map("staff")
 }
@@ -190,6 +192,29 @@ model StaffSchedule {
 
   @@unique([staffId, dayOfWeek])
   @@map("staff_schedules")
+}
+
+// ============================================
+// BLOCKED TIME (Bloqueos de agenda)
+// ============================================
+
+model BlockedTime {
+  id         String   @id @default(cuid())
+  businessId String
+  staffId    String?  // null = bloquea todo el negocio
+  date       DateTime @db.Date
+  startTime  String?  // "09:00" - null = todo el día
+  endTime    String?  // "18:00" - null = todo el día
+  reason     String?  // "Vacaciones", "Feriado", "Capacitación"
+  isAllDay   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staff    Staff?   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([staffId, date])
+  @@map("blocked_times")
 }
 
 // ============================================

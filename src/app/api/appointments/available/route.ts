@@ -22,6 +22,42 @@ export async function GET(request: Request) {
     const dateObj = parseDateString(date);
     const dayOfWeek = dateObj.getUTCDay();
 
+    // ========================================
+    // VERIFICAR BLOQUEOS DE AGENDA
+    // ========================================
+    
+    // Buscar bloqueos para esta fecha
+    const blockedTimes = await prisma.blockedTime.findMany({
+      where: {
+        businessId,
+        date: dateObj,
+        // Si hay staffId, buscar bloqueos de ese staff O de todo el negocio
+        // Si no hay staffId, buscar solo bloqueos de todo el negocio
+        ...(staffId 
+          ? { OR: [{ staffId }, { staffId: null }] }
+          : { staffId: null }
+        ),
+      },
+    });
+
+    // Si hay un bloqueo de todo el día para todo el negocio, no hay slots
+    const fullDayBusinessBlock = blockedTimes.find(
+      (bt) => bt.isAllDay && bt.staffId === null
+    );
+    if (fullDayBusinessBlock) {
+      return NextResponse.json({ slots: [] });
+    }
+
+    // Si hay un bloqueo de todo el día para el staff específico, no hay slots
+    if (staffId) {
+      const fullDayStaffBlock = blockedTimes.find(
+        (bt) => bt.isAllDay && bt.staffId === staffId
+      );
+      if (fullDayStaffBlock) {
+        return NextResponse.json({ slots: [] });
+      }
+    }
+
     // Get business schedule for that day
     const businessSchedule = await prisma.businessSchedule.findUnique({
       where: {
@@ -129,6 +165,24 @@ export async function GET(request: Request) {
       const [slotHour, slotMin] = slot.split(":").map(Number);
       const slotStart = slotHour * 60 + slotMin;
       const slotEnd = slotStart + service.duration;
+
+      // ========================================
+      // Verificar bloqueos parciales (no todo el día)
+      // ========================================
+      for (const blocked of blockedTimes) {
+        if (blocked.isAllDay) continue; // Ya manejamos estos arriba
+        if (!blocked.startTime || !blocked.endTime) continue;
+
+        const [blockStartHour, blockStartMin] = blocked.startTime.split(":").map(Number);
+        const [blockEndHour, blockEndMin] = blocked.endTime.split(":").map(Number);
+        const blockStart = blockStartHour * 60 + blockStartMin;
+        const blockEnd = blockEndHour * 60 + blockEndMin;
+
+        // Si el slot se superpone con el bloqueo, no está disponible
+        if (slotStart < blockEnd && slotEnd > blockStart) {
+          return false;
+        }
+      }
 
       // Check if this slot conflicts with any existing appointment
       for (const apt of existingAppointments) {
