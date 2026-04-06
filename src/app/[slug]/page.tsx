@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { BookingForm } from "@/components/booking/booking-form";
+import { CollapsibleSection } from "@/components/booking/collapsible-section";
 import { getBusinessType } from "@/lib/business-types";
 import { MapPin, Phone, Clock, Users, Instagram, Facebook, Twitter, Globe } from "lucide-react";
 import type { Metadata } from "next";
@@ -276,11 +277,10 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
           <div className="mx-auto max-w-2xl grid gap-4 md:grid-cols-2 mb-8">
             {/* Horarios */}
             {business.schedules.length > 0 && (
-              <div className="rounded-lg border bg-card p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">Horarios de atención</h3>
-                </div>
+              <CollapsibleSection
+                icon={<Clock className="h-5 w-5 text-primary" />}
+                title="Horarios de atención"
+              >
                 <div className="space-y-1.5 text-sm">
                   {Object.entries(schedulesByDay).map(([day, schedules]) => {
                     const isOpen = schedules.some(s => s.isOpen);
@@ -297,16 +297,15 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                     );
                   })}
                 </div>
-              </div>
+              </CollapsibleSection>
             )}
 
             {/* Profesionales */}
             {business.staff.length > 0 && (
-              <div className="rounded-lg border bg-card p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">Nuestro equipo</h3>
-                </div>
+              <CollapsibleSection
+                icon={<Users className="h-5 w-5 text-primary" />}
+                title="Nuestro equipo"
+              >
                 <div className="space-y-2">
                   {business.staff.map((member) => (
                     <div key={member.id} className="flex items-center gap-2">
@@ -317,7 +316,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                     </div>
                   ))}
                 </div>
-              </div>
+              </CollapsibleSection>
             )}
           </div>
 
