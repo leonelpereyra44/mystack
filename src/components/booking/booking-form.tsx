@@ -50,6 +50,7 @@ interface Schedule {
 
 interface BookingFormProps {
   businessId: string;
+  businessSlug: string;
   services: Service[];
   staff: Staff[];
   schedules: Schedule[];
@@ -102,6 +103,7 @@ interface ExistingAppointmentError {
 
 export function BookingForm({
   businessId,
+  businessSlug,
   services,
   staff,
   schedules,
@@ -115,6 +117,7 @@ export function BookingForm({
   const [existingAppointment, setExistingAppointment] = useState<ExistingAppointmentError | null>(null);
   const [daysAvailability, setDaysAvailability] = useState<Record<string, { hasSlots: boolean; slotsCount: number }>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
 
   const {
     register,
@@ -154,6 +157,28 @@ export function BookingForm({
     }
   }, [businessId, selectedServiceId, selectedStaffId]);
 
+  // Cargar fechas bloqueadas
+  const loadBlockedDates = useCallback(async () => {
+    try {
+      let url = `/api/business/${businessSlug}/blocked-dates`;
+      if (selectedStaffId) {
+        url += `?staffId=${selectedStaffId}`;
+      }
+      
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setBlockedDates(data.fullyBlockedDates || []);
+      }
+    } catch (error) {
+      console.error("Error loading blocked dates:", error);
+    }
+  }, [businessSlug, selectedStaffId]);
+
+  useEffect(() => {
+    loadBlockedDates();
+  }, [loadBlockedDates]);
+
   useEffect(() => {
     if (selectedServiceId) {
       loadAvailability();
@@ -171,8 +196,11 @@ export function BookingForm({
     const schedule = getDaySchedule(date);
     if (!schedule?.isOpen) return true;
     
-    // Si tenemos info de disponibilidad, verificar si hay slots
+    // Verificar si la fecha está bloqueada
     const dateKey = format(date, "yyyy-MM-dd");
+    if (blockedDates.includes(dateKey)) return true;
+    
+    // Si tenemos info de disponibilidad, verificar si hay slots
     if (daysAvailability[dateKey] !== undefined) {
       return !daysAvailability[dateKey].hasSlots;
     }

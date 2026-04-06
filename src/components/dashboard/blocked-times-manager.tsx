@@ -63,6 +63,8 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
 
   // Form state
   const [date, setDate] = useState("");
+  const [dateEnd, setDateEnd] = useState("");
+  const [isDateRange, setIsDateRange] = useState(false);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [reason, setReason] = useState("");
@@ -97,6 +99,7 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date,
+          dateEnd: isDateRange ? dateEnd : null,
           startTime: isAllDay ? null : startTime,
           endTime: isAllDay ? null : endTime,
           reason: reason || null,
@@ -107,8 +110,14 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
 
       if (res.ok) {
         const newBlocked = await res.json();
-        setBlockedTimes([...blockedTimes, newBlocked]);
-        toast.success("Bloqueo creado correctamente");
+        // Si es un array (rango de fechas), agregar todos
+        if (Array.isArray(newBlocked)) {
+          setBlockedTimes([...blockedTimes, ...newBlocked]);
+          toast.success(`${newBlocked.length} bloqueos creados correctamente`);
+        } else {
+          setBlockedTimes([...blockedTimes, newBlocked]);
+          toast.success("Bloqueo creado correctamente");
+        }
         setIsDialogOpen(false);
         resetForm();
       } else {
@@ -145,6 +154,8 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
 
   const resetForm = () => {
     setDate("");
+    setDateEnd("");
+    setIsDateRange(false);
     setStartTime("09:00");
     setEndTime("18:00");
     setReason("");
@@ -204,16 +215,51 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="date">Fecha</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                    min={new Date().toISOString().split("T")[0]}
+                <div className="flex items-center space-x-2 mb-2">
+                  <Checkbox
+                    id="isDateRange"
+                    checked={isDateRange}
+                    onCheckedChange={(checked) => {
+                      setIsDateRange(checked as boolean);
+                      if (!checked) setDateEnd("");
+                    }}
                   />
+                  <Label htmlFor="isDateRange" className="cursor-pointer">
+                    Bloquear rango de fechas
+                  </Label>
+                </div>
+
+                <div className={isDateRange ? "grid grid-cols-2 gap-4" : ""}>
+                  <div className="space-y-2">
+                    <Label htmlFor="date">{isDateRange ? "Fecha inicio" : "Fecha"}</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={date}
+                      onChange={(e) => {
+                        setDate(e.target.value);
+                        // Si la fecha de fin es anterior, actualizarla
+                        if (dateEnd && e.target.value > dateEnd) {
+                          setDateEnd(e.target.value);
+                        }
+                      }}
+                      required
+                      min={new Date().toISOString().split("T")[0]}
+                    />
+                  </div>
+                  {isDateRange && (
+                    <div className="space-y-2">
+                      <Label htmlFor="dateEnd">Fecha fin</Label>
+                      <Input
+                        id="dateEnd"
+                        type="date"
+                        value={dateEnd}
+                        onChange={(e) => setDateEnd(e.target.value)}
+                        required={isDateRange}
+                        min={date || new Date().toISOString().split("T")[0]}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

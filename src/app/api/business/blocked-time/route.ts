@@ -77,13 +77,66 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { staffId, date, startTime, endTime, reason, isAllDay } = body;
+    const { staffId, date, dateEnd, startTime, endTime, reason, isAllDay } = body;
 
     if (!date) {
       return NextResponse.json(
         { error: "La fecha es requerida" },
         { status: 400 }
       );
+    }
+
+    // Si hay fecha de fin, crear múltiples bloqueos (uno por día)
+    if (dateEnd && dateEnd !== date) {
+      const startDate = new Date(date);
+      const endDate = new Date(dateEnd);
+      
+      if (endDate < startDate) {
+        return NextResponse.json(
+          { error: "La fecha de fin debe ser posterior a la de inicio" },
+          { status: 400 }
+        );
+      }
+
+      // Validar staff si se proporciona
+      if (staffId) {
+        const staffMember = await prisma.staff.findFirst({
+          where: { id: staffId, businessId: business.id },
+        });
+        if (!staffMember) {
+          return NextResponse.json(
+            { error: "Profesional no encontrado" },
+            { status: 404 }
+          );
+        }
+      }
+
+      // Crear un bloqueo por cada día en el rango
+      const blockedTimes = [];
+      const currentDate = new Date(startDate);
+      
+      while (currentDate <= endDate) {
+        const blocked = await prisma.blockedTime.create({
+          data: {
+            businessId: business.id,
+            staffId: staffId || null,
+            date: new Date(currentDate),
+            startTime: isAllDay ? null : startTime,
+            endTime: isAllDay ? null : endTime,
+            reason: reason || null,
+            isAllDay: isAllDay || false,
+          },
+          include: {
+            staff: {
+              select: { id: true, name: true },
+            },
+          },
+        });
+        blockedTimes.push(blocked);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      return NextResponse.json(blockedTimes, { status: 201 });
     }
 
     // Validar que si no es todo el día, tenga horarios

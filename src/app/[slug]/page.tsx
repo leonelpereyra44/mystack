@@ -336,6 +336,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
             ) : (
               <BookingForm
                 businessId={business.id}
+                businessSlug={business.slug}
                 services={services}
                 staff={business.staff}
                 schedules={business.schedules}
