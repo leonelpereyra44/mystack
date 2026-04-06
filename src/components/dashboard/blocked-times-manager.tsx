@@ -42,6 +42,7 @@ interface Staff {
 interface BlockedTime {
   id: string;
   date: string;
+  groupId: string | null;
   startTime: string | null;
   endTime: string | null;
   reason: string | null;
@@ -50,12 +51,29 @@ interface BlockedTime {
   staff: Staff | null;
 }
 
+// Para mostrar en UI - puede ser un día individual o un rango agrupado
+interface BlockedTimeDisplay {
+  id: string; // id del primer item o groupId
+  isGroup: boolean;
+  startDate: string;
+  endDate?: string;
+  startTime: string | null;
+  endTime: string | null;
+  reason: string | null;
+  isAllDay: boolean;
+  staffId: string | null;
+  staff: Staff | null;
+  groupId: string | null;
+  count: number; // número de días
+}
+
 interface BlockedTimesManagerProps {
   staff: Staff[];
 }
 
 export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
   const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
+  const [displayItems, setDisplayItems] = useState<BlockedTimeDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,9 +89,76 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
   const [staffId, setStaffId] = useState<string>("all");
   const [isAllDay, setIsAllDay] = useState(true);
 
+  // Agrupar blocked times por groupId para mostrar rangos
+  const groupBlockedTimes = (times: BlockedTime[]): BlockedTimeDisplay[] => {
+    const groups: Record<string, BlockedTime[]> = {};
+    const singles: BlockedTime[] = [];
+
+    // Separar en grupos y sueltos
+    times.forEach((bt) => {
+      if (bt.groupId) {
+        if (!groups[bt.groupId]) {
+          groups[bt.groupId] = [];
+        }
+        groups[bt.groupId].push(bt);
+      } else {
+        singles.push(bt);
+      }
+    });
+
+    const result: BlockedTimeDisplay[] = [];
+
+    // Convertir grupos a display items
+    Object.entries(groups).forEach(([groupId, items]) => {
+      // Ordenar por fecha
+      items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const first = items[0];
+      const last = items[items.length - 1];
+
+      result.push({
+        id: groupId,
+        isGroup: true,
+        startDate: first.date,
+        endDate: last.date,
+        startTime: first.startTime,
+        endTime: first.endTime,
+        reason: first.reason,
+        isAllDay: first.isAllDay,
+        staffId: first.staffId,
+        staff: first.staff,
+        groupId,
+        count: items.length,
+      });
+    });
+
+    // Convertir sueltos a display items
+    singles.forEach((bt) => {
+      result.push({
+        id: bt.id,
+        isGroup: false,
+        startDate: bt.date,
+        startTime: bt.startTime,
+        endTime: bt.endTime,
+        reason: bt.reason,
+        isAllDay: bt.isAllDay,
+        staffId: bt.staffId,
+        staff: bt.staff,
+        groupId: null,
+        count: 1,
+      });
+    });
+
+    // Ordenar por fecha de inicio
+    return result.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  };
+
   useEffect(() => {
     fetchBlockedTimes();
   }, []);
+
+  useEffect(() => {
+    setDisplayItems(groupBlockedTimes(blockedTimes));
+  }, [blockedTimes]);
 
   const fetchBlockedTimes = async () => {
     try {
@@ -110,10 +195,10 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
 
       if (res.ok) {
         const newBlocked = await res.json();
-        // Si es un array (rango de fechas), agregar todos
-        if (Array.isArray(newBlocked)) {
-          setBlockedTimes([...blockedTimes, ...newBlocked]);
-          toast.success(`${newBlocked.length} bloqueos creados correctamente`);
+        // Si es un grupo (rango de fechas), agregar los items
+        if (newBlocked.isGroup && newBlocked.items) {
+          setBlockedTimes([...blockedTimes, ...newBlocked.items]);
+          toast.success(`${newBlocked.count} días bloqueados correctamente`);
         } else {
           setBlockedTimes([...blockedTimes, newBlocked]);
           toast.success("Bloqueo creado correctamente");
@@ -131,17 +216,28 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    setDeletingId(id);
+  const handleDelete = async (item: BlockedTimeDisplay) => {
+    setDeletingId(item.id);
 
     try {
-      const res = await fetch(`/api/business/blocked-time/${id}`, {
+      // Si es un grupo, eliminar por groupId, sino por id
+      const endpoint = item.isGroup 
+        ? `/api/business/blocked-time?groupId=${item.groupId}`
+        : `/api/business/blocked-time/${item.id}`;
+      
+      const res = await fetch(endpoint, {
         method: "DELETE",
       });
 
       if (res.ok) {
-        setBlockedTimes(blockedTimes.filter((bt) => bt.id !== id));
-        toast.success("Bloqueo eliminado");
+        if (item.isGroup && item.groupId) {
+          // Eliminar todos los del grupo
+          setBlockedTimes(blockedTimes.filter((bt) => bt.groupId !== item.groupId));
+          toast.success(`${item.count} días de bloqueo eliminados`);
+        } else {
+          setBlockedTimes(blockedTimes.filter((bt) => bt.id !== item.id));
+          toast.success("Bloqueo eliminado");
+        }
       } else {
         toast.error("Error al eliminar bloqueo");
       }
@@ -164,24 +260,16 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
   };
 
   const formatDate = (dateStr: string) => {
-    return format(new Date(dateStr + "T12:00:00"), "EEEE d 'de' MMMM, yyyy", {
+    return format(new Date(dateStr + "T12:00:00"), "d 'de' MMMM", {
       locale: es,
     });
   };
 
-  // Agrupar por fecha
-  const groupedByDate = blockedTimes.reduce((acc, bt) => {
-    const dateKey = bt.date.split("T")[0];
-    if (!acc[dateKey]) {
-      acc[dateKey] = [];
-    }
-    acc[dateKey].push(bt);
-    return acc;
-  }, {} as Record<string, BlockedTime[]>);
-
-  const sortedDates = Object.keys(groupedByDate).sort(
-    (a, b) => new Date(a).getTime() - new Date(b).getTime()
-  );
+  const formatDateFull = (dateStr: string) => {
+    return format(new Date(dateStr + "T12:00:00"), "EEEE d 'de' MMMM, yyyy", {
+      locale: es,
+    });
+  };
 
   const handleStaffChange = (value: string | null) => {
     setStaffId(value || "all");
@@ -201,11 +289,9 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
             </CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo Bloqueo
-              </Button>
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Bloqueo
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -352,7 +438,7 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : blockedTimes.length === 0 ? (
+        ) : displayItems.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CalendarOff className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No hay bloqueos de agenda configurados</p>
@@ -361,50 +447,53 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {sortedDates.map((dateKey) => (
-              <div key={dateKey} className="border rounded-lg p-4">
-                <h4 className="font-medium mb-3 capitalize">
-                  {formatDate(dateKey)}
-                </h4>
-                <div className="space-y-2">
-                  {groupedByDate[dateKey].map((bt) => (
-                    <div
-                      key={bt.id}
-                      className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2"
+          <div className="space-y-3">
+            {displayItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between border rounded-lg px-4 py-3"
+              >
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge
+                      variant={item.staffId ? "secondary" : "destructive"}
                     >
-                      <div className="flex items-center gap-3">
-                        <Badge
-                          variant={bt.staffId ? "secondary" : "destructive"}
-                        >
-                          {bt.staff ? bt.staff.name : "Todo el negocio"}
-                        </Badge>
-                        <span className="text-sm">
-                          {bt.isAllDay
-                            ? "Todo el día"
-                            : `${bt.startTime} - ${bt.endTime}`}
-                        </span>
-                        {bt.reason && (
-                          <span className="text-sm text-muted-foreground">
-                            • {bt.reason}
-                          </span>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(bt.id)}
-                        disabled={deletingId === bt.id}
-                      >
-                        {deletingId === bt.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        )}
-                      </Button>
-                    </div>
-                  ))}
+                      {item.staff ? item.staff.name : "Todo el negocio"}
+                    </Badge>
+                    {item.isGroup && (
+                      <Badge variant="outline">
+                        {item.count} días
+                      </Badge>
+                    )}
+                    <span className="text-sm text-muted-foreground">
+                      {item.isAllDay
+                        ? "Todo el día"
+                        : `${item.startTime} - ${item.endTime}`}
+                    </span>
+                  </div>
+                  <div className="text-sm font-medium capitalize">
+                    {item.isGroup && item.endDate
+                      ? `${formatDate(item.startDate)} → ${formatDate(item.endDate)}`
+                      : formatDateFull(item.startDate)}
+                  </div>
+                  {item.reason && (
+                    <span className="text-sm text-muted-foreground">
+                      {item.reason}
+                    </span>
+                  )}
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDelete(item)}
+                  disabled={deletingId === item.id}
+                >
+                  {deletingId === item.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  )}
+                </Button>
               </div>
             ))}
           </div>

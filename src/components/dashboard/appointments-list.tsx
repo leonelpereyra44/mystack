@@ -216,12 +216,12 @@ export function AppointmentsList({
               {format(parseUTCDate(dateKey), "EEEE, d 'de' MMMM", { locale: es })}
             </h3>
             <div className="space-y-3">
-              {dayAppointments.map((apt) => {
+              {dayAppointments.map((apt, index) => {
                 const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
                 const StatusIcon = status.icon;
 
                 return (
-                  <Card key={apt.id}>
+                  <Card key={`${apt.id}-${index}`}>
                     <CardContent className="p-3 md:p-4">
                       {/* Mobile: Stack layout */}
                       <div className="flex flex-col gap-3 md:hidden">

@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Si hay fecha de fin, crear múltiples bloqueos (uno por día)
+    // Si hay fecha de fin, crear múltiples bloqueos (uno por día) con un groupId
     if (dateEnd && dateEnd !== date) {
       const startDate = new Date(date);
       const endDate = new Date(dateEnd);
@@ -111,6 +111,9 @@ export async function POST(request: Request) {
         }
       }
 
+      // Generar un groupId único para este rango
+      const groupId = `group_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
       // Crear un bloqueo por cada día en el rango
       const blockedTimes = [];
       const currentDate = new Date(startDate);
@@ -120,6 +123,7 @@ export async function POST(request: Request) {
           data: {
             businessId: business.id,
             staffId: staffId || null,
+            groupId,
             date: new Date(currentDate),
             startTime: isAllDay ? null : startTime,
             endTime: isAllDay ? null : endTime,
@@ -136,7 +140,21 @@ export async function POST(request: Request) {
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      return NextResponse.json(blockedTimes, { status: 201 });
+      // Devolver un objeto agrupado para mostrar en UI
+      return NextResponse.json({
+        isGroup: true,
+        groupId,
+        startDate: date,
+        endDate: dateEnd,
+        reason: reason || null,
+        staffId: staffId || null,
+        staff: blockedTimes[0]?.staff || null,
+        isAllDay: isAllDay || false,
+        startTime: isAllDay ? null : startTime,
+        endTime: isAllDay ? null : endTime,
+        count: blockedTimes.length,
+        items: blockedTimes,
+      }, { status: 201 });
     }
 
     // Validar que si no es todo el día, tenga horarios
@@ -182,6 +200,57 @@ export async function POST(request: Request) {
     console.error("Error creating blocked time:", error);
     return NextResponse.json(
       { error: "Error al crear bloqueo" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Eliminar bloqueos por groupId
+export async function DELETE(request: Request) {
+  try {
+    const session = await auth();
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const business = await prisma.business.findFirst({
+      where: { ownerId: session.user.id },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const groupId = searchParams.get("groupId");
+
+    if (!groupId) {
+      return NextResponse.json(
+        { error: "Se requiere groupId" },
+        { status: 400 }
+      );
+    }
+
+    // Eliminar todos los bloqueos del grupo
+    const result = await prisma.blockedTime.deleteMany({
+      where: {
+        businessId: business.id,
+        groupId,
+      },
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      count: result.count 
+    });
+  } catch (error) {
+    console.error("Error deleting blocked times:", error);
+    return NextResponse.json(
+      { error: "Error al eliminar bloqueos" },
       { status: 500 }
     );
   }
