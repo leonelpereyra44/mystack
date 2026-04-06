@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Copy, ExternalLink, Info, Check, AlertTriangle, Trash2 } from "lucide-react";
+import { Loader2, Copy, ExternalLink, Info, Check, AlertTriangle, Trash2, Instagram, Facebook, Globe, Twitter } from "lucide-react";
 import { toast } from "sonner";
 import { signOut } from "next-auth/react";
 
@@ -48,6 +48,11 @@ interface Business {
   address: string | null;
   businessType: string;
   allowMultipleBookings: boolean;
+  instagram: string | null;
+  facebook: string | null;
+  twitter: string | null;
+  tiktok: string | null;
+  website: string | null;
   subscription: {
     plan: string;
     status: string;
@@ -64,6 +69,11 @@ const businessSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   address: z.string().optional(),
+  instagram: z.string().optional(),
+  facebook: z.string().optional(),
+  twitter: z.string().optional(),
+  tiktok: z.string().optional(),
+  website: z.string().url("URL inválida").optional().or(z.literal("")),
 });
 
 type BusinessFormData = z.infer<typeof businessSchema>;
@@ -97,6 +107,11 @@ export function SettingsForm({ business }: SettingsFormProps) {
       phone: business.phone || "",
       email: business.email || "",
       address: business.address || "",
+      instagram: business.instagram || "",
+      facebook: business.facebook || "",
+      twitter: business.twitter || "",
+      tiktok: business.tiktok || "",
+      website: business.website || "",
     },
   });
 
@@ -374,6 +389,78 @@ export function SettingsForm({ business }: SettingsFormProps) {
                 {...register("address")}
                 placeholder="Av. Corrientes 1234, CABA"
               />
+            </div>
+
+            {/* Redes Sociales */}
+            <div className="pt-4 border-t">
+              <h4 className="text-sm font-medium mb-3">Redes Sociales (opcional)</h4>
+              <p className="text-sm text-muted-foreground mb-4">
+                Agrega tus redes para que tus clientes te sigan y conozcan más de tu trabajo
+              </p>
+              
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="instagram" className="flex items-center gap-2">
+                    <Instagram className="h-4 w-4" />
+                    Instagram
+                  </Label>
+                  <Input
+                    id="instagram"
+                    {...register("instagram")}
+                    placeholder="@tunegocio"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="facebook" className="flex items-center gap-2">
+                    <Facebook className="h-4 w-4" />
+                    Facebook
+                  </Label>
+                  <Input
+                    id="facebook"
+                    {...register("facebook")}
+                    placeholder="tunegocio"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="twitter" className="flex items-center gap-2">
+                    <Twitter className="h-4 w-4" />
+                    Twitter / X
+                  </Label>
+                  <Input
+                    id="twitter"
+                    {...register("twitter")}
+                    placeholder="@tunegocio"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tiktok" className="flex items-center gap-2">
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                    </svg>
+                    TikTok
+                  </Label>
+                  <Input
+                    id="tiktok"
+                    {...register("tiktok")}
+                    placeholder="@tunegocio"
+                  />
+                </div>
+              </div>
+              
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="website" className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  Sitio Web
+                </Label>
+                <Input
+                  id="website"
+                  {...register("website")}
+                  placeholder="https://www.tunegocio.com"
+                />
+                {errors.website && (
+                  <p className="text-sm text-destructive">{errors.website.message}</p>
+                )}
+              </div>
             </div>
 
             <Button type="submit" disabled={isLoading}>
