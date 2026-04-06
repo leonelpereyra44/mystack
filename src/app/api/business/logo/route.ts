@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { supabase, LOGOS_BUCKET } from "@/lib/supabase";
+import { supabaseAdmin, LOGOS_BUCKET } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   try {
@@ -59,13 +59,19 @@ export async function POST(request: Request) {
     if (business.logo) {
       const oldFileName = business.logo.split("/").pop();
       if (oldFileName) {
-        await supabase.storage.from(LOGOS_BUCKET).remove([oldFileName]);
+        await supabaseAdmin.storage.from(LOGOS_BUCKET).remove([oldFileName]);
       }
     }
 
     // Subir a Supabase Storage
     const arrayBuffer = await file.arrayBuffer();
-    const { error: uploadError } = await supabase.storage
+    
+    // Debug: verificar que tenemos la service key
+    console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log("Service Key exists:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+    console.log("Service Key starts with:", process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 30));
+    
+    const { error: uploadError } = await supabaseAdmin.storage
       .from(LOGOS_BUCKET)
       .upload(filePath, arrayBuffer, {
         contentType: file.type,
@@ -81,7 +87,7 @@ export async function POST(request: Request) {
     }
 
     // Obtener URL pública
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = supabaseAdmin.storage
       .from(LOGOS_BUCKET)
       .getPublicUrl(filePath);
 
@@ -132,7 +138,7 @@ export async function DELETE() {
     // Eliminar de Supabase Storage
     const fileName = business.logo.split("/").pop();
     if (fileName) {
-      await supabase.storage.from(LOGOS_BUCKET).remove([fileName]);
+      await supabaseAdmin.storage.from(LOGOS_BUCKET).remove([fileName]);
     }
 
     // Actualizar business

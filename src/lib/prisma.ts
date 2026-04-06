@@ -7,8 +7,10 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // Usar DATABASE_URL (con pooler) para producción, DIRECT_URL solo para desarrollo local
-  const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL;
+  // En desarrollo usar DIRECT_URL (sin pooler), en producción usar DATABASE_URL (con pooler)
+  const connectionString = process.env.NODE_ENV === "development" 
+    ? (process.env.DIRECT_URL || process.env.DATABASE_URL)
+    : (process.env.DATABASE_URL || process.env.DIRECT_URL);
   
   if (!connectionString) {
     throw new Error("DATABASE_URL or DIRECT_URL is not defined");
@@ -19,7 +21,7 @@ function createPrismaClient() {
 
   return new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 }
 
