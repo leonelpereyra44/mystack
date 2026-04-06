@@ -66,11 +66,6 @@ export async function POST(request: Request) {
     // Subir a Supabase Storage
     const arrayBuffer = await file.arrayBuffer();
     
-    // Debug: verificar que tenemos la service key
-    console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log("Service Key exists:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-    console.log("Service Key starts with:", process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 30));
-    
     const { error: uploadError } = await supabaseAdmin.storage
       .from(LOGOS_BUCKET)
       .upload(filePath, arrayBuffer, {
