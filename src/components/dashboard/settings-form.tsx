@@ -36,6 +36,7 @@ import {
 import { ChangePasswordForm } from "./change-password-form";
 import { SubscriptionCard } from "./subscription-card";
 import { BookingPreview } from "./booking-preview";
+import { LogoUpload } from "./logo-upload";
 import { BUSINESS_TYPES } from "@/lib/business-types";
 
 interface Business {
@@ -43,6 +44,7 @@ interface Business {
   name: string;
   slug: string;
   description: string | null;
+  logo: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
@@ -279,6 +281,23 @@ export function SettingsForm({ business }: SettingsFormProps) {
               Visualiza cómo ven tus clientes tu página de reservas
             </span>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Logo Upload */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Logo del Negocio</CardTitle>
+          <CardDescription>
+            Sube una imagen que represente tu negocio. Se mostrará en tu página pública.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LogoUpload 
+            currentLogo={business.logo} 
+            businessName={business.name}
+            onLogoChange={() => router.refresh()}
+          />
         </CardContent>
       </Card>
 
