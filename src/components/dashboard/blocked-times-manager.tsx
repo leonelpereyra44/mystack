@@ -259,14 +259,23 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
     setIsAllDay(true);
   };
 
+  const parseDate = (dateStr: string): Date => {
+    // Si ya tiene "T", es formato ISO completo
+    if (dateStr.includes("T")) {
+      return new Date(dateStr);
+    }
+    // Si es solo fecha (YYYY-MM-DD), agregar hora para evitar problemas de timezone
+    return new Date(dateStr + "T12:00:00");
+  };
+
   const formatDate = (dateStr: string) => {
-    return format(new Date(dateStr + "T12:00:00"), "d 'de' MMMM", {
+    return format(parseDate(dateStr), "d 'de' MMMM", {
       locale: es,
     });
   };
 
   const formatDateFull = (dateStr: string) => {
-    return format(new Date(dateStr + "T12:00:00"), "EEEE d 'de' MMMM, yyyy", {
+    return format(parseDate(dateStr), "EEEE d 'de' MMMM, yyyy", {
       locale: es,
     });
   };
