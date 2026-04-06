@@ -131,7 +131,15 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       const upcomingFromRecent = allRecentAppointments.filter(apt => 
         isAppointmentUpcoming(apt.date, apt.startTime)
       );
-      filteredAppointments = [...upcomingFromRecent, ...clearFutureAppointments]
+      // Combinar y eliminar duplicados por id
+      const combined = [...upcomingFromRecent, ...clearFutureAppointments];
+      const uniqueIds = new Set<string>();
+      filteredAppointments = combined
+        .filter(apt => {
+          if (uniqueIds.has(apt.id)) return false;
+          uniqueIds.add(apt.id);
+          return true;
+        })
         .sort((a, b) => {
           const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
           if (dateCompare !== 0) return dateCompare;
@@ -141,7 +149,15 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       const pastFromRecent = allRecentAppointments.filter(apt => 
         !isAppointmentUpcoming(apt.date, apt.startTime)
       );
-      filteredAppointments = [...clearPastAppointments, ...pastFromRecent]
+      // Combinar y eliminar duplicados por id
+      const combined = [...clearPastAppointments, ...pastFromRecent];
+      const uniqueIds = new Set<string>();
+      filteredAppointments = combined
+        .filter(apt => {
+          if (uniqueIds.has(apt.id)) return false;
+          uniqueIds.add(apt.id);
+          return true;
+        })
         .sort((a, b) => {
           const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
           if (dateCompare !== 0) return dateCompare;
