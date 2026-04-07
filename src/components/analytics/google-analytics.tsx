@@ -3,7 +3,7 @@
 import Script from "next/script";
 
 const GA_MEASUREMENT_ID = "AW-18064393765";
-const CONVERSION_ID = "AW-18064393765/_t_SCLvlvpccEKWM46VD";
+const CONVERSION_ID = "AW-18064393765/cwlaCNuSzpccEKWM46VD";
 
 export function GoogleAnalytics() {
   return (
