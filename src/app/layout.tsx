@@ -3,6 +3,7 @@ import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
+import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -115,6 +116,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
+      <head>
+        <GoogleAnalytics />
+      </head>
       <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>
         <SessionProvider>
           {children}

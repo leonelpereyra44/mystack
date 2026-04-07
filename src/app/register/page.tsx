@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { trackSignupConversion } from "@/components/analytics/google-analytics";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +68,11 @@ export default function RegisterPage() {
       if (!response.ok) {
         setError(result.error || "Error al registrar");
         return;
+      }
+
+      // Trackear conversión de registro en Google Ads
+      if (result.user?.id) {
+        trackSignupConversion(result.user.id);
       }
 
       router.push("/login?registered=true");
