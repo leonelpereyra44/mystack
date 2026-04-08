@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Scale, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export const metadata = {
   title: "Términos y Condiciones - MyStack",
@@ -8,36 +8,38 @@ export const metadata = {
 
 export default function TerminosPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        <Link 
-          href="/" 
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver al inicio
-        </Link>
-
-        <article className="prose prose-gray dark:prose-invert max-w-none">
-          <h1>Términos y Condiciones de Uso</h1>
-          <p className="text-muted-foreground">
-            Última actualización: Abril 2026
-          </p>
-
-          <div className="rounded-lg border bg-muted/50 p-4 mb-6">
-            <p className="text-sm">
-              <strong>Marco Legal Aplicable:</strong> Estos términos se rigen por la legislación 
-              de la República Argentina, incluyendo la Ley 24.240 de Defensa del Consumidor y sus 
-              modificatorias (Ley 26.361), el Código Civil y Comercial de la Nación, y la Ley 25.326 
-              de Protección de Datos Personales.
-            </p>
+    <div className="max-w-3xl">
+      {/* Header del documento */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <Scale className="h-6 w-6 text-primary" />
           </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Términos y Condiciones de Uso</h1>
+            <p className="text-sm text-muted-foreground">Última actualización: Abril 2026</p>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-3 p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900">
+          <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>Marco Legal:</strong> Estos términos se rigen por la legislación 
+            de la República Argentina, incluyendo la Ley 24.240 de Defensa del Consumidor, 
+            el Código Civil y Comercial de la Nación, y la Ley 25.326 de Protección de Datos Personales.
+          </p>
+        </div>
+      </div>
 
-          <h2>1. Identificación del Proveedor</h2>
-          <p>
+      {/* Contenido */}
+      <article className="prose prose-gray dark:prose-invert max-w-none prose-headings:scroll-mt-20">
+        <section className="mb-8 p-5 rounded-xl bg-muted/30 border">
+          <h2 className="text-lg font-semibold mt-0 mb-3">1. Identificación del Proveedor</h2>
+          <p className="text-muted-foreground mb-0">
             MyStack es una plataforma de gestión de turnos y reservas operada en la República Argentina. 
             Para consultas puede contactarnos a través del correo electrónico: <strong>soporte@mystack.com</strong>
           </p>
+        </section>
 
           <h2>2. Aceptación de los Términos</h2>
           <p>
@@ -229,19 +231,55 @@ export default function TerminosPage() {
             restantes disposiciones mantendrán plena vigencia y efecto. La falta de ejercicio 
             de cualquier derecho no implica renuncia al mismo.
           </p>
-
-          <div className="mt-8 rounded-lg border bg-blue-50 dark:bg-blue-950/30 p-4">
-            <h3 className="text-lg font-semibold mb-2">📋 Resumen de Derechos del Consumidor</h3>
-            <ul className="text-sm space-y-1">
-              <li>✓ Derecho de arrepentimiento: 10 días corridos</li>
-              <li>✓ Información clara y veraz sobre precios y condiciones</li>
-              <li>✓ Protección de datos personales (Ley 25.326)</li>
-              <li>✓ Acceso a organismos de defensa del consumidor</li>
-              <li>✓ Notificación previa de cambios en los términos (30 días)</li>
-            </ul>
-          </div>
         </article>
+
+        {/* Resumen de derechos */}
+        <div className="mt-8 rounded-xl border-2 border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">Resumen de Derechos del Consumidor</h3>
+          </div>
+          <ul className="grid sm:grid-cols-2 gap-2 text-sm text-green-800 dark:text-green-200">
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Derecho de arrepentimiento: 10 días
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Información clara sobre precios
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Protección de datos (Ley 25.326)
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Acceso a defensa del consumidor
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Notificación de cambios: 30 días
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Factura electrónica (AFIP)
+            </li>
+          </ul>
+        </div>
+
+        {/* Links a otras políticas */}
+        <div className="mt-6 p-4 rounded-lg border bg-muted/30">
+          <p className="text-sm text-muted-foreground">
+            Consulta también nuestra{" "}
+            <Link href="/legal/privacidad" className="text-primary hover:underline font-medium">
+              Política de Privacidad
+            </Link>
+            {" "}y la{" "}
+            <Link href="/legal/cookies" className="text-primary hover:underline font-medium">
+              Política de Cookies
+            </Link>.
+          </p>
+        </div>
       </div>
-    </div>
   );
 }

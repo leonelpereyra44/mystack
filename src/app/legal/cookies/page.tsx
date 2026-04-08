@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Cookie, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export const metadata = {
   title: "Política de Cookies - MyStack",
@@ -8,47 +8,48 @@ export const metadata = {
 
 export default function CookiesPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        <Link 
-          href="/" 
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver al inicio
-        </Link>
-
-        <article className="prose prose-gray dark:prose-invert max-w-none">
-          <h1>Política de Cookies</h1>
-          <p className="text-muted-foreground">
-            Última actualización: Abril 2026
-          </p>
-
-          <div className="rounded-lg border bg-muted/50 p-4 mb-6">
-            <p className="text-sm">
-              Esta Política de Cookies complementa nuestra{" "}
-              <Link href="/legal/privacidad" className="text-primary hover:underline">
-                Política de Privacidad
-              </Link>
-              {" "}y se enmarca en la Ley 25.326 de Protección de Datos Personales de la 
-              República Argentina.
-            </p>
+    <div className="max-w-3xl">
+      {/* Header del documento */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <Cookie className="h-6 w-6 text-primary" />
           </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Política de Cookies</h1>
+            <p className="text-sm text-muted-foreground">Última actualización: Abril 2026</p>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-3 p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900">
+          <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            Esta Política de Cookies complementa nuestra{" "}
+            <Link href="/legal/privacidad" className="underline hover:no-underline">
+              Política de Privacidad
+            </Link>
+            {" "}y se enmarca en la Ley 25.326 de Protección de Datos Personales.
+          </p>
+        </div>
+      </div>
 
-          <h2>1. ¿Qué son las Cookies?</h2>
-          <p>
+      {/* Contenido */}
+      <article className="prose prose-gray dark:prose-invert max-w-none prose-headings:scroll-mt-20">
+        <section className="mb-8 p-5 rounded-xl bg-muted/30 border">
+          <h2 className="text-lg font-semibold mt-0 mb-3">1. ¿Qué son las Cookies?</h2>
+          <p className="text-muted-foreground mb-3">
             Las cookies son pequeños archivos de texto que se almacenan en su dispositivo 
-            (computadora, tablet o teléfono móvil) cuando visita un sitio web. Permiten que 
-            el sitio recuerde sus acciones y preferencias durante un período de tiempo.
+            cuando visita un sitio web. Permiten recordar sus acciones y preferencias.
           </p>
-          <p>
-            Además de cookies, podemos utilizar tecnologías similares como:
+          <p className="text-muted-foreground mb-0">
+            Además de cookies, podemos utilizar:
           </p>
-          <ul>
+          <ul className="text-muted-foreground mb-0 mt-2">
             <li><strong>Local Storage:</strong> Almacenamiento local en el navegador</li>
             <li><strong>Session Storage:</strong> Almacenamiento temporal de sesión</li>
             <li><strong>Tokens de autenticación:</strong> Para mantener su sesión activa</li>
           </ul>
+        </section>
 
           <h2>2. Tipos de Cookies que Utilizamos</h2>
 
@@ -245,31 +246,47 @@ export default function CookiesPage() {
             <li><strong>Email:</strong> privacidad@mystack.com</li>
             <li><strong>Email general:</strong> soporte@mystack.com</li>
           </ul>
-
-          <div className="mt-8 rounded-lg border bg-blue-50 dark:bg-blue-950/30 p-4">
-            <h3 className="text-lg font-semibold mb-2">🍪 Resumen</h3>
-            <ul className="text-sm space-y-1">
-              <li>✓ Usamos principalmente cookies esenciales para el funcionamiento</li>
-              <li>✓ No vendemos datos recopilados mediante cookies</li>
-              <li>✓ Puede gestionar cookies desde su navegador</li>
-              <li>✓ Las cookies de análisis (si se implementan) requerirán su consentimiento</li>
-            </ul>
-          </div>
-
-          <div className="mt-4 p-4 border rounded-lg">
-            <p className="text-sm">
-              Esta Política de Cookies forma parte de nuestros{" "}
-              <Link href="/legal/terminos" className="text-primary hover:underline">
-                Términos y Condiciones
-              </Link>
-              {" "}y{" "}
-              <Link href="/legal/privacidad" className="text-primary hover:underline">
-                Política de Privacidad
-              </Link>.
-            </p>
-          </div>
         </article>
+
+        {/* Resumen */}
+        <div className="mt-8 rounded-xl border-2 border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">Resumen</h3>
+          </div>
+          <ul className="grid sm:grid-cols-2 gap-2 text-sm text-green-800 dark:text-green-200">
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Cookies esenciales para funcionar
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              No vendemos datos de cookies
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Gestiona cookies en tu navegador
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Análisis requiere consentimiento
+            </li>
+          </ul>
+        </div>
+
+        {/* Links a otras políticas */}
+        <div className="mt-6 p-4 rounded-lg border bg-muted/30">
+          <p className="text-sm text-muted-foreground">
+            Esta Política forma parte de nuestros{" "}
+            <Link href="/legal/terminos" className="text-primary hover:underline font-medium">
+              Términos y Condiciones
+            </Link>
+            {" "}y{" "}
+            <Link href="/legal/privacidad" className="text-primary hover:underline font-medium">
+              Política de Privacidad
+            </Link>.
+          </p>
+        </div>
       </div>
-    </div>
   );
 }
