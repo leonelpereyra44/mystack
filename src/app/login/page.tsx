@@ -285,11 +285,11 @@ function LoginForm() {
           {/* Términos */}
           <p className="mt-6 text-center text-xs text-muted-foreground">
             Al iniciar sesión, aceptas nuestros{" "}
-            <Link href="/terms" className="underline hover:text-foreground">
+            <Link href="/legal/terminos" className="underline hover:text-foreground">
               Términos de servicio
             </Link>{" "}
             y{" "}
-            <Link href="/privacy" className="underline hover:text-foreground">
+            <Link href="/legal/privacidad" className="underline hover:text-foreground">
               Política de privacidad
             </Link>
           </p>
