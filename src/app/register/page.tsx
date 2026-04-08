@@ -210,13 +210,15 @@ export default function RegisterPage() {
         
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-3 mb-16">
-            <Image 
-              src="/mystacklogosinfondo.png" 
-              alt="MyStack Logo" 
-              width={48} 
-              height={48}
-              className="h-12 w-auto brightness-0 invert"
-            />
+            <div className="bg-white rounded-full p-2">
+              <Image 
+                src="/mystacklogosinfondo.png" 
+                alt="MyStack Logo" 
+                width={48} 
+                height={48}
+                className="h-10 w-auto"
+              />
+            </div>
             <span className="text-3xl font-bold">MyStack</span>
           </Link>
           
@@ -246,7 +248,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="relative z-10 text-sm text-primary-foreground/60">
-          © 2024 MyStack. Todos los derechos reservados.
+          © 2026 MyStack. Todos los derechos reservados.
         </div>
       </div>
 
