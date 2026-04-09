@@ -119,6 +119,30 @@ const faqJsonLd = {
   ],
 };
 
+// JSON-LD Organization
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "MyStack",
+  url: "https://mystack.com.ar",
+  logo: "https://mystack.com.ar/mystacklogosinfondo.png",
+  description: "Plataforma de gestión de turnos y reservas online para negocios en Argentina.",
+  foundingDate: "2024",
+  areaServed: {
+    "@type": "Country",
+    name: "Argentina",
+  },
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: "soporte@mystack.com",
+    contactType: "customer service",
+    availableLanguage: "Spanish",
+  },
+  sameAs: [
+    // Agregar URLs de redes sociales cuando existan
+  ],
+};
+
 export default function HomePage() {
   return (
     <>
@@ -129,6 +153,10 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         {/* Navigation */}
