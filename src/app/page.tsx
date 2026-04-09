@@ -123,9 +123,16 @@ const faqJsonLd = {
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
+  "@id": "https://www.mystack.com.ar/#organization",
   name: "MyStack",
-  url: "https://mystack.com.ar",
-  logo: "https://mystack.com.ar/mystacklogosinfondo.png",
+  url: "https://www.mystack.com.ar",
+  logo: {
+    "@type": "ImageObject",
+    url: "https://www.mystack.com.ar/logo-google.png",
+    width: 512,
+    height: 512,
+  },
+  image: "https://www.mystack.com.ar/logo-google.png",
   description: "Plataforma de gestión de turnos y reservas online para negocios en Argentina.",
   foundingDate: "2024",
   areaServed: {
@@ -134,13 +141,31 @@ const organizationJsonLd = {
   },
   contactPoint: {
     "@type": "ContactPoint",
-    email: "soporte@mystack.com",
+    email: "soporte@mystack.com.ar",
     contactType: "customer service",
     availableLanguage: "Spanish",
   },
   sameAs: [
     // Agregar URLs de redes sociales cuando existan
   ],
+};
+
+// JSON-LD WebSite (importante para Google Search)
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://www.mystack.com.ar/#website",
+  name: "MyStack",
+  url: "https://www.mystack.com.ar",
+  description: "Sistema de reservas y turnos online para negocios en Argentina",
+  publisher: {
+    "@id": "https://www.mystack.com.ar/#organization",
+  },
+  potentialAction: {
+    "@type": "SearchAction",
+    target: "https://www.mystack.com.ar/{business_slug}",
+    "query-input": "required name=business_slug",
+  },
 };
 
 export default function HomePage() {
@@ -157,6 +182,10 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
       />
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         {/* Navigation */}

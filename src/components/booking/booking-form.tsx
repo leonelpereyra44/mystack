@@ -650,29 +650,31 @@ export function BookingForm({
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="flex items-center gap-2">
+              <Label className="flex items-center gap-2 mb-2">
                 Fecha
                 <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
                   <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
                   Disponible
                 </span>
               </Label>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={handleDateSelect}
-                disabled={isDateDisabled}
-                fromDate={new Date()}
-                toDate={addDays(new Date(), 60)}
-                locale={es}
-                className="rounded-md border w-full max-w-full [&_.rdp-month]:w-full"
-                modifiers={{
-                  available: getDaysWithAvailability(),
-                }}
-                modifiersClassNames={{
-                  available: "bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 border border-emerald-200",
-                }}
-              />
+              <div className="flex justify-center lg:justify-start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateSelect}
+                  disabled={isDateDisabled}
+                  fromDate={new Date()}
+                  toDate={addDays(new Date(), 60)}
+                  locale={es}
+                  className="rounded-md border w-full max-w-[320px] lg:max-w-[280px] [&_.rdp-month]:w-full"
+                  modifiers={{
+                    available: getDaysWithAvailability(),
+                  }}
+                  modifiersClassNames={{
+                    available: "bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 border border-emerald-200",
+                  }}
+                />
+              </div>
               {errors.date && (
                 <p className="mt-2 text-sm text-destructive">
                   {errors.date.message}
