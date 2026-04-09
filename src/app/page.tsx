@@ -12,6 +12,15 @@ import {
   ArrowRight,
   Sparkles,
   ChevronDown,
+  Scissors,
+  Heart,
+  Dumbbell,
+  Trophy,
+  GraduationCap,
+  Briefcase,
+  Stethoscope,
+  Camera,
+  Palette,
 } from "lucide-react";
 
 // FAQ Item Component
@@ -338,6 +347,75 @@ export default function HomePage() {
                   <span className="text-sm text-slate-500">(200+)</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Business Types Section */}
+      <section className="py-16 bg-white border-b border-slate-100 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+              Perfecto para tu tipo de negocio
+            </h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+              MyStack se adapta a cualquier negocio que trabaje con citas y reservas.
+            </p>
+          </div>
+        </div>
+          
+        {/* Marquee Animation */}
+        <div className="relative">
+          <div className="flex animate-marquee">
+            <div className="flex gap-4 pr-4">
+              <BusinessTypeChip icon={<Scissors className="w-5 h-5" />} name="Barberías" color="bg-amber-500" />
+              <BusinessTypeChip icon={<Sparkles className="w-5 h-5" />} name="Peluquerías" color="bg-pink-500" />
+              <BusinessTypeChip icon={<Heart className="w-5 h-5" />} name="Spa & Estética" color="bg-rose-400" />
+              <BusinessTypeChip icon={<Dumbbell className="w-5 h-5" />} name="Fitness" color="bg-orange-500" />
+              <BusinessTypeChip icon={<Trophy className="w-5 h-5" />} name="Canchas" color="bg-green-600" />
+              <BusinessTypeChip icon={<GraduationCap className="w-5 h-5" />} name="Educación" color="bg-indigo-500" />
+              <BusinessTypeChip icon={<Stethoscope className="w-5 h-5" />} name="Salud" color="bg-blue-500" />
+              <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-slate-600" />
+              <BusinessTypeChip icon={<Camera className="w-5 h-5" />} name="Fotografía" color="bg-purple-500" />
+              <BusinessTypeChip icon={<Palette className="w-5 h-5" />} name="Arte & Diseño" color="bg-fuchsia-500" />
+            </div>
+            {/* Duplicado para loop infinito */}
+            <div className="flex gap-4 pr-4">
+              <BusinessTypeChip icon={<Scissors className="w-5 h-5" />} name="Barberías" color="bg-amber-500" />
+              <BusinessTypeChip icon={<Sparkles className="w-5 h-5" />} name="Peluquerías" color="bg-pink-500" />
+              <BusinessTypeChip icon={<Heart className="w-5 h-5" />} name="Spa & Estética" color="bg-rose-400" />
+              <BusinessTypeChip icon={<Dumbbell className="w-5 h-5" />} name="Fitness" color="bg-orange-500" />
+              <BusinessTypeChip icon={<Trophy className="w-5 h-5" />} name="Canchas" color="bg-green-600" />
+              <BusinessTypeChip icon={<GraduationCap className="w-5 h-5" />} name="Educación" color="bg-indigo-500" />
+              <BusinessTypeChip icon={<Stethoscope className="w-5 h-5" />} name="Salud" color="bg-blue-500" />
+              <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-slate-600" />
+              <BusinessTypeChip icon={<Camera className="w-5 h-5" />} name="Fotografía" color="bg-purple-500" />
+              <BusinessTypeChip icon={<Palette className="w-5 h-5" />} name="Arte & Diseño" color="bg-fuchsia-500" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="py-16 bg-gradient-to-r from-slate-900 to-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
+            <div>
+              <div className="text-4xl sm:text-5xl font-bold text-white mb-2">-70%</div>
+              <div className="text-slate-400">Menos cancelaciones</div>
+            </div>
+            <div>
+              <div className="text-4xl sm:text-5xl font-bold text-white mb-2">5 min</div>
+              <div className="text-slate-400">Para configurar</div>
+            </div>
+            <div>
+              <div className="text-4xl sm:text-5xl font-bold text-white mb-2">100%</div>
+              <div className="text-slate-400">Gratis para empezar</div>
+            </div>
+            <div>
+              <div className="text-4xl sm:text-5xl font-bold text-white mb-2">24/7</div>
+              <div className="text-slate-400">Disponibilidad</div>
             </div>
           </div>
         </div>
@@ -761,5 +839,24 @@ function PricingCard({
         </Link>
       </CardContent>
     </Card>
+  );
+}
+
+function BusinessTypeChip({
+  icon,
+  name,
+  color,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-3 bg-white rounded-full border border-slate-200 shadow-sm whitespace-nowrap hover:shadow-md transition-shadow">
+      <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center text-white flex-shrink-0`}>
+        {icon}
+      </div>
+      <span className="font-medium text-slate-800">{name}</span>
+    </div>
   );
 }
