@@ -133,8 +133,8 @@ export default function AdminBusinessesPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={planFilter} onValueChange={(value) => {
-              setPlanFilter(value === "ALL" ? "" : value);
+            <Select value={planFilter || "ALL"} onValueChange={(value) => {
+              setPlanFilter(value === "ALL" ? "" : value || "");
               setCurrentPage(1);
             }}>
               <SelectTrigger className="w-40">
