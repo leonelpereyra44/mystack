@@ -1,4 +1,4 @@
-import { MercadoPagoConfig, PreApproval, PreApprovalPlan, Payment } from "mercadopago";
+import { MercadoPagoConfig, PreApproval, PreApprovalPlan, Payment, PaymentRefund } from "mercadopago";
 
 // Configuración del cliente de Mercado Pago
 const client = new MercadoPagoConfig({
@@ -9,6 +9,7 @@ const client = new MercadoPagoConfig({
 export const preApproval = new PreApproval(client);
 export const preApprovalPlan = new PreApprovalPlan(client);
 export const payment = new Payment(client);
+export const paymentRefund = new PaymentRefund(client);
 
 // Constantes de planes
 export const PLANS = {
@@ -136,9 +137,9 @@ export const REFUND_PERIOD_DAYS = 10;
 // Reembolsar un pago (para derecho de arrepentimiento)
 export async function refundPayment(paymentId: string) {
   try {
-    // Mercado Pago SDK v2 usa refund como método del recurso Payment
-    const response = await payment.refund({
-      id: paymentId,
+    // Mercado Pago SDK v2 usa PaymentRefund para reembolsos
+    const response = await paymentRefund.create({
+      payment_id: paymentId,
       body: {},
     });
 
