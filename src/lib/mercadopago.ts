@@ -129,3 +129,56 @@ export async function getSubscriptionStatus(subscriptionId: string) {
     };
   }
 }
+
+// Constante para el plazo de derecho de arrepentimiento (Ley 24.240)
+export const REFUND_PERIOD_DAYS = 10;
+
+// Reembolsar un pago (para derecho de arrepentimiento)
+export async function refundPayment(paymentId: string) {
+  try {
+    // Mercado Pago SDK v2 usa refund como método del recurso Payment
+    const response = await payment.refund({
+      id: paymentId,
+      body: {},
+    });
+
+    return {
+      success: true,
+      refundId: response.id,
+      status: response.status,
+      amount: response.amount,
+    };
+  } catch (error) {
+    console.error("Error refunding payment:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error al procesar el reembolso",
+    };
+  }
+}
+
+// Verificar si una suscripción es elegible para reembolso por arrepentimiento
+export function isEligibleForRefund(currentPeriodStart: Date | null | undefined): boolean {
+  if (!currentPeriodStart) return false;
+  
+  const now = new Date();
+  const startDate = new Date(currentPeriodStart);
+  const diffTime = now.getTime() - startDate.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+  
+  return diffDays <= REFUND_PERIOD_DAYS;
+}
+
+// Obtener días restantes para solicitar reembolso
+export function getDaysLeftForRefund(currentPeriodStart: Date | null | undefined): number {
+  if (!currentPeriodStart) return 0;
+  
+  const startDate = new Date(currentPeriodStart);
+  const deadline = new Date(startDate.getTime() + REFUND_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  
+  const diffTime = deadline.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return Math.max(0, diffDays);
+}

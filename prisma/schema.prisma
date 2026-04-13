@@ -275,10 +275,12 @@ model Subscription {
   mpCustomerId          String?            // ID del cliente en MP
   mpSubscriptionId      String?            // ID de la suscripción en MP
   mpPreapprovalId       String?            // ID del preapproval plan
+  lastPaymentId         String?            // ID del último pago (para reembolsos)
   
   currentPeriodStart    DateTime?
   currentPeriodEnd      DateTime?
   cancelledAt           DateTime?
+  refundedAt            DateTime?          // Fecha de reembolso (derecho arrepentimiento)
   
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt

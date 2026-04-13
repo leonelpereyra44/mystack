@@ -170,6 +170,7 @@ export async function POST(request: NextRequest) {
             data: {
               plan: "PRO",
               status: "ACTIVE",
+              lastPaymentId: paymentId.toString(), // Guardar para posibles reembolsos
               currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 días
             },
           });

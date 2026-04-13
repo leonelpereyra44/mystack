@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Check, Crown, AlertCircle, Zap } from "lucide-react";
+import { Loader2, Check, Crown, AlertCircle, Zap, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,12 @@ interface SubscriptionData {
   };
 }
 
+interface RefundEligibility {
+  eligible: boolean;
+  daysLeft?: number;
+  reason?: string;
+}
+
 const PRO_FEATURES = [
   "Staff ilimitado",
   "Reservas ilimitadas",
@@ -60,6 +66,9 @@ export function SubscriptionCard() {
   const [upgrading, setUpgrading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [refundEligibility, setRefundEligibility] = useState<RefundEligibility | null>(null);
+  const [refunding, setRefunding] = useState(false);
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
 
   // Mostrar mensaje según parámetros de URL (retorno de MP)
   useEffect(() => {
@@ -90,6 +99,27 @@ export function SubscriptionCard() {
     }
     fetchSubscription();
   }, []);
+
+  // Verificar elegibilidad para reembolso cuando es PRO
+  useEffect(() => {
+    async function checkRefundEligibility() {
+      if (data?.subscription.plan !== "PRO" || data?.subscription.status !== "ACTIVE") {
+        return;
+      }
+      try {
+        const response = await fetch("/api/subscription/refund");
+        if (response.ok) {
+          const eligibility = await response.json();
+          setRefundEligibility(eligibility);
+        }
+      } catch (error) {
+        console.error("Error checking refund eligibility:", error);
+      }
+    }
+    if (data) {
+      checkRefundEligibility();
+    }
+  }, [data]);
 
   const handleUpgrade = async () => {
     setUpgrading(true);
@@ -136,6 +166,31 @@ export function SubscriptionCard() {
       toast.error("Error al procesar la solicitud");
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleRefund = async () => {
+    setRefunding(true);
+    try {
+      const response = await fetch("/api/subscription/refund", {
+        method: "POST",
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success(result.message || "Reembolso procesado correctamente");
+        setShowRefundDialog(false);
+        // Recargar datos
+        window.location.reload();
+      } else {
+        toast.error(result.error || "Error al procesar el reembolso");
+      }
+    } catch (error) {
+      console.error("Error refunding:", error);
+      toast.error("Error al procesar la solicitud");
+    } finally {
+      setRefunding(false);
     }
   };
 
@@ -222,24 +277,50 @@ export function SubscriptionCard() {
 
           {/* Precio y acción */}
           {isPro ? (
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div>
-                <p className="font-semibold">
-                  $15.000 <span className="text-muted-foreground font-normal">/mes</span>
-                </p>
-                {data.subscription.currentPeriodEnd && (
-                  <p className="text-sm text-muted-foreground">
-                    Próximo cobro: {new Date(data.subscription.currentPeriodEnd).toLocaleDateString("es-AR")}
+            <div className="space-y-4 pt-4 border-t">
+              {/* Banner de derecho de arrepentimiento */}
+              {refundEligibility?.eligible && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                  <RotateCcw className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <div className="flex-1 text-sm">
+                    <p className="font-medium text-blue-900 dark:text-blue-100">
+                      Derecho de arrepentimiento disponible
+                    </p>
+                    <p className="text-blue-700 dark:text-blue-300">
+                      Te quedan {refundEligibility.daysLeft} días para solicitar un reembolso completo 
+                      (Ley 24.240)
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowRefundDialog(true)}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900"
+                  >
+                    Solicitar reembolso
+                  </Button>
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold">
+                    $15.000 <span className="text-muted-foreground font-normal">/mes</span>
                   </p>
-                )}
+                  {data.subscription.currentPeriodEnd && (
+                    <p className="text-sm text-muted-foreground">
+                      Próximo cobro: {new Date(data.subscription.currentPeriodEnd).toLocaleDateString("es-AR")}
+                    </p>
+                  )}
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowCancelDialog(true)}
+                  disabled={data.subscription.status === "CANCELLED"}
+                >
+                  {data.subscription.status === "CANCELLED" ? "Cancelado" : "Cancelar plan"}
+                </Button>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowCancelDialog(true)}
-                disabled={data.subscription.status === "CANCELLED"}
-              >
-                {data.subscription.status === "CANCELLED" ? "Cancelado" : "Cancelar plan"}
-              </Button>
             </div>
           ) : (
             <div className="rounded-lg border-2 border-dashed border-[oklch(0.65_0.14_175)]/30 p-4 bg-[oklch(0.65_0.14_175)]/5">
@@ -317,6 +398,56 @@ export function SubscriptionCard() {
                 </>
               ) : (
                 "Sí, cancelar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de confirmación de reembolso */}
+      <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-blue-600" />
+              Solicitar reembolso
+            </DialogTitle>
+            <DialogDescription>
+              Estás ejerciendo tu derecho de arrepentimiento conforme a la Ley 24.240 de Defensa del Consumidor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg bg-muted p-4 space-y-2">
+              <p className="text-sm font-medium">Al confirmar:</p>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                <li>• Se reembolsará el pago de $15.000</li>
+                <li>• Tu plan volverá a ser Gratuito inmediatamente</li>
+                <li>• El reembolso se acreditará en tu método de pago original en 5-10 días hábiles</li>
+              </ul>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Esta acción no se puede deshacer. Perderás acceso inmediato a las funciones del Plan Profesional.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRefundDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleRefund}
+              disabled={refunding}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {refunding ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Confirmar reembolso
+                </>
               )}
             </Button>
           </DialogFooter>

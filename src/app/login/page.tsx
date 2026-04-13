@@ -83,7 +83,15 @@ function LoginForm() {
         return;
       }
 
-      router.push("/dashboard");
+      // Verificar rol del usuario para redirigir correctamente
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
+      
+      if (session?.user?.role === "ADMIN") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
       router.refresh();
     } catch {
       setError("Ocurrió un error. Intenta de nuevo.");
