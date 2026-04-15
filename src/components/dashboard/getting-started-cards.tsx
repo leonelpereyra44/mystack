@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Briefcase,
   Users,
@@ -93,11 +92,12 @@ export function GettingStartedCards({
                 <p className="text-sm text-muted-foreground mt-1">
                   Revisa y gestiona las citas del día
                 </p>
-                <Button asChild variant="link" className="px-0 mt-2">
-                  <Link href="/dashboard/appointments">
-                    Ir a turnos <ArrowRight className="ml-1 h-4 w-4" />
-                  </Link>
-                </Button>
+                <Link 
+                  href="/dashboard/appointments"
+                  className="inline-flex items-center text-sm text-primary hover:underline underline-offset-4 mt-2"
+                >
+                  Ir a turnos <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
               </div>
             </div>
           </CardContent>
@@ -114,9 +114,8 @@ export function GettingStartedCards({
                 <p className="text-sm text-muted-foreground mt-1">
                   Envía tu link de reservas a clientes
                 </p>
-                <Button
-                  variant="link"
-                  className="px-0 mt-2"
+                <button
+                  className="inline-flex items-center text-sm text-primary hover:underline underline-offset-4 mt-2"
                   onClick={() => {
                     navigator.clipboard.writeText(
                       `${window.location.origin}/${businessSlug}`
@@ -124,7 +123,7 @@ export function GettingStartedCards({
                   }}
                 >
                   Copiar link <ExternalLink className="ml-1 h-4 w-4" />
-                </Button>
+                </button>
               </div>
             </div>
           </CardContent>
