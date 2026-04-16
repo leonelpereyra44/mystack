@@ -132,27 +132,21 @@ export function MobileNav({ business, user }: MobileNavProps) {
               <HelpCircle className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">¿Necesitas ayuda?</span>
             </div>
-            <div className="flex flex-col gap-2">
-              <SheetClose
-                nativeButton={false}
-                render={
-                  <Link
-                    href="/contacto"
-                    className="flex items-center gap-2 text-xs text-primary hover:underline"
-                  >
-                    <Mail className="h-3 w-3" />
-                    Formulario de contacto
-                  </Link>
-                }
-              />
-              <a
-                href="mailto:contacto@mystack.com.ar"
-                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary"
-              >
-                <Mail className="h-3 w-3" />
-                contacto@mystack.com.ar
-              </a>
-            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Contacta con nuestro equipo de soporte
+            </p>
+            <SheetClose
+              nativeButton={false}
+              render={
+                <Link
+                  href="/contacto"
+                  className="inline-flex items-center gap-2 text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors"
+                >
+                  <Mail className="h-3 w-3" />
+                  Formulario de contacto
+                </Link>
+              }
+            />
           </div>
         </div>
 
