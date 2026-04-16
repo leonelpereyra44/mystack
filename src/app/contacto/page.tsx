@@ -36,7 +36,6 @@ const contactCategories = [
   { value: "support", label: "Soporte técnico", icon: Headphones },
   { value: "billing", label: "Facturación", icon: CreditCard },
   { value: "feature", label: "Sugerencia", icon: Lightbulb },
-  { value: "bug", label: "Reportar bug", icon: Bug },
   { value: "other", label: "Otro", icon: MessageSquare },
 ];
 

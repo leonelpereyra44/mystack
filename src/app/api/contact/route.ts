@@ -22,9 +22,9 @@ const categoryLabels: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
-    // Rate limiting: máximo 5 mensajes por hora por IP
+    // Rate limiting por IP
     const ip = request.headers.get("x-forwarded-for") || "unknown";
-    const rateLimitResult = await rateLimit(`contact:${ip}`, 5, 60 * 60);
+    const rateLimitResult = await rateLimit(`contact:${ip}`);
     
     if (!rateLimitResult.success) {
       return NextResponse.json(
