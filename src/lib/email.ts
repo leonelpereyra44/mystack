@@ -134,3 +134,111 @@ export async function sendAppointmentCancellation(data: AppointmentEmailData) {
     return { success: false, error };
   }
 }
+
+interface ContactEmailData {
+  name: string;
+  email: string;
+  category: string;
+  subject: string;
+  message: string;
+}
+
+export async function sendContactEmail(data: ContactEmailData) {
+  const contactEmail = "contacto@mystack.com.ar";
+  
+  try {
+    // Enviar email al equipo de soporte
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM || "MyStack <noreply@mystack.app>",
+      to: contactEmail,
+      replyTo: data.email,
+      subject: `[${data.category}] ${data.subject}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">Nuevo mensaje de contacto</h1>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 30px 20px; border-radius: 0 0 10px 10px;">
+              <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;">
+                <p style="margin: 8px 0;"><strong>👤 Nombre:</strong> ${data.name}</p>
+                <p style="margin: 8px 0;"><strong>📧 Email:</strong> <a href="mailto:${data.email}">${data.email}</a></p>
+                <p style="margin: 8px 0;"><strong>📂 Categoría:</strong> ${data.category}</p>
+                <p style="margin: 8px 0;"><strong>📋 Asunto:</strong> ${data.subject}</p>
+              </div>
+              
+              <div style="background: white; padding: 20px; border-radius: 8px;">
+                <h3 style="margin-top: 0; color: #333;">Mensaje:</h3>
+                <p style="white-space: pre-wrap; color: #555;">${data.message}</p>
+              </div>
+              
+              <p style="font-size: 14px; color: #666; margin-top: 20px; text-align: center;">
+                Responde directamente a este email para contactar al usuario.
+              </p>
+            </div>
+            
+            <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+              <p>MyStack - Sistema de Reservas Online</p>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    // Enviar confirmación al usuario
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM || "MyStack <noreply@mystack.app>",
+      to: data.email,
+      subject: `Recibimos tu mensaje - MyStack`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #12b5a2 0%, #0ea5e9 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">¡Mensaje recibido!</h1>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 30px 20px; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px;">Hola <strong>${data.name}</strong>,</p>
+              
+              <p>Gracias por contactarnos. Hemos recibido tu mensaje y nuestro equipo lo revisará pronto.</p>
+              
+              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #12b5a2;">
+                <p style="margin: 8px 0;"><strong>📂 Categoría:</strong> ${data.category}</p>
+                <p style="margin: 8px 0;"><strong>📋 Asunto:</strong> ${data.subject}</p>
+              </div>
+              
+              <p style="font-size: 14px; color: #666;">
+                Generalmente respondemos en un plazo de 24-48 horas hábiles. Si tu consulta es urgente, 
+                puedes escribirnos directamente a <a href="mailto:contacto@mystack.com.ar">contacto@mystack.com.ar</a>.
+              </p>
+              
+              <p style="font-size: 14px; color: #666; margin-top: 20px;">
+                ¡Gracias por confiar en MyStack! 😊
+              </p>
+            </div>
+            
+            <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+              <p>MyStack - Sistema de Reservas Online</p>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error sending contact email:", error);
+    return { success: false, error };
+  }
+}

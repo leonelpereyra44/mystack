@@ -77,10 +77,10 @@ export default function LegalLayout({
                   Si tienes dudas sobre nuestras políticas, contáctanos.
                 </p>
                 <a 
-                  href="mailto:soporte@mystack.com"
+                  href="mailto:contacto@mystack.com.ar"
                   className="text-xs text-primary hover:underline"
                 >
-                  soporte@mystack.com
+                  contacto@mystack.com.ar
                 </a>
               </div>
             </div>

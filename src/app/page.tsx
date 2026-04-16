@@ -679,7 +679,16 @@ export default function HomePage() {
             <div>
               <h4 className="font-semibold text-slate-900 mb-4">Contacto</h4>
               <ul className="space-y-2 text-sm text-slate-600">
-                <li>soporte@mystack.com</li>
+                <li>
+                  <a href="mailto:contacto@mystack.com.ar" className="hover:text-[oklch(0.65_0.14_175)]">
+                    contacto@mystack.com.ar
+                  </a>
+                </li>
+                <li>
+                  <Link href="/contacto" className="hover:text-[oklch(0.65_0.14_175)]">
+                    Formulario de Contacto
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

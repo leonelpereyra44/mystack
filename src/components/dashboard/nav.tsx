@@ -14,6 +14,8 @@ import {
   LogOut,
   ExternalLink,
   BarChart3,
+  HelpCircle,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -108,6 +110,35 @@ export function DashboardNav({ business, user }: DashboardNavProps) {
           );
         })}
       </nav>
+
+      {/* Help Section */}
+      <div className="border-t p-4">
+        <div className="rounded-lg bg-muted/50 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">¿Necesitas ayuda?</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Contacta con nuestro equipo de soporte
+          </p>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/contacto"
+              className="flex items-center gap-2 text-xs text-primary hover:underline"
+            >
+              <Mail className="h-3 w-3" />
+              Formulario de contacto
+            </Link>
+            <a
+              href="mailto:contacto@mystack.com.ar"
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary"
+            >
+              <Mail className="h-3 w-3" />
+              contacto@mystack.com.ar
+            </a>
+          </div>
+        </div>
+      </div>
 
       {/* User Menu */}
       <div className="border-t p-4">
