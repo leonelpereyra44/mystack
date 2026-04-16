@@ -105,6 +105,7 @@ export function MobileNav({ business, user }: MobileNavProps) {
             return (
               <SheetClose
                 key={item.href}
+                nativeButton={false}
                 render={
                   <Link
                     href={item.href}
@@ -133,6 +134,7 @@ export function MobileNav({ business, user }: MobileNavProps) {
             </div>
             <div className="flex flex-col gap-2">
               <SheetClose
+                nativeButton={false}
                 render={
                   <Link
                     href="/contacto"
