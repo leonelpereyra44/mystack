@@ -5,6 +5,8 @@ import { Calendar, Clock, Users, TrendingUp } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { LimitWarningBanner } from "@/components/dashboard/limit-warning-banner";
+import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
+import { GettingStartedCards } from "@/components/dashboard/getting-started-cards";
 import { PLAN_LIMITS } from "@/lib/plan-limits";
 
 // Helper para parsear fecha UTC correctamente
@@ -22,6 +24,7 @@ export default async function DashboardPage() {
       services: true,
       staff: true,
       subscription: true,
+      schedules: true,
       appointments: {
         where: {
           date: {
@@ -64,6 +67,13 @@ export default async function DashboardPage() {
     (a) => a.status !== "CANCELLED"
   ).length;
 
+  // Datos para onboarding
+  const hasServices = business.services.length > 0;
+  const hasStaff = business.staff.length > 0;
+  const hasSchedule = business.schedules.some((s) => s.isOpen);
+  const hasLogo = !!business.logo;
+  const isNewBusiness = !hasServices || !hasStaff || !hasSchedule;
+
   const stats = {
     todayCount: todayAppointments.length,
     monthCount: monthReservations,
@@ -85,6 +95,25 @@ export default async function DashboardPage() {
         currentReservations={monthReservations}
         maxReservations={limits.maxReservationsPerMonth}
         plan={plan}
+      />
+
+      {/* Onboarding Checklist - solo para negocios nuevos */}
+      {isNewBusiness && (
+        <OnboardingChecklist
+          businessSlug={business.slug}
+          hasServices={hasServices}
+          hasStaff={hasStaff}
+          hasSchedule={hasSchedule}
+          hasLogo={hasLogo}
+        />
+      )}
+
+      {/* Getting Started Cards */}
+      <GettingStartedCards
+        businessSlug={business.slug}
+        hasServices={hasServices}
+        hasStaff={hasStaff}
+        hasSchedule={hasSchedule}
       />
 
       {/* Stats */}
