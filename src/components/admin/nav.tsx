@@ -63,7 +63,7 @@ export function AdminNav({ user }: AdminNavProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r bg-card">
+    <div className="hidden md:flex h-screen w-64 flex-col border-r bg-card">
       {/* Header */}
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-red-500 to-orange-500">

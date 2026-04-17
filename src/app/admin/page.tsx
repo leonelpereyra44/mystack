@@ -151,14 +151,14 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Panel de Administración</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl md:text-3xl font-bold">Panel de Administración</h1>
+        <p className="text-muted-foreground text-sm md:text-base">
           Resumen general de MyStack
         </p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
         {statCards.map((stat, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -181,14 +181,14 @@ export default function AdminDashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Users */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div>
-              <CardTitle>Usuarios Recientes</CardTitle>
-              <CardDescription>Últimos registros</CardDescription>
+              <CardTitle className="text-base md:text-lg">Usuarios Recientes</CardTitle>
+              <CardDescription className="text-xs md:text-sm">Últimos registros</CardDescription>
             </div>
             <Link 
               href="/admin/users"
-              className="text-sm text-primary hover:underline flex items-center gap-1"
+              className="text-xs md:text-sm text-primary hover:underline flex items-center gap-1"
             >
               Ver todos <ArrowUpRight className="h-3 w-3" />
             </Link>
@@ -227,14 +227,14 @@ export default function AdminDashboard() {
 
         {/* Recent Businesses */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div>
-              <CardTitle>Negocios Recientes</CardTitle>
-              <CardDescription>Últimos registros</CardDescription>
+              <CardTitle className="text-base md:text-lg">Negocios Recientes</CardTitle>
+              <CardDescription className="text-xs md:text-sm">Últimos registros</CardDescription>
             </div>
             <Link 
               href="/admin/businesses"
-              className="text-sm text-primary hover:underline flex items-center gap-1"
+              className="text-xs md:text-sm text-primary hover:underline flex items-center gap-1"
             >
               Ver todos <ArrowUpRight className="h-3 w-3" />
             </Link>
