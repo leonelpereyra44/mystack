@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { CalendarIcon, Loader2, Plus } from "lucide-react";
@@ -74,6 +74,8 @@ export function NewAppointmentModal({
   const [showCalendar, setShowCalendar] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [daysAvailability, setDaysAvailability] = useState<Record<string, { hasSlots: boolean; slotsCount: number }>>({});
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
 
   const {
     register,
@@ -97,6 +99,55 @@ export function NewAppointmentModal({
   // Obtener el servicio seleccionado para mostrar su nombre
   const selectedService = services.find(s => s.id === selectedServiceId);
   const selectedStaff = staff.find(s => s.id === selectedStaffId);
+
+  // Cargar disponibilidad mensual cuando cambia servicio o staff
+  const loadMonthAvailability = useCallback(async () => {
+    if (!selectedServiceId) {
+      setDaysAvailability({});
+      return;
+    }
+    setLoadingAvailability(true);
+    try {
+      const params = new URLSearchParams({
+        businessId,
+        serviceId: selectedServiceId,
+        days: "90",
+      });
+      if (selectedStaffId) params.append("staffId", selectedStaffId);
+      const response = await fetch(`/api/appointments/availability?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDaysAvailability(data.availability || {});
+      }
+    } catch (error) {
+      console.error("Error loading availability:", error);
+    } finally {
+      setLoadingAvailability(false);
+    }
+  }, [businessId, selectedServiceId, selectedStaffId]);
+
+  useEffect(() => {
+    if (open && selectedServiceId) {
+      loadMonthAvailability();
+    }
+  }, [open, selectedServiceId, selectedStaffId, loadMonthAvailability]);
+
+  const isDateDisabled = (date: Date) => {
+    if (isBefore(date, startOfDay(new Date()))) return true;
+    const dateKey = format(date, "yyyy-MM-dd");
+    if (daysAvailability[dateKey] !== undefined) {
+      return !daysAvailability[dateKey].hasSlots;
+    }
+    return false;
+  };
+
+  const daysWithAvailability = useMemo(
+    () =>
+      Object.entries(daysAvailability)
+        .filter(([, info]) => info.hasSlots)
+        .map(([dateStr]) => new Date(dateStr + "T12:00:00")),
+    [daysAvailability]
+  );
 
   // Cargar horarios disponibles cuando cambia fecha, servicio o staff
   const loadAvailableSlots = useCallback(async () => {
@@ -274,6 +325,12 @@ export function NewAppointmentModal({
             </Button>
             {showCalendar && (
               <div className="rounded-md border p-3">
+                {loadingAvailability && (
+                  <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Cargando disponibilidad...
+                  </div>
+                )}
                 <Calendar
                   mode="single"
                   selected={selectedDate}
@@ -284,8 +341,16 @@ export function NewAppointmentModal({
                     }
                   }}
                   locale={es}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  disabled={isDateDisabled}
+                  modifiers={{ available: daysWithAvailability }}
+                  modifiersClassNames={{
+                    available: "bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 border border-emerald-200",
+                  }}
                 />
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                  Días con disponibilidad
+                </p>
               </div>
             )}
             {errors.date && (
