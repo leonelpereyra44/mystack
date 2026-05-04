@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { addMinutes, format } from "date-fns";
+import { addMinutes, format, isToday } from "date-fns";
 import { es } from "date-fns/locale";
-import { sendAppointmentConfirmation } from "@/lib/email";
-import { notifyNewAppointment, checkAndNotifyReservationLimit } from "@/lib/notifications";
+import { sendAppointmentPendingConfirmation } from "@/lib/email";
+import { notifyNewAppointmentPending, checkAndNotifyReservationLimit } from "@/lib/notifications";
 import { parseDateString } from "@/lib/utils";
 import { canCreateReservation } from "@/lib/plan-limits";
 import { checkRateLimit } from "@/lib/rate-limit";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
   try {
@@ -165,6 +166,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // Create appointment with PENDING status + confirmation token
+    const confirmationToken = crypto.randomBytes(32).toString("hex");
+    const isSameDay = isToday(appointmentDate);
+    const expiresInMinutes = isSameDay ? 15 : 60;
+    const tokenExpiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+
     // Create appointment
     const appointment = await prisma.appointment.create({
       data: {
@@ -179,7 +186,9 @@ export async function POST(request: Request) {
         customerPhone: customerPhone || null,
         notes: notes || null,
         extraData: extraData || null,
-        status: "CONFIRMED",
+        status: "PENDING",
+        confirmationToken,
+        tokenExpiresAt,
       },
       include: {
         service: true,
@@ -188,8 +197,8 @@ export async function POST(request: Request) {
       },
     });
 
-    // Send confirmation email (non-blocking)
-    sendAppointmentConfirmation({
+    // Send pending confirmation email (non-blocking)
+    sendAppointmentPendingConfirmation({
       customerName,
       customerEmail,
       businessName: appointment.business.name,
@@ -201,10 +210,12 @@ export async function POST(request: Request) {
       appointmentId: appointment.id,
       businessAddress: appointment.business.address || undefined,
       businessPhone: appointment.business.phone || undefined,
+      confirmationToken,
+      expiresInMinutes,
     }).catch(console.error);
 
-    // Send push notification to business owner (non-blocking)
-    notifyNewAppointment(
+    // Notify business owner of pending reservation (non-blocking)
+    notifyNewAppointmentPending(
       appointment.business.ownerId,
       customerName,
       appointment.service.name,
@@ -224,7 +235,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        message: "Reserva creada exitosamente",
+        message: "Solicitud de reserva creada. Revisá tu email para confirmar.",
+        status: "PENDING",
+        expiresInMinutes,
         appointment: {
           id: appointment.id,
           date: format(appointmentDate, "yyyy-MM-dd"),

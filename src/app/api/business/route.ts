@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { isReservedSlug, RESERVED_SLUG_ERROR } from "@/lib/reserved-slugs";
 
 function generateSlug(name: string): string {
   return name
@@ -56,6 +57,15 @@ export async function PATCH(request: Request) {
     // If name is changing, check slug availability
     if (name !== undefined) {
       const newSlug = generateSlug(name);
+
+      // Check reserved slugs first
+      if (isReservedSlug(newSlug)) {
+        return NextResponse.json(
+          { error: "slug_reserved", message: RESERVED_SLUG_ERROR },
+          { status: 409 }
+        );
+      }
+
       const taken = await isSlugTaken(newSlug, business.id);
       if (taken) {
         return NextResponse.json(

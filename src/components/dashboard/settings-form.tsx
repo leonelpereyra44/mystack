@@ -270,7 +270,12 @@ export function SettingsForm({ business }: SettingsFormProps) {
         router.refresh();
       } else {
         const err = await response.json();
-        if (err.error === "slug_taken") {
+        if (err.error === "slug_reserved") {
+          toast.error(
+            err.message ?? "Este nombre genera una URL reservada. Por favor usá un nombre más específico.",
+            { duration: 8000 }
+          );
+        } else if (err.error === "slug_taken") {
           toast.error(
             `La URL "/${err.slug}" ya está en uso por otro negocio. Probá con un nombre diferente, por ejemplo agregando tu ciudad o apellido.`,
             { duration: 6000 }

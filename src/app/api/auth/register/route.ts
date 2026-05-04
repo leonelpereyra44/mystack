@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isReservedSlug, RESERVED_SLUG_ERROR } from "@/lib/reserved-slugs";
 
 function generateSlug(name: string): string {
   return name
@@ -45,6 +46,15 @@ export async function POST(request: Request) {
 
     // Generate unique slug for business
     let slug = generateSlug(businessName);
+
+    // Block reserved slugs before attempting any DB lookup
+    if (isReservedSlug(slug)) {
+      return NextResponse.json(
+        { error: RESERVED_SLUG_ERROR },
+        { status: 400 }
+      );
+    }
+
     let slugExists = await prisma.business.findUnique({ where: { slug } });
     let counter = 1;
 

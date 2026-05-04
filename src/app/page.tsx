@@ -626,8 +626,8 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="bg-slate-50 border-t border-slate-200 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
+            <div className="sm:col-span-2 lg:col-span-1">
               <Link href="/" className="flex items-center gap-2 mb-4">
                 <Image
                   src="/mystacklogosinfondo.png"
@@ -652,6 +652,19 @@ export default function HomePage() {
                 <li><Link href="#pricing" className="hover:text-[oklch(0.65_0.14_175)]">Precios</Link></li>
                 <li><Link href="#faq" className="hover:text-[oklch(0.65_0.14_175)]">Preguntas Frecuentes</Link></li>
                 <li><Link href="/register" className="hover:text-[oklch(0.65_0.14_175)]">Registro</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-4">Para tu negocio</h4>
+              <ul className="space-y-2 text-sm text-slate-600">
+                <li><Link href="/para/barberias" className="hover:text-[oklch(0.65_0.14_175)]">Barberías</Link></li>
+                <li><Link href="/para/peluquerias" className="hover:text-[oklch(0.65_0.14_175)]">Peluquerías</Link></li>
+                <li><Link href="/para/spa-estetica" className="hover:text-[oklch(0.65_0.14_175)]">Spa & Estética</Link></li>
+                <li><Link href="/para/canchas-deportes" className="hover:text-[oklch(0.65_0.14_175)]">Canchas & Deportes</Link></li>
+                <li><Link href="/para/educacion-clases" className="hover:text-[oklch(0.65_0.14_175)]">Educación & Clases</Link></li>
+                <li><Link href="/para/fotografia" className="hover:text-[oklch(0.65_0.14_175)]">Fotografía</Link></li>
+                <li><Link href="/para/musica" className="hover:text-[oklch(0.65_0.14_175)]">Música & Estudios</Link></li>
+                <li><Link href="/para/consultoria" className="hover:text-[oklch(0.65_0.14_175)]">Consultoría</Link></li>
               </ul>
             </div>
             <div>

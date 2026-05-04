@@ -115,6 +115,7 @@ export function BookingForm({
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [expiresInMinutes, setExpiresInMinutes] = useState<number>(60);
   const [appointmentData, setAppointmentData] = useState<AppointmentData | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -338,6 +339,7 @@ export function BookingForm({
       if (response.ok) {
         const data = await response.json();
         setAppointmentData(data.appointment);
+        setExpiresInMinutes(data.expiresInMinutes ?? 60);
         setIsSuccess(true);
       } else {
         const errorData = await response.json();
@@ -449,11 +451,11 @@ export function BookingForm({
     return (
       <Card className="overflow-hidden">
         {/* Success Header */}
-        <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 text-center text-white">
-          <CheckCircle className="mx-auto h-16 w-16" />
-          <h2 className="mt-4 text-2xl font-bold">¡{terminology.appointment} Confirmado!</h2>
-          <p className="mt-2 text-green-100">
-            Te enviamos un email de confirmación a {appointmentData.customer.email}
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-center text-white">
+          <Mail className="mx-auto h-16 w-16" />
+          <h2 className="mt-4 text-2xl font-bold">¡Ya casi! Revisá tu email</h2>
+          <p className="mt-2 text-amber-100">
+            Enviamos un link de confirmación a {appointmentData.customer.email}
           </p>
         </div>
         
@@ -527,7 +529,7 @@ export function BookingForm({
               <div className="flex items-center gap-3">
                 <Mail className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Confirmación enviada a</p>
+                  <p className="text-sm text-muted-foreground">Link de confirmación enviado a</p>
                   <p className="font-medium">{appointmentData.customer.email}</p>
                 </div>
               </div>
@@ -535,14 +537,6 @@ export function BookingForm({
             
             {/* Actions */}
             <div className="space-y-3 pt-4">
-              <Button 
-                className="w-full gap-2" 
-                onClick={() => window.open(generateGoogleCalendarUrl(), "_blank")}
-              >
-                <CalendarPlus className="h-4 w-4" />
-                Agregar a Google Calendar
-              </Button>
-              
               <Button 
                 variant="outline" 
                 className="w-full"
@@ -560,8 +554,8 @@ export function BookingForm({
             {/* Important Notes */}
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 mt-4">
               <p className="text-sm text-amber-800">
-                <strong>Importante:</strong> Si necesitas cancelar o modificar tu turno, 
-                utiliza el enlace que te enviamos por email.
+                <strong>Importante:</strong> Tenés <strong>{expiresInMinutes} minutos</strong> para confirmar tu turno desde el email. 
+                Si no confirmás a tiempo, el horario se liberará automáticamente.
               </p>
             </div>
           </div>
@@ -574,10 +568,10 @@ export function BookingForm({
     return (
       <Card>
         <CardContent className="flex flex-col items-center py-12">
-          <CheckCircle className="h-16 w-16 text-green-500" />
-          <h3 className="mt-4 text-xl font-semibold">¡Reserva Confirmada!</h3>
+          <Mail className="h-16 w-16 text-amber-500" />
+          <h3 className="mt-4 text-xl font-semibold">¡Revisá tu email!</h3>
           <p className="mt-2 text-center text-muted-foreground">
-            Te hemos enviado un email de confirmación con los detalles de tu turno.
+            Te enviamos un link para confirmar tu turno. Tenés {expiresInMinutes} minutos para confirmarlo.
           </p>
           <Button className="mt-6" onClick={() => window.location.reload()}>
             Hacer otra reserva

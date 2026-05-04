@@ -85,6 +85,78 @@ export async function sendAppointmentConfirmation(data: AppointmentEmailData) {
   }
 }
 
+interface PendingConfirmationEmailData extends AppointmentEmailData {
+  confirmationToken: string;
+  expiresInMinutes: number;
+}
+
+export async function sendAppointmentPendingConfirmation(data: PendingConfirmationEmailData) {
+  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "http://localhost:3000";
+  const confirmUrl = `${baseUrl}/appointments/${data.appointmentId}/confirm/${data.confirmationToken}`;
+
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM || "MyStack <noreply@mystack.app>",
+      to: data.customerEmail,
+      subject: `Confirmá tu turno en ${data.businessName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">¡Ya casi! Confirmá tu turno</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 15px;">Tenés ${data.expiresInMinutes} minutos para confirmar</p>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 30px 20px; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px;">Hola <strong>${data.customerName}</strong>,</p>
+              
+              <p>Recibimos tu solicitud de turno. Para confirmarlo, hacé clic en el botón de abajo.</p>
+              
+              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                <p style="margin: 8px 0;"><strong>📍 Negocio:</strong> ${data.businessName}</p>
+                <p style="margin: 8px 0;"><strong>💈 Servicio:</strong> ${data.serviceName}</p>
+                ${data.staffName ? `<p style="margin: 8px 0;"><strong>👤 Profesional:</strong> ${data.staffName}</p>` : ""}
+                <p style="margin: 8px 0;"><strong>📅 Fecha:</strong> ${data.date}</p>
+                <p style="margin: 8px 0;"><strong>🕐 Horario:</strong> ${data.startTime} - ${data.endTime}</p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${confirmUrl}" style="display: inline-block; background: linear-gradient(135deg, #12b5a2 0%, #0ea5e9 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 18px;">
+                  ✅ Confirmar mi turno
+                </a>
+              </div>
+              
+              <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px 16px; margin: 20px 0;">
+                <p style="margin: 0; font-size: 13px; color: #856404;">
+                  ⏰ Este enlace expira en <strong>${data.expiresInMinutes} minutos</strong>. Si no confirmás a tiempo, el turno se liberará automáticamente.
+                </p>
+              </div>
+              
+              <p style="font-size: 13px; color: #999; margin-top: 20px;">
+                Si no solicitaste este turno, podés ignorar este email.
+              </p>
+            </div>
+            
+            <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+              <p>Powered by MyStack - Sistema de Reservas Online</p>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error sending pending confirmation email:", error);
+    return { success: false, error };
+  }
+}
+
 export async function sendAppointmentCancellation(data: AppointmentEmailData) {
   try {
     const result = await resend.emails.send({

@@ -53,6 +53,22 @@ export async function notifyNewAppointment(
   });
 }
 
+export async function notifyNewAppointmentPending(
+  userId: string,
+  customerName: string,
+  serviceName: string,
+  date: string,
+  time: string
+) {
+  await createNotification({
+    userId,
+    type: "NEW_APPOINTMENT",
+    title: "Reserva pendiente de confirmación",
+    message: `${customerName} solicitó ${serviceName} para el ${date} a las ${time} — esperando confirmación`,
+    link: "/dashboard/appointments",
+  });
+}
+
 export async function notifyAppointmentCancelled(
   userId: string,
   customerName: string,

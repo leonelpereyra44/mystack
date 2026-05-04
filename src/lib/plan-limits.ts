@@ -53,6 +53,7 @@ export async function canCreateReservation(businessId: string): Promise<{
   const reservationsThisMonth = await prisma.appointment.count({
     where: {
       businessId,
+      status: { not: "CANCELLED" },
       createdAt: {
         gte: startOfMonth,
         lt: endOfMonth,
