@@ -88,7 +88,7 @@ model Business {
   slug        String   @unique // URL: /peluqueria-juan
   description String?  @db.Text
   logo        String?
-  businessType String  @default("store") // store, barbershop, salon, spa, gym, sports, medical, restaurant, other
+  businessType String  @default("salon") // salon, barbershop, spa, consulting, education, photography, music, sports
   phone       String?
   email       String?
   address     String?
@@ -241,6 +241,7 @@ model Appointment {
   
   status       AppointmentStatus @default(PENDING)
   notes        String?           @db.Text
+  extraData    Json?             // Campos adicionales según tipo de negocio (personas, vehículo, etc.)
   
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt

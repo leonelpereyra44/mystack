@@ -14,13 +14,11 @@ import {
   ChevronDown,
   Scissors,
   Heart,
-  Dumbbell,
   Trophy,
   GraduationCap,
   Briefcase,
-  Stethoscope,
   Camera,
-  Palette,
+  Music,
 } from "lucide-react";
 
 // FAQ Item Component
@@ -360,7 +358,7 @@ export default function HomePage() {
               Perfecto para tu tipo de negocio
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              MyStack se adapta a cualquier negocio que trabaje con citas y reservas.
+              Peluquerías, barberías, estudios de fotografía, canchas deportivas y más.
             </p>
           </div>
         </div>
@@ -372,26 +370,22 @@ export default function HomePage() {
               <BusinessTypeChip icon={<Scissors className="w-5 h-5" />} name="Barberías" color="bg-amber-500" />
               <BusinessTypeChip icon={<Sparkles className="w-5 h-5" />} name="Peluquerías" color="bg-pink-500" />
               <BusinessTypeChip icon={<Heart className="w-5 h-5" />} name="Spa & Estética" color="bg-rose-400" />
-              <BusinessTypeChip icon={<Dumbbell className="w-5 h-5" />} name="Fitness" color="bg-orange-500" />
               <BusinessTypeChip icon={<Trophy className="w-5 h-5" />} name="Canchas" color="bg-green-600" />
               <BusinessTypeChip icon={<GraduationCap className="w-5 h-5" />} name="Educación" color="bg-indigo-500" />
-              <BusinessTypeChip icon={<Stethoscope className="w-5 h-5" />} name="Salud" color="bg-blue-500" />
-              <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-slate-600" />
+              <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-cyan-600" />
               <BusinessTypeChip icon={<Camera className="w-5 h-5" />} name="Fotografía" color="bg-purple-500" />
-              <BusinessTypeChip icon={<Palette className="w-5 h-5" />} name="Arte & Diseño" color="bg-fuchsia-500" />
+              <BusinessTypeChip icon={<Music className="w-5 h-5" />} name="Música" color="bg-violet-500" />
             </div>
             {/* Duplicado para loop infinito */}
             <div className="flex gap-4 pr-4">
               <BusinessTypeChip icon={<Scissors className="w-5 h-5" />} name="Barberías" color="bg-amber-500" />
               <BusinessTypeChip icon={<Sparkles className="w-5 h-5" />} name="Peluquerías" color="bg-pink-500" />
               <BusinessTypeChip icon={<Heart className="w-5 h-5" />} name="Spa & Estética" color="bg-rose-400" />
-              <BusinessTypeChip icon={<Dumbbell className="w-5 h-5" />} name="Fitness" color="bg-orange-500" />
               <BusinessTypeChip icon={<Trophy className="w-5 h-5" />} name="Canchas" color="bg-green-600" />
               <BusinessTypeChip icon={<GraduationCap className="w-5 h-5" />} name="Educación" color="bg-indigo-500" />
-              <BusinessTypeChip icon={<Stethoscope className="w-5 h-5" />} name="Salud" color="bg-blue-500" />
-              <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-slate-600" />
+              <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-cyan-600" />
               <BusinessTypeChip icon={<Camera className="w-5 h-5" />} name="Fotografía" color="bg-purple-500" />
-              <BusinessTypeChip icon={<Palette className="w-5 h-5" />} name="Arte & Diseño" color="bg-fuchsia-500" />
+              <BusinessTypeChip icon={<Music className="w-5 h-5" />} name="Música" color="bg-violet-500" />
             </div>
           </div>
         </div>

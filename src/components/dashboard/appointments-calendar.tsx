@@ -363,8 +363,9 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
             return (
               <div
                 key={`content-${day.toISOString()}`}
+                onClick={() => setSelectedDayModal(day)}
                 className={cn(
-                  "min-h-[150px] border rounded-b-lg p-1 space-y-1 overflow-y-auto",
+                  "min-h-[150px] border rounded-b-lg p-1 space-y-1 overflow-y-auto cursor-pointer hover:bg-muted/30 transition-colors",
                   isToday(day) ? "border-primary bg-primary/5" : "bg-card"
                 )}
               >
@@ -373,7 +374,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
                   return (
                     <button
                       key={apt.id}
-                      onClick={() => setSelectedAppointment(apt)}
+                      onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                       className={cn(
                         "w-full text-left p-2 rounded text-xs hover:opacity-80 transition-opacity",
                         apt.status === "CANCELLED" ? "bg-muted opacity-50" : "bg-primary/10"
@@ -414,8 +415,9 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
             return (
               <div
                 key={day.toISOString()}
+                onClick={() => setSelectedDayModal(day)}
                 className={cn(
-                  "min-h-[100px] border rounded p-1",
+                  "min-h-[100px] border rounded p-1 cursor-pointer hover:bg-muted/30 transition-colors",
                   !isCurrentMonth && "opacity-40",
                   isToday(day) ? "border-primary bg-primary/5" : "bg-card"
                 )}
@@ -434,7 +436,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
                     return (
                       <button
                         key={apt.id}
-                        onClick={() => setSelectedAppointment(apt)}
+                        onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                         className={cn(
                           "w-full text-left text-xs p-1 rounded truncate hover:opacity-80",
                           apt.status === "CANCELLED" ? "bg-muted opacity-50" : "bg-primary/10"
@@ -617,7 +619,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
         </div>
       )}
 
-      {/* Modal de día seleccionado (Mobile) */}
+      {/* Modal de día seleccionado */}
       <Dialog open={!!selectedDayModal} onOpenChange={() => setSelectedDayModal(null)}>
         <DialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden flex flex-col">
           {selectedDayModal && (

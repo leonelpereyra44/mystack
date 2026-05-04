@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { CalendarIcon, Loader2, Plus } from "lucide-react";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
+import { type BusinessTerminology, getBusinessTerminology } from "@/lib/business-types";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ interface NewAppointmentModalProps {
   businessId: string;
   services: Service[];
   staff: Staff[];
+  terminology?: BusinessTerminology;
 }
 
 const appointmentSchema = z.object({
@@ -67,13 +69,17 @@ export function NewAppointmentModal({
   businessId,
   services,
   staff,
+  terminology: terminologyProp,
 }: NewAppointmentModalProps) {
   const router = useRouter();
+  const terminology = terminologyProp ?? getBusinessTerminology("salon");
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [daysAvailability, setDaysAvailability] = useState<Record<string, { hasSlots: boolean; slotsCount: number }>>({});
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
 
   const {
     register,
@@ -97,6 +103,55 @@ export function NewAppointmentModal({
   // Obtener el servicio seleccionado para mostrar su nombre
   const selectedService = services.find(s => s.id === selectedServiceId);
   const selectedStaff = staff.find(s => s.id === selectedStaffId);
+
+  // Cargar disponibilidad mensual cuando cambia servicio o staff
+  const loadMonthAvailability = useCallback(async () => {
+    if (!selectedServiceId) {
+      setDaysAvailability({});
+      return;
+    }
+    setLoadingAvailability(true);
+    try {
+      const params = new URLSearchParams({
+        businessId,
+        serviceId: selectedServiceId,
+        days: "90",
+      });
+      if (selectedStaffId) params.append("staffId", selectedStaffId);
+      const response = await fetch(`/api/appointments/availability?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDaysAvailability(data.availability || {});
+      }
+    } catch (error) {
+      console.error("Error loading availability:", error);
+    } finally {
+      setLoadingAvailability(false);
+    }
+  }, [businessId, selectedServiceId, selectedStaffId]);
+
+  useEffect(() => {
+    if (open && selectedServiceId) {
+      loadMonthAvailability();
+    }
+  }, [open, selectedServiceId, selectedStaffId, loadMonthAvailability]);
+
+  const isDateDisabled = (date: Date) => {
+    if (isBefore(date, startOfDay(new Date()))) return true;
+    const dateKey = format(date, "yyyy-MM-dd");
+    if (daysAvailability[dateKey] !== undefined) {
+      return !daysAvailability[dateKey].hasSlots;
+    }
+    return false;
+  };
+
+  const daysWithAvailability = useMemo(
+    () =>
+      Object.entries(daysAvailability)
+        .filter(([, info]) => info.hasSlots)
+        .map(([dateStr]) => new Date(dateStr + "T12:00:00")),
+    [daysAvailability]
+  );
 
   // Cargar horarios disponibles cuando cambia fecha, servicio o staff
   const loadAvailableSlots = useCallback(async () => {
@@ -168,13 +223,13 @@ export function NewAppointmentModal({
         throw new Error(error.error || "Error al crear el turno");
       }
 
-      toast.success("Turno creado correctamente");
+      toast.success(`${terminology.appointment} creado correctamente`);
       setOpen(false);
       reset();
       router.refresh();
     } catch (error) {
       console.error("Error creating appointment:", error);
-      toast.error(error instanceof Error ? error.message : "Error al crear el turno");
+      toast.error(error instanceof Error ? error.message : `Error al crear el ${terminology.appointment.toLowerCase()}`);
     } finally {
       setIsLoading(false);
     }
@@ -194,30 +249,30 @@ export function NewAppointmentModal({
         render={
           <Button>
             <Plus className="mr-2 h-4 w-4" />
-            Agregar turno
+            Agregar {terminology.appointment.toLowerCase()}
           </Button>
         }
       />
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Nuevo turno</DialogTitle>
+          <DialogTitle>{terminology.newAppointment}</DialogTitle>
           <DialogDescription>
-            Agenda un turno manualmente para un cliente
+            Agendá {terminology.appointment === "Clase" ? "una" : "un"} {terminology.appointment.toLowerCase()} manualmente para {terminology.appointment === "Clase" ? "un" : "un"} {terminology.client.toLowerCase()}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Servicio */}
           <div className="space-y-2">
-            <Label htmlFor="serviceId">Servicio *</Label>
+            <Label htmlFor="serviceId">{terminology.service} *</Label>
             <Select
               onValueChange={(value) => setValue("serviceId", value as string)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecciona un servicio">
+                <SelectValue placeholder={`Selecciona ${terminology.service === "Clase" ? "una" : "un"} ${terminology.service.toLowerCase()}`}>
                   {selectedService 
                     ? `${selectedService.name} - ${selectedService.duration} min - $${selectedService.price}`
-                    : "Selecciona un servicio"
+                    : `Selecciona ${terminology.service === "Clase" ? "una" : "un"} ${terminology.service.toLowerCase()}`
                   }
                 </SelectValue>
               </SelectTrigger>
@@ -274,6 +329,12 @@ export function NewAppointmentModal({
             </Button>
             {showCalendar && (
               <div className="rounded-md border p-3">
+                {loadingAvailability && (
+                  <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Cargando disponibilidad...
+                  </div>
+                )}
                 <Calendar
                   mode="single"
                   selected={selectedDate}
@@ -284,8 +345,16 @@ export function NewAppointmentModal({
                     }
                   }}
                   locale={es}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  disabled={isDateDisabled}
+                  modifiers={{ available: daysWithAvailability }}
+                  modifiersClassNames={{
+                    available: "bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 border border-emerald-200",
+                  }}
                 />
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                  Días con disponibilidad
+                </p>
               </div>
             )}
             {errors.date && (
@@ -332,7 +401,7 @@ export function NewAppointmentModal({
 
           <div className="border-t pt-4">
             <p className="mb-3 text-sm font-medium text-muted-foreground">
-              Datos del cliente
+              Datos del {terminology.client.toLowerCase()}
             </p>
 
             {/* Nombre */}
@@ -340,7 +409,7 @@ export function NewAppointmentModal({
               <Label htmlFor="customerName">Nombre *</Label>
               <Input
                 id="customerName"
-                placeholder="Nombre del cliente"
+                placeholder={`Nombre del ${terminology.client.toLowerCase()}`}
                 {...register("customerName")}
               />
               {errors.customerName && (
@@ -395,7 +464,7 @@ export function NewAppointmentModal({
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Crear turno
+              Crear {terminology.appointment.toLowerCase()}
             </Button>
           </DialogFooter>
         </form>

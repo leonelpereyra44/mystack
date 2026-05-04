@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { AppointmentsView } from "@/components/dashboard/appointments-view";
 import { NewAppointmentModal } from "@/components/dashboard/new-appointment-modal";
+import { getBusinessTerminology } from "@/lib/business-types";
 import { startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 
 const ITEMS_PER_PAGE = 10;
@@ -183,19 +184,22 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     price: Number(s.price),
   }));
 
+  const terminology = getBusinessTerminology(business.businessType);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Turnos</h1>
+          <h1 className="text-3xl font-bold">{terminology.appointments}</h1>
           <p className="text-muted-foreground">
-            Gestiona las reservas de tus clientes
+            Gestioná las {terminology.appointments.toLowerCase()} de tus {terminology.clients.toLowerCase()}
           </p>
         </div>
         <NewAppointmentModal
           businessId={business.id}
           services={services}
           staff={business.staff}
+          terminology={terminology}
         />
       </div>
 

@@ -24,6 +24,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { trackSignupConversion } from "@/components/analytics/google-analytics";
+import { BUSINESS_TYPES } from "@/lib/business-types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +116,7 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [step, setStep] = useState(1);
   const [passwordValue, setPasswordValue] = useState("");
+  const [businessType, setBusinessType] = useState("salon");
 
   const {
     register,
@@ -142,7 +144,7 @@ export default function RegisterPage() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, businessType }),
       });
 
       const result = await response.json();
@@ -171,9 +173,10 @@ export default function RegisterPage() {
     
     if (step === 1) {
       fieldsToValidate = ["name", "businessName"];
-    } else if (step === 2) {
+    } else if (step === 3) {
       fieldsToValidate = ["email"];
     }
+    // step 2 (business type) needs no validation
 
     const isValid = await trigger(fieldsToValidate);
     if (isValid) {
@@ -193,6 +196,9 @@ export default function RegisterPage() {
       return values.name?.length >= 2 && values.businessName?.length >= 2;
     }
     if (currentStep === 2) {
+      return true; // business type always has a valid default
+    }
+    if (currentStep === 3) {
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email || "");
     }
     return true;
@@ -272,7 +278,7 @@ export default function RegisterPage() {
           {/* Stepper */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
-              {[1, 2, 3].map((s) => (
+              {[1, 2, 3, 4].map((s) => (
                 <div key={s} className="flex items-center">
                   <div 
                     className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
@@ -285,8 +291,8 @@ export default function RegisterPage() {
                   >
                     {s < step ? <CheckCircle2 className="h-5 w-5" /> : s}
                   </div>
-                  {s < 3 && (
-                    <div className={`w-16 sm:w-24 h-1 mx-2 rounded-full transition-all duration-300 ${
+                  {s < 4 && (
+                    <div className={`w-8 sm:w-16 h-1 mx-2 rounded-full transition-all duration-300 ${
                       s < step ? "bg-green-500" : "bg-muted"
                     }`} />
                   )}
@@ -295,21 +301,24 @@ export default function RegisterPage() {
             </div>
             <div className="flex justify-between text-xs text-muted-foreground px-1">
               <span>Datos</span>
+              <span>Negocio</span>
               <span>Email</span>
               <span>Contraseña</span>
             </div>
           </div>
 
-          <div className="mb-6">
+            <div className="mb-6">
             <h2 className="text-2xl font-bold text-foreground">
               {step === 1 && "¡Empecemos!"}
-              {step === 2 && "Tu email"}
-              {step === 3 && "Crea tu contraseña"}
+              {step === 2 && "Tipo de negocio"}
+              {step === 3 && "Tu email"}
+              {step === 4 && "Crea tu contraseña"}
             </h2>
             <p className="text-muted-foreground mt-1">
               {step === 1 && "Cuéntanos sobre ti y tu negocio"}
-              {step === 2 && "Lo usarás para iniciar sesión"}
-              {step === 3 && "Elige una contraseña segura"}
+              {step === 2 && "Elegí el tipo que mejor represente lo que hacés"}
+              {step === 3 && "Lo usarás para iniciar sesión"}
+              {step === 4 && "Elegí una contraseña segura"}
             </p>
           </div>
 
@@ -361,8 +370,38 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Step 2: Email */}
+            {/* Step 2: Business Type */}
             <div className={`space-y-4 transition-all duration-300 ${step === 2 ? "block" : "hidden"}`}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {BUSINESS_TYPES.map((type) => {
+                  const Icon = type.icon;
+                  const isSelected = businessType === type.id;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setBusinessType(type.id)}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${type.color} text-white`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs text-center font-medium leading-tight">{type.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Podés cambiarlo después desde la configuración
+              </p>
+            </div>
+
+            {/* Step 3: Email */}
+            <div className={`space-y-4 transition-all duration-300 ${step === 3 ? "block" : "hidden"}`}>
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-muted-foreground" />
@@ -385,8 +424,8 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Step 3: Contraseñas */}
-            <div className={`space-y-4 transition-all duration-300 ${step === 3 ? "block" : "hidden"}`}>
+            {/* Step 4: Contraseñas */}
+            <div className={`space-y-4 transition-all duration-300 ${step === 4 ? "block" : "hidden"}`}>
               <div className="space-y-2">
                 <Label htmlFor="password" className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-muted-foreground" />
@@ -468,7 +507,7 @@ export default function RegisterPage() {
                 </Button>
               )}
               
-              {step < 3 ? (
+              {step < 4 ? (
                 <Button
                   type="button"
                   onClick={handleNextStep}

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { getBusinessType } from "@/lib/business-types";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ interface Schedule {
 interface ScheduleFormProps {
   schedules: Schedule[];
   businessId: string;
+  businessType?: string;
 }
 
 const DAYS = [
@@ -54,10 +56,30 @@ const TIME_OPTIONS = [
   "21:00", "21:30", "22:00", "22:30", "23:00",
 ];
 
-export function ScheduleForm({ schedules, businessId }: ScheduleFormProps) {
+export function ScheduleForm({ schedules, businessId, businessType = "salon" }: ScheduleFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [localSchedules, setLocalSchedules] = useState<Schedule[]>(schedules);
+
+  const typeConfig = getBusinessType(businessType);
+
+  const applyDefaultSchedule = () => {
+    setLocalSchedules((prev) =>
+      prev.map((s) => {
+        const def = typeConfig.defaultSchedule.find(
+          (d) => d.dayOfWeek === s.dayOfWeek
+        );
+        if (!def) return s;
+        return {
+          ...s,
+          isOpen: def.isOpen,
+          openTime: def.openTime,
+          closeTime: def.closeTime,
+        };
+      })
+    );
+    toast.info(`Horarios sugeridos para ${typeConfig.label} aplicados. Guardá los cambios para confirmar.`);
+  };
 
   const updateSchedule = (dayOfWeek: number, field: string, value: string | boolean) => {
     setLocalSchedules((prev) =>
@@ -94,10 +116,24 @@ export function ScheduleForm({ schedules, businessId }: ScheduleFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Horarios de Atención</CardTitle>
-        <CardDescription>
-          Define en qué horarios tu negocio está abierto para recibir reservas
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Horarios de Atención</CardTitle>
+            <CardDescription>
+              Define en qué horarios tu negocio está abierto para recibir reservas
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={applyDefaultSchedule}
+            className="shrink-0 gap-1.5"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Horarios sugeridos
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {DAYS.map((day, index) => {

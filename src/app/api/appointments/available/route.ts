@@ -200,18 +200,18 @@ export async function GET(request: Request) {
       return true;
     });
 
-    // Filter out past times if the date is today
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const selectedDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+    // Filtrar horarios pasados si la fecha seleccionada es hoy en Argentina (UTC-3)
+    const nowArg = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    const todayArgStr = `${nowArg.getUTCFullYear()}-${String(nowArg.getUTCMonth() + 1).padStart(2, "0")}-${String(nowArg.getUTCDate()).padStart(2, "0")}`;
+    const selectedDateStr = `${dateObj.getUTCFullYear()}-${String(dateObj.getUTCMonth() + 1).padStart(2, "0")}-${String(dateObj.getUTCDate()).padStart(2, "0")}`;
 
     let finalSlots = availableSlots;
 
-    if (selectedDate.getTime() === today.getTime()) {
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    if (selectedDateStr === todayArgStr) {
+      const currentMinutes = nowArg.getUTCHours() * 60 + nowArg.getUTCMinutes();
       finalSlots = availableSlots.filter((slot) => {
         const [h, m] = slot.split(":").map(Number);
-        return h * 60 + m > currentMinutes + 30; // At least 30 min buffer
+        return h * 60 + m > currentMinutes + 30; // Al menos 30 min de margen
       });
     }
 

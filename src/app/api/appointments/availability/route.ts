@@ -46,8 +46,11 @@ export async function GET(request: Request) {
     }
 
     // Calcular disponibilidad para cada día
-    const start = startDate ? new Date(startDate) : new Date();
-    start.setHours(0, 0, 0, 0);
+    // Usar fecha de Argentina (UTC-3, sin DST) para el inicio
+    const nowArg = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    const start = startDate
+      ? new Date(startDate + "T12:00:00Z")
+      : new Date(Date.UTC(nowArg.getUTCFullYear(), nowArg.getUTCMonth(), nowArg.getUTCDate(), 12, 0, 0));
     
     const availability: Record<string, { hasSlots: boolean; slotsCount: number }> = {};
 
@@ -169,14 +172,14 @@ export async function GET(request: Request) {
         return true;
       });
 
-      // Si es hoy, filtrar horarios pasados
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const isToday = currentDate.getTime() === today.getTime();
+      // Si es hoy en Argentina (UTC-3), filtrar horarios pasados
+      const nowArgLoop = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      const todayArgLoopStr = `${nowArgLoop.getUTCFullYear()}-${String(nowArgLoop.getUTCMonth() + 1).padStart(2, "0")}-${String(nowArgLoop.getUTCDate()).padStart(2, "0")}`;
+      const isToday = dateKey === todayArgLoopStr;
 
       let finalSlots = availableSlots;
       if (isToday) {
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const currentMinutes = nowArgLoop.getUTCHours() * 60 + nowArgLoop.getUTCMinutes();
         finalSlots = availableSlots.filter((slot) => {
           const [h, m] = slot.split(":").map(Number);
           return h * 60 + m > currentMinutes + 30;
