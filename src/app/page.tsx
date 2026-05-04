@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { LottiePlayer } from "@/components/ui/lottie-player";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Calendar,
@@ -363,30 +364,21 @@ export default function HomePage() {
           </div>
         </div>
           
-        {/* Marquee Animation */}
-        <div className="relative">
-          <div className="flex animate-marquee">
-            <div className="flex gap-4 pr-4">
-              <BusinessTypeChip icon={<Scissors className="w-5 h-5" />} name="Barberías" color="bg-amber-500" />
-              <BusinessTypeChip icon={<Sparkles className="w-5 h-5" />} name="Peluquerías" color="bg-pink-500" />
-              <BusinessTypeChip icon={<Heart className="w-5 h-5" />} name="Spa & Estética" color="bg-rose-400" />
-              <BusinessTypeChip icon={<Trophy className="w-5 h-5" />} name="Canchas" color="bg-green-600" />
-              <BusinessTypeChip icon={<GraduationCap className="w-5 h-5" />} name="Educación" color="bg-indigo-500" />
-              <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-cyan-600" />
-              <BusinessTypeChip icon={<Camera className="w-5 h-5" />} name="Fotografía" color="bg-purple-500" />
-              <BusinessTypeChip icon={<Music className="w-5 h-5" />} name="Música" color="bg-violet-500" />
-            </div>
-            {/* Duplicado para loop infinito */}
-            <div className="flex gap-4 pr-4">
-              <BusinessTypeChip icon={<Scissors className="w-5 h-5" />} name="Barberías" color="bg-amber-500" />
-              <BusinessTypeChip icon={<Sparkles className="w-5 h-5" />} name="Peluquerías" color="bg-pink-500" />
-              <BusinessTypeChip icon={<Heart className="w-5 h-5" />} name="Spa & Estética" color="bg-rose-400" />
-              <BusinessTypeChip icon={<Trophy className="w-5 h-5" />} name="Canchas" color="bg-green-600" />
-              <BusinessTypeChip icon={<GraduationCap className="w-5 h-5" />} name="Educación" color="bg-indigo-500" />
-              <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-cyan-600" />
-              <BusinessTypeChip icon={<Camera className="w-5 h-5" />} name="Fotografía" color="bg-purple-500" />
-              <BusinessTypeChip icon={<Music className="w-5 h-5" />} name="Música" color="bg-violet-500" />
-            </div>
+        {/* Marquee Animation - 4 copies so content always fills screen */}
+        <div className="relative overflow-hidden">
+          <div className="animate-marquee">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="flex gap-4 pr-4">
+                <BusinessTypeChip icon={<Scissors className="w-5 h-5" />} name="Barberías" color="bg-amber-500" />
+                <BusinessTypeChip icon={<Sparkles className="w-5 h-5" />} name="Peluquerías" color="bg-pink-500" />
+                <BusinessTypeChip icon={<Heart className="w-5 h-5" />} name="Spa & Estética" color="bg-rose-400" />
+                <BusinessTypeChip icon={<Trophy className="w-5 h-5" />} name="Canchas" color="bg-green-600" />
+                <BusinessTypeChip icon={<GraduationCap className="w-5 h-5" />} name="Educación" color="bg-indigo-500" />
+                <BusinessTypeChip icon={<Briefcase className="w-5 h-5" />} name="Consultoría" color="bg-cyan-600" />
+                <BusinessTypeChip icon={<Camera className="w-5 h-5" />} name="Fotografía" color="bg-purple-500" />
+                <BusinessTypeChip icon={<Music className="w-5 h-5" />} name="Música" color="bg-violet-500" />
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -468,19 +460,19 @@ export default function HomePage() {
               number="1"
               title="Crea tu cuenta"
               description="Regístrate gratis y configura los datos básicos de tu negocio."
-              image="https://images.unsplash.com/photo-1551434678-e076c223a692?w=400&h=300&fit=crop"
+              animationSrc="/animations/step1.json"
             />
             <StepCard
               number="2"
               title="Configura tus servicios"
               description="Agrega los servicios que ofreces con precios y duraciones."
-              image="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=300&fit=crop"
+              animationSrc="/animations/step3.json"
             />
             <StepCard
               number="3"
               title="Comparte tu página"
               description="Envía tu enlace personalizado y empieza a recibir reservas."
-              image="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&h=300&fit=crop"
+              animationSrc="/animations/step2.json"
             />
           </div>
         </div>
@@ -723,22 +715,28 @@ function StepCard({
   title,
   description,
   image,
+  animationSrc,
 }: {
   number: string;
   title: string;
   description: string;
-  image: string;
+  image?: string;
+  animationSrc?: string;
 }) {
   return (
     <div className="text-center">
-      <div className="relative mb-6 rounded-2xl overflow-hidden shadow-lg">
-        <Image
-          src={image}
-          alt={title}
-          width={400}
-          height={300}
-          className="w-full h-48 object-cover"
-        />
+      <div className="relative mb-6 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-slate-50 to-slate-100">
+        {animationSrc ? (
+          <LottiePlayer src={animationSrc} className="w-full h-48" />
+        ) : image ? (
+          <Image
+            src={image}
+            alt={title}
+            width={400}
+            height={300}
+            className="w-full h-48 object-cover"
+          />
+        ) : null}
         <div className="absolute top-4 left-4 w-10 h-10 rounded-full bg-gradient-to-br from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] flex items-center justify-center text-white font-bold">
           {number}
         </div>
