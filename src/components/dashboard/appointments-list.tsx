@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -65,11 +65,26 @@ interface Appointment {
   } | null;
 }
 
+const ITEMS_PER_PAGE = 10;
+
+function isAppointmentUpcoming(appointmentDate: Date, startTime: string): boolean {
+  const now = new Date();
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const d = new Date(appointmentDate);
+  const aptDateTime = new Date(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate(),
+    hours,
+    minutes,
+    0,
+    0
+  );
+  return aptDateTime > now;
+}
+
 interface AppointmentsListProps {
   appointments: Appointment[];
-  currentPage?: number;
-  totalPages?: number;
-  filter?: "upcoming" | "past" | "all";
 }
 
 const statusConfig = {
@@ -80,29 +95,45 @@ const statusConfig = {
   NO_SHOW: { label: "No asistió", variant: "destructive" as const, icon: XCircle },
 };
 
-export function AppointmentsList({ 
-  appointments, 
-  currentPage = 1, 
-  totalPages = 1,
-  filter = "upcoming"
-}: AppointmentsListProps) {
+export function AppointmentsList({ appointments }: AppointmentsListProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
+  const [currentPage, setCurrentPage] = useState(1);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleFilterChange = (newFilter: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("filter", newFilter);
-    params.delete("page"); // Reset to page 1
-    router.push(`/dashboard/appointments?${params.toString()}`);
+  const handleFilterChange = (newFilter: "upcoming" | "past" | "all") => {
+    setFilter(newFilter);
+    setCurrentPage(1);
   };
 
   const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", page.toString());
-    router.push(`/dashboard/appointments?${params.toString()}`);
+    setCurrentPage(page);
   };
+
+  // Filter, sort, and paginate in memory
+  const filteredAppointments = appointments.filter((apt) => {
+    if (filter === "all") return true;
+    const upcoming = isAppointmentUpcoming(apt.date, apt.startTime);
+    return filter === "upcoming" ? upcoming : !upcoming;
+  });
+
+  const sortedAppointments = [...filteredAppointments].sort((a, b) => {
+    if (filter === "past") {
+      const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      return b.startTime.localeCompare(a.startTime);
+    }
+    const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (dateCompare !== 0) return dateCompare;
+    return a.startTime.localeCompare(b.startTime);
+  });
+
+  const totalPages = Math.ceil(sortedAppointments.length / ITEMS_PER_PAGE);
+  const paginatedAppointments = sortedAppointments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const updateStatus = async (id: string, status: string) => {
     setIsUpdating(true);
@@ -131,7 +162,7 @@ export function AppointmentsList({
   };
 
   // Group appointments by date
-  const groupedAppointments = appointments.reduce((groups, apt) => {
+  const groupedAppointments = paginatedAppointments.reduce((groups, apt) => {
     const dateKey = format(parseUTCDate(apt.date), "yyyy-MM-dd");
     if (!groups[dateKey]) {
       groups[dateKey] = [];
@@ -140,7 +171,7 @@ export function AppointmentsList({
     return groups;
   }, {} as Record<string, Appointment[]>);
 
-  if (appointments.length === 0) {
+  if (paginatedAppointments.length === 0) {
     return (
       <>
         {/* Filter Tabs */}

@@ -27,19 +27,9 @@ interface Appointment {
 
 interface AppointmentsViewProps {
   appointments: Appointment[];
-  allAppointments: Appointment[]; // Para el calendario (sin paginación)
-  currentPage: number;
-  totalPages: number;
-  filter: "upcoming" | "past" | "all";
 }
 
-export function AppointmentsView({
-  appointments,
-  allAppointments,
-  currentPage,
-  totalPages,
-  filter,
-}: AppointmentsViewProps) {
+export function AppointmentsView({ appointments }: AppointmentsViewProps) {
   const [view, setView] = useState<"list" | "calendar">("list");
 
   return (
@@ -71,14 +61,9 @@ export function AppointmentsView({
 
       {/* Contenido según vista */}
       {view === "list" ? (
-        <AppointmentsList
-          appointments={appointments}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          filter={filter}
-        />
+        <AppointmentsList appointments={appointments} />
       ) : (
-        <AppointmentsCalendar appointments={allAppointments} />
+        <AppointmentsCalendar appointments={appointments} />
       )}
     </div>
   );
