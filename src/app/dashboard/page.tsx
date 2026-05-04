@@ -1,14 +1,12 @@
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Clock, Users, TrendingUp } from "lucide-react";
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
-import { es } from "date-fns/locale";
 import { LimitWarningBanner } from "@/components/dashboard/limit-warning-banner";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { GettingStartedCards } from "@/components/dashboard/getting-started-cards";
+import { DashboardInteractive } from "@/components/dashboard/dashboard-interactive";
 import { PLAN_LIMITS } from "@/lib/plan-limits";
 import { getBusinessTerminology } from "@/lib/business-types";
+import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 
 // Helper para parsear fecha UTC correctamente
 function parseUTCDate(dateValue: Date | string): Date {
@@ -33,6 +31,7 @@ export default async function DashboardPage() {
             lte: endOfMonth(new Date()),
           },
         },
+        include: { service: true, staff: true },
       },
     },
   });
@@ -62,7 +61,11 @@ export default async function DashboardPage() {
       return aptDate >= startOfDay(new Date()) && apt.status !== "CANCELLED";
     })
     .sort((a, b) => parseUTCDate(a.date).getTime() - parseUTCDate(b.date).getTime())
-    .slice(0, 5);
+    .slice(0, 5)
+    .map((apt) => ({
+      ...apt,
+      service: { ...apt.service, price: Number(apt.service.price) },
+    }));
 
   // Contar solo reservas no canceladas del mes
   const monthReservations = business.appointments.filter(
@@ -118,83 +121,11 @@ export default async function DashboardPage() {
         hasSchedule={hasSchedule}
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-            <CardTitle className="text-xs lg:text-sm font-medium">{terminology.appointments} Hoy</CardTitle>
-            <Calendar className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
-            <div className="text-xl lg:text-2xl font-bold">{stats.todayCount}</div>
-          </CardContent>
-        </Card>
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-            <CardTitle className="text-xs lg:text-sm font-medium">Este Mes</CardTitle>
-            <TrendingUp className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
-            <div className="text-xl lg:text-2xl font-bold">{stats.monthCount}</div>
-          </CardContent>
-        </Card>
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-            <CardTitle className="text-xs lg:text-sm font-medium">{terminology.services}</CardTitle>
-            <Clock className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
-            <div className="text-xl lg:text-2xl font-bold">{stats.servicesCount}</div>
-          </CardContent>
-        </Card>
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-            <CardTitle className="text-xs lg:text-sm font-medium">Empleados</CardTitle>
-            <Users className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
-            <div className="text-xl lg:text-2xl font-bold">{stats.staffCount}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Upcoming Appointments */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Próximos {terminology.appointments}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {upcomingAppointments.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              No hay {terminology.appointments.toLowerCase()} próximos
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {upcomingAppointments.map((apt) => (
-                <div
-                  key={apt.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
-                >
-                  <div>
-                    <p className="font-medium">{apt.customerName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {apt.customerEmail}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {format(parseUTCDate(apt.date), "d MMM", { locale: es })}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {apt.startTime} - {apt.endTime}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <DashboardInteractive
+        stats={stats}
+        upcomingAppointments={upcomingAppointments}
+        terminology={terminology}
+      />
     </div>
   );
 }
