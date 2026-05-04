@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     if (limited) return response;
 
     const body = await request.json();
-    const { name, email, password, businessName } = body;
+    const { name, email, password, businessName, businessType = "salon" } = body;
 
     // Validate input
     if (!name || !email || !password || !businessName) {
@@ -68,6 +68,7 @@ export async function POST(request: Request) {
           create: {
             name: businessName,
             slug,
+            businessType,
             schedules: {
               createMany: {
                 data: [

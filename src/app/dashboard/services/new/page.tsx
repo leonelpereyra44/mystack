@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getBusinessTerminology, getBusinessType } from "@/lib/business-types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,10 @@ type ServiceFormData = z.infer<typeof serviceSchema>;
 
 export default function NewServicePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const businessType = searchParams.get("type") ?? "salon";
+  const terminology = getBusinessTerminology(businessType);
+  const { suggestedDurations } = getBusinessType(businessType);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,21 +56,32 @@ export default function NewServicePage() {
   } = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
-      duration: 30,
+      duration: suggestedDurations[0] ?? 30,
       price: 0,
     },
   });
 
   const selectedDuration = watch("duration");
 
-  const durationOptions: { [key: number]: string } = {
+  const ALL_DURATION_OPTIONS: Record<number, string> = {
     15: "15 minutos",
+    20: "20 minutos",
     30: "30 minutos",
     45: "45 minutos",
     60: "1 hora",
     90: "1 hora 30 min",
     120: "2 horas",
+    180: "3 horas",
+    240: "4 horas",
   };
+
+  // Show suggested durations for this business type first, then the rest
+  const orderedDurations = [
+    ...suggestedDurations,
+    ...[15, 20, 30, 45, 60, 90, 120, 180, 240].filter(
+      (d) => !suggestedDurations.includes(d)
+    ),
+  ];
 
   const onSubmit = async (data: ServiceFormData) => {
     setIsLoading(true);
@@ -103,18 +119,18 @@ export default function NewServicePage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Nuevo Servicio</h1>
+          <h1 className="text-3xl font-bold">{terminology.newService}</h1>
           <p className="text-muted-foreground">
-            Agrega un nuevo servicio para tus clientes
+            Agrega {terminology.service === "Clase" ? "una nueva" : "un nuevo"} {terminology.service.toLowerCase()} para tus {terminology.clients.toLowerCase()}
           </p>
         </div>
       </div>
 
       <Card className="max-w-2xl">
         <CardHeader>
-          <CardTitle>Detalles del Servicio</CardTitle>
+          <CardTitle>Detalles del {terminology.service}</CardTitle>
           <CardDescription>
-            Configura el nombre, duración y precio del servicio
+            Configura el nombre, duración y precio del {terminology.service.toLowerCase()}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -153,21 +169,20 @@ export default function NewServicePage() {
               <div className="space-y-2">
                 <Label htmlFor="duration">Duración *</Label>
                 <Select
-                  defaultValue="30"
+                  defaultValue={String(suggestedDurations[0] ?? 30)}
                   onValueChange={(value) => setValue("duration", parseInt(value || "30"))}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecciona duración">
-                      {durationOptions[selectedDuration] || "Selecciona duración"}
+                      {ALL_DURATION_OPTIONS[selectedDuration] || "Selecciona duración"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="15">15 minutos</SelectItem>
-                    <SelectItem value="30">30 minutos</SelectItem>
-                    <SelectItem value="45">45 minutos</SelectItem>
-                    <SelectItem value="60">1 hora</SelectItem>
-                    <SelectItem value="90">1 hora 30 min</SelectItem>
-                    <SelectItem value="120">2 horas</SelectItem>
+                    {orderedDurations.map((d) => (
+                      <SelectItem key={d} value={String(d)}>
+                        {ALL_DURATION_OPTIONS[d]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -192,7 +207,7 @@ export default function NewServicePage() {
             <div className="flex gap-4 pt-4">
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Crear Servicio
+                Crear {terminology.service}
               </Button>
               <Link href="/dashboard/services">
                 <Button type="button" variant="outline">

@@ -33,7 +33,11 @@ export default async function SchedulePage() {
         </p>
       </div>
 
-      <ScheduleForm schedules={business.schedules} businessId={business.id} />
+      <ScheduleForm
+        schedules={business.schedules}
+        businessId={business.id}
+        businessType={business.businessType}
+      />
       
       <BlockedTimesManager staff={business.staff} />
     </div>

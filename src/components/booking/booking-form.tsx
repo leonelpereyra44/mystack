@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { getBusinessTerminology } from "@/lib/business-types";
 
 interface Service {
   id: string;
@@ -55,6 +56,7 @@ interface BookingFormProps {
   staff: Staff[];
   schedules: Schedule[];
   timezone: string;
+  businessType?: string;
 }
 
 const bookingSchema = z.object({
@@ -107,7 +109,9 @@ export function BookingForm({
   services,
   staff,
   schedules,
+  businessType = "salon",
 }: BookingFormProps) {
+  const terminology = getBusinessTerminology(businessType);
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -118,6 +122,18 @@ export function BookingForm({
   const [daysAvailability, setDaysAvailability] = useState<Record<string, { hasSlots: boolean; slotsCount: number }>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [extraFields, setExtraFields] = useState<Record<string, string>>({});
+
+  const EXTRA_FIELDS_BY_TYPE: Record<string, { key: string; label: string; placeholder: string; required?: boolean }[]> = {
+    sports: [
+      { key: "skillLevel", label: "Nivel", placeholder: "Principiante / Intermedio / Avanzado" },
+    ],
+    photography: [
+      { key: "sessionTheme", label: "Temática de la sesión", placeholder: "Ej: Embarazo, graduación, familia..." },
+    ],
+  };
+
+  const currentExtraFields = EXTRA_FIELDS_BY_TYPE[businessType] ?? [];
 
   const {
     register,
@@ -315,6 +331,7 @@ export function BookingForm({
           customerEmail: data.customerEmail,
           customerPhone: data.customerPhone || null,
           notes: data.notes || null,
+          extraData: Object.keys(extraFields).length > 0 ? extraFields : null,
         }),
       });
 
@@ -351,8 +368,8 @@ export function BookingForm({
     
     const title = encodeURIComponent(`${service.name} - ${business.name}`);
     const details = encodeURIComponent(
-      `Turno reservado:\n` +
-      `Servicio: ${service.name}\n` +
+      `${terminology.appointment} reservado:\n` +
+      `${terminology.service}: ${service.name}\n` +
       `Duración: ${service.duration} minutos\n` +
       (staff ? `Profesional: ${staff}\n` : "") +
       `Precio: $${service.price.toLocaleString("es-AR")}`
@@ -368,7 +385,7 @@ export function BookingForm({
       <Card className="overflow-hidden">
         <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-center text-white">
           <CalendarIcon className="mx-auto h-16 w-16" />
-          <h2 className="mt-4 text-2xl font-bold">Ya tenés un turno reservado</h2>
+          <h2 className="mt-4 text-2xl font-bold">Ya tenés {terminology.appointment === "Clase" || terminology.appointment === "Reunión" || terminology.appointment === "Sesión" || terminology.appointment === "Consulta" ? "una" : "un"} {terminology.appointment.toLowerCase()} reservado</h2>
           <p className="mt-2 text-amber-100">
             Solo podés tener un turno activo a la vez
           </p>
@@ -376,7 +393,7 @@ export function BookingForm({
         
         <CardContent className="p-6">
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Tu turno actual</h3>
+            <h3 className="font-semibold text-lg">Tu {terminology.appointment.toLowerCase()} actual</h3>
             
             <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
               <div className="flex items-start gap-3">
@@ -434,7 +451,7 @@ export function BookingForm({
         {/* Success Header */}
         <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 text-center text-white">
           <CheckCircle className="mx-auto h-16 w-16" />
-          <h2 className="mt-4 text-2xl font-bold">¡Reserva Confirmada!</h2>
+          <h2 className="mt-4 text-2xl font-bold">¡{terminology.appointment} Confirmado!</h2>
           <p className="mt-2 text-green-100">
             Te enviamos un email de confirmación a {appointmentData.customer.email}
           </p>
@@ -443,7 +460,7 @@ export function BookingForm({
         <CardContent className="p-6">
           {/* Appointment Summary */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Resumen de tu turno</h3>
+            <h3 className="font-semibold text-lg">Resumen de tu {terminology.appointment.toLowerCase()}</h3>
             
             <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
               <div className="flex items-start gap-3">
@@ -580,7 +597,7 @@ export function BookingForm({
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground">
                 1
               </span>
-              Selecciona un servicio
+              Selecioná {terminology.service === "Clase" ? "una" : "un"} {terminology.service.toLowerCase()}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -797,6 +814,23 @@ export function BookingForm({
                 placeholder="+54 11 1234-5678"
               />
             </div>
+
+            {currentExtraFields.map((field) => (
+              <div key={field.key}>
+                <Label htmlFor={`extra-${field.key}`}>
+                  {field.label} {field.required ? "*" : "(opcional)"}
+                </Label>
+                <Input
+                  id={`extra-${field.key}`}
+                  value={extraFields[field.key] ?? ""}
+                  onChange={(e) =>
+                    setExtraFields((prev) => ({ ...prev, [field.key]: e.target.value }))
+                  }
+                  placeholder={field.placeholder}
+                />
+              </div>
+            ))}
+
             <div>
               <Label htmlFor="notes">Notas (opcional)</Label>
               <Textarea
@@ -809,7 +843,7 @@ export function BookingForm({
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirmar Reserva
+              Confirmar {terminology.appointment}
             </Button>
           </CardContent>
         </Card>

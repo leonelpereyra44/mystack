@@ -8,6 +8,7 @@ import { LimitWarningBanner } from "@/components/dashboard/limit-warning-banner"
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { GettingStartedCards } from "@/components/dashboard/getting-started-cards";
 import { PLAN_LIMITS } from "@/lib/plan-limits";
+import { getBusinessTerminology } from "@/lib/business-types";
 
 // Helper para parsear fecha UTC correctamente
 function parseUTCDate(dateValue: Date | string): Date {
@@ -43,6 +44,7 @@ export default async function DashboardPage() {
   // Obtener plan actual
   const plan = (business.subscription?.plan || "FREE") as keyof typeof PLAN_LIMITS;
   const limits = PLAN_LIMITS[plan];
+  const terminology = getBusinessTerminology(business.businessType);
 
   const todayAppointments = business.appointments.filter((apt) => {
     const aptDate = parseUTCDate(apt.date);
@@ -120,7 +122,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-4 lg:gap-4">
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-            <CardTitle className="text-xs lg:text-sm font-medium">Turnos Hoy</CardTitle>
+            <CardTitle className="text-xs lg:text-sm font-medium">{terminology.appointments} Hoy</CardTitle>
             <Calendar className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
@@ -138,7 +140,7 @@ export default async function DashboardPage() {
         </Card>
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-            <CardTitle className="text-xs lg:text-sm font-medium">Servicios</CardTitle>
+            <CardTitle className="text-xs lg:text-sm font-medium">{terminology.services}</CardTitle>
             <Clock className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
@@ -159,12 +161,12 @@ export default async function DashboardPage() {
       {/* Upcoming Appointments */}
       <Card>
         <CardHeader>
-          <CardTitle>Próximos Turnos</CardTitle>
+          <CardTitle>Próximos {terminology.appointments}</CardTitle>
         </CardHeader>
         <CardContent>
           {upcomingAppointments.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
-              No hay turnos próximos
+              No hay {terminology.appointments.toLowerCase()} próximos
             </p>
           ) : (
             <div className="space-y-4">

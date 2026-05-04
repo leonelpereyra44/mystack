@@ -19,6 +19,7 @@ import {
   Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getBusinessTerminology } from "@/lib/business-types";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -32,6 +33,7 @@ interface Business {
   id: string;
   name: string;
   slug: string;
+  businessType: string;
 }
 
 interface User {
@@ -46,18 +48,19 @@ interface MobileNavProps {
   user: User;
 }
 
-const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Inicio" },
-  { href: "/dashboard/appointments", icon: Calendar, label: "Turnos" },
-  { href: "/dashboard/services", icon: Briefcase, label: "Servicios" },
-  { href: "/dashboard/staff", icon: Users, label: "Equipo" },
-  { href: "/dashboard/schedule", icon: Clock, label: "Horarios" },
-  { href: "/dashboard/analytics", icon: BarChart3, label: "Reportes" },
-  { href: "/dashboard/settings", icon: Settings, label: "Configuración" },
-];
-
 export function MobileNav({ business, user }: MobileNavProps) {
   const pathname = usePathname();
+  const terminology = getBusinessTerminology(business.businessType);
+
+  const navItems = [
+    { href: "/dashboard", icon: LayoutDashboard, label: "Inicio" },
+    { href: "/dashboard/appointments", icon: Calendar, label: terminology.appointments },
+    { href: "/dashboard/services", icon: Briefcase, label: terminology.services },
+    { href: "/dashboard/staff", icon: Users, label: "Equipo" },
+    { href: "/dashboard/schedule", icon: Clock, label: "Horarios" },
+    { href: "/dashboard/analytics", icon: BarChart3, label: "Reportes" },
+    { href: "/dashboard/settings", icon: Settings, label: "Configuración" },
+  ];
 
   return (
     <Sheet>

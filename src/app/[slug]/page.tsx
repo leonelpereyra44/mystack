@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { BookingForm } from "@/components/booking/booking-form";
-import { getBusinessType } from "@/lib/business-types";
+import { getBusinessType, getBusinessTerminology } from "@/lib/business-types";
 import { MapPin, Phone, Clock, Users, Instagram, Facebook, Twitter, Globe } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -105,6 +105,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
 
   // Obtener el tipo de negocio y su icono
   const businessTypeConfig = getBusinessType(business.businessType);
+  const terminology = getBusinessTerminology(business.businessType);
   const BusinessIcon = businessTypeConfig.icon;
 
   // Agrupar horarios por día para mostrar (solo días abiertos)
@@ -396,7 +397,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                           </svg>
                         </div>
-                        <h3 className="font-semibold text-slate-900">Servicios</h3>
+                        <h3 className="font-semibold text-slate-900">{terminology.services}</h3>
                       </div>
                       <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                         {services.length} disponibles
@@ -421,7 +422,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                       ))}
                       {services.length > 4 && (
                         <p className="text-xs text-center text-slate-500 pt-2">
-                          +{services.length - 4} servicios más
+                          +{services.length - 4} {terminology.services.toLowerCase()} más
                         </p>
                       )}
                     </div>
@@ -433,8 +434,12 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
               <div className="lg:col-span-2 order-1 lg:order-2">
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                   <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 bg-gradient-to-r from-primary/5 to-transparent">
-                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Reserva tu turno</h2>
-                    <p className="text-sm text-slate-500 mt-1">Seleccioná un servicio y elegí el horario que más te convenga</p>
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                      Reservá tu {terminology.appointment.toLowerCase()}
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Selecioná {terminology.service === "Clase" ? "una" : "un"} {terminology.service.toLowerCase()} y elegí el horario que más te convenga
+                    </p>
                   </div>
                   
                   <div className="p-5 sm:p-6">
@@ -447,13 +452,14 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                         <p className="text-sm text-slate-400 mt-1">Volvé a intentar más tarde</p>
                       </div>
                     ) : (
-                      <BookingForm
+                    <BookingForm
                         businessId={business.id}
                         businessSlug={business.slug}
                         services={services}
                         staff={business.staff}
                         schedules={business.schedules}
                         timezone={business.timezone}
+                        businessType={business.businessType}
                       />
                     )}
                   </div>

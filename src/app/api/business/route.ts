@@ -2,6 +2,22 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}
+
+async function isSlugTaken(slug: string, excludeBusinessId: string): Promise<boolean> {
+  const existing = await prisma.business.findUnique({ where: { slug } });
+  return !!existing && existing.id !== excludeBusinessId;
+}
+
 export async function PATCH(request: Request) {
   try {
     const session = await auth();
@@ -37,10 +53,26 @@ export async function PATCH(request: Request) {
       website,
     } = body;
 
+    // If name is changing, check slug availability
+    if (name !== undefined) {
+      const newSlug = generateSlug(name);
+      const taken = await isSlugTaken(newSlug, business.id);
+      if (taken) {
+        return NextResponse.json(
+          {
+            error: "slug_taken",
+            slug: newSlug,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const updatedBusiness = await prisma.business.update({
       where: { id: business.id },
       data: {
         name: name !== undefined ? name : business.name,
+        slug: name !== undefined ? generateSlug(name) : business.slug,
         description: description !== undefined ? description : business.description,
         phone: phone !== undefined ? phone : business.phone,
         email: email !== undefined ? email : business.email,

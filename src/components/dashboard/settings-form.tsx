@@ -37,7 +37,7 @@ import { ChangePasswordForm } from "./change-password-form";
 import { SubscriptionCard } from "./subscription-card";
 import { BookingPreview } from "./booking-preview";
 import { LogoUpload } from "./logo-upload";
-import { BUSINESS_TYPES } from "@/lib/business-types";
+import { BUSINESS_TYPES, getBusinessType } from "@/lib/business-types";
 
 interface Business {
   id: string;
@@ -89,7 +89,6 @@ export function SettingsForm({ business }: SettingsFormProps) {
   const [businessType, setBusinessType] = useState(business.businessType);
   const [savingBusinessType, setSavingBusinessType] = useState(false);
   
-  // Delete business states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteStep, setDeleteStep] = useState(1);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -97,9 +96,26 @@ export function SettingsForm({ business }: SettingsFormProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
+  // Suggested services modal
+  const [showSuggestedModal, setShowSuggestedModal] = useState(false);
+  const [importingServices, setImportingServices] = useState(false);
+  const [pendingServices, setPendingServices] = useState<Array<{
+    name: string;
+    description?: string;
+    duration: number;
+    price: number;
+    selected: boolean;
+    editedName: string;
+    editedPrice: string;
+  }>>([])
+
+  // Business type confirmation
+  const [pendingType, setPendingType] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<BusinessFormData>({
     resolver: zodResolver(businessSchema),
@@ -118,6 +134,19 @@ export function SettingsForm({ business }: SettingsFormProps) {
   });
 
   const publicUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/${business.slug}`;
+
+  const watchedName = watch("name");
+  const previewSlug = watchedName
+    ? watchedName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .trim()
+    : business.slug;
+  const slugChanged = previewSlug !== business.slug;
 
   const copyUrl = () => {
     navigator.clipboard.writeText(publicUrl);
@@ -161,7 +190,21 @@ export function SettingsForm({ business }: SettingsFormProps) {
       if (response.ok) {
         setBusinessType(newType);
         toast.success("Tipo de negocio actualizado");
-        router.refresh();
+
+        const typeConfig = getBusinessType(newType);
+        if (typeConfig.suggestedServices.length > 0) {
+          setPendingServices(
+            typeConfig.suggestedServices.map((s) => ({
+              ...s,
+              selected: true,
+              editedName: s.name,
+              editedPrice: String(s.price),
+            }))
+          );
+          setShowSuggestedModal(true);
+        } else {
+          router.refresh();
+        }
       } else {
         toast.error("Error al guardar");
       }
@@ -170,6 +213,46 @@ export function SettingsForm({ business }: SettingsFormProps) {
     } finally {
       setSavingBusinessType(false);
     }
+  };
+
+  const handleImportServices = async () => {
+    const selected = pendingServices.filter((s) => s.selected);
+    if (selected.length === 0) {
+      setShowSuggestedModal(false);
+      router.refresh();
+      return;
+    }
+    setImportingServices(true);
+    try {
+      for (const service of selected) {
+        await fetch("/api/services", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: service.editedName,
+            description: service.description || "",
+            duration: service.duration,
+            price: parseFloat(service.editedPrice) || 0,
+          }),
+        });
+      }
+      toast.success(
+        `${selected.length} ${selected.length === 1 ? "servicio importado" : "servicios importados"} correctamente`
+      );
+      setShowSuggestedModal(false);
+      router.refresh();
+    } catch {
+      toast.error("Error al importar los servicios");
+    } finally {
+      setImportingServices(false);
+    }
+  };
+
+  const formatDuration = (minutes: number) => {
+    if (minutes < 60) return `${minutes} min`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m === 0 ? `${h}h` : `${h}h ${m}min`;
   };
 
   const onSubmit = async (data: BusinessFormData) => {
@@ -186,7 +269,15 @@ export function SettingsForm({ business }: SettingsFormProps) {
         toast.success("Cambios guardados correctamente");
         router.refresh();
       } else {
-        toast.error("Error al guardar los cambios");
+        const err = await response.json();
+        if (err.error === "slug_taken") {
+          toast.error(
+            `La URL "/${err.slug}" ya está en uso por otro negocio. Probá con un nombre diferente, por ejemplo agregando tu ciudad o apellido.`,
+            { duration: 6000 }
+          );
+        } else {
+          toast.error("Error al guardar los cambios");
+        }
       }
     } catch (error) {
       console.error("Error updating business:", error);
@@ -319,7 +410,9 @@ export function SettingsForm({ business }: SettingsFormProps) {
                   key={type.id}
                   type="button"
                   disabled={savingBusinessType}
-                  onClick={() => handleBusinessTypeChange(type.id)}
+                  onClick={() => {
+                    if (!isSelected) setPendingType(type.id);
+                  }}
                   className={`relative flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
                     isSelected
                       ? "border-primary bg-primary/5"
@@ -366,6 +459,15 @@ export function SettingsForm({ business }: SettingsFormProps) {
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name.message}</p>
               )}
+              <p className="text-xs text-muted-foreground">
+                URL pública:{" "}
+                <span className={slugChanged ? "font-medium text-foreground" : ""}>
+                  /{previewSlug}
+                </span>
+                {slugChanged && (
+                  <span className="ml-1 text-amber-600">(se actualizará al guardar)</span>
+                )}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -693,6 +795,143 @@ export function SettingsForm({ business }: SettingsFormProps) {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Suggested Services Modal */}
+      <Dialog open={showSuggestedModal} onOpenChange={(open) => {
+        if (!open) { setShowSuggestedModal(false); router.refresh(); }
+      }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Servicios sugeridos</DialogTitle>
+            <DialogDescription>
+              Estos son los servicios más comunes para este tipo de negocio. Seleccioná los que querés agregar y editá los nombres y precios a tu gusto.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {pendingServices.map((service, index) => (
+              <div
+                key={index}
+                className={`rounded-lg border p-3 transition-colors ${
+                  service.selected ? "border-primary bg-primary/5" : "border-muted bg-muted/30"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 cursor-pointer accent-primary"
+                    checked={service.selected}
+                    onChange={(e) =>
+                      setPendingServices((prev) =>
+                        prev.map((s, i) =>
+                          i === index ? { ...s, selected: e.target.checked } : s
+                        )
+                      )
+                    }
+                  />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={service.editedName}
+                        onChange={(e) =>
+                          setPendingServices((prev) =>
+                            prev.map((s, i) =>
+                              i === index ? { ...s, editedName: e.target.value } : s
+                            )
+                          )
+                        }
+                        className="h-8 text-sm font-medium"
+                        disabled={!service.selected}
+                      />
+                      <span className="whitespace-nowrap text-xs text-muted-foreground">
+                        {formatDuration(service.duration)}
+                      </span>
+                    </div>
+                    {service.description && (
+                      <p className="text-xs text-muted-foreground">{service.description}</p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Precio $</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={service.editedPrice}
+                        onChange={(e) =>
+                          setPendingServices((prev) =>
+                            prev.map((s, i) =>
+                              i === index ? { ...s, editedPrice: e.target.value } : s
+                            )
+                          )
+                        }
+                        className="h-7 w-28 text-sm"
+                        disabled={!service.selected}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => { setShowSuggestedModal(false); router.refresh(); }}
+              disabled={importingServices}
+            >
+              Omitir
+            </Button>
+            <Button
+              onClick={handleImportServices}
+              disabled={importingServices || pendingServices.every((s) => !s.selected)}
+            >
+              {importingServices ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importando...
+                </>
+              ) : (
+                `Importar ${pendingServices.filter((s) => s.selected).length} servicio${pendingServices.filter((s) => s.selected).length === 1 ? "" : "s"}`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Business Type Confirmation Modal */}
+      <Dialog open={!!pendingType} onOpenChange={(open) => { if (!open) setPendingType(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Cambiar tipo de negocio?</DialogTitle>
+            <DialogDescription className="space-y-2 pt-1">
+              <span className="block">
+                Estás por cambiar el rubro a{" "}
+                <strong>{pendingType ? getBusinessType(pendingType).label : ""}</strong>.
+              </span>
+              <span className="block">
+                Esto actualizará la terminología del dashboard (turnos, servicios, clientes) y te ofrecerá servicios sugeridos para el nuevo rubro.
+              </span>
+              <span className="block text-amber-600 font-medium">
+                Tus servicios y configuraciones actuales no se eliminarán.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setPendingType(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                const t = pendingType!;
+                setPendingType(null);
+                handleBusinessTypeChange(t);
+              }}
+            >
+              Sí, cambiar rubro
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

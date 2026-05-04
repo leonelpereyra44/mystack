@@ -24,6 +24,7 @@ export async function POST(request: Request) {
       customerEmail,
       customerPhone,
       notes,
+      extraData,
     } = body;
 
     // Validate required fields
@@ -177,6 +178,7 @@ export async function POST(request: Request) {
         customerEmail,
         customerPhone: customerPhone || null,
         notes: notes || null,
+        extraData: extraData || null,
         status: "CONFIRMED",
       },
       include: {
