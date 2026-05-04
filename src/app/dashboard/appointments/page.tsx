@@ -14,14 +14,23 @@ interface AppointmentsPageProps {
   }>;
 }
 
-// Helper para comparar fecha + hora del turno con el momento actual
+// Helper para comparar fecha + hora del turno con el momento actual.
+// appointmentDate viene como UTC midnight desde Prisma (@db.Date),
+// por eso usamos los componentes UTC para no perder un día en zonas UTC-.
 function isAppointmentUpcoming(appointmentDate: Date, startTime: string): boolean {
   const now = new Date();
   const [hours, minutes] = startTime.split(":").map(Number);
-  
-  const aptDateTime = new Date(appointmentDate);
-  aptDateTime.setHours(hours, minutes, 0, 0);
-  
+
+  const aptDateTime = new Date(
+    appointmentDate.getUTCFullYear(),
+    appointmentDate.getUTCMonth(),
+    appointmentDate.getUTCDate(),
+    hours,
+    minutes,
+    0,
+    0
+  );
+
   return aptDateTime > now;
 }
 
