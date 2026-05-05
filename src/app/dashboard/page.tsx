@@ -102,7 +102,7 @@ export default async function DashboardPage() {
       {/* Limit Warning Banner */}
       <LimitWarningBanner
         currentReservations={monthReservations}
-        maxReservations={limits.maxReservationsPerMonth}
+        maxReservations={limits.maxReservationsPerMonth ?? Infinity}
         plan={plan}
       />
 
