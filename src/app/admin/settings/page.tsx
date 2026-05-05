@@ -5,12 +5,9 @@ import {
   Settings,
   Save,
   Loader2,
-  DollarSign,
-  Users,
   AlertTriangle,
   Megaphone,
   RefreshCw,
-  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,17 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-
-interface PlanConfig {
-  id: string;
-  plan: "FREE" | "PRO";
-  name: string;
-  price: string;
-  maxReservationsPerMonth: number | null;
-  maxStaff: number | null;
-}
-
 interface SystemConfigs {
   maintenance_mode?: string;
   maintenance_message?: string;
@@ -49,16 +35,10 @@ export default function AdminSettingsPage() {
   const [announcement, setAnnouncement] = useState("");
   const [announcementColor, setAnnouncementColor] = useState("info");
 
-  // Plan config (read-only here, editable en /admin/plans)
-  const [plans, setPlans] = useState<PlanConfig[]>([]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [settingsRes, plansRes] = await Promise.all([
-        fetch("/api/admin/settings"),
-        fetch("/api/admin/plans"),
-      ]);
+      const settingsRes = await fetch("/api/admin/settings");
 
       if (settingsRes.ok) {
         const { configs } = (await settingsRes.json()) as { configs: SystemConfigs };
@@ -69,11 +49,6 @@ export default function AdminSettingsPage() {
         );
         setAnnouncement(configs.site_announcement || "");
         setAnnouncementColor(configs.announcement_color || "info");
-      }
-
-      if (plansRes.ok) {
-        const { plans: plansData } = await plansRes.json();
-        setPlans(plansData || []);
       }
     } catch {
       toast.error("Error al cargar configuración");
@@ -114,9 +89,6 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const freePlan = plans.find((p) => p.plan === "FREE");
-  const proPlan = plans.find((p) => p.plan === "PRO");
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -148,81 +120,6 @@ export default function AdminSettingsPage() {
           </Button>
         </div>
       </div>
-
-      {/* Pricing Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            Planes actuales
-          </CardTitle>
-          <CardDescription>
-            Resumen de configuración. Para editar ve a{" "}
-            <a href="/admin/plans" className="underline font-medium">
-              Planes
-            </a>
-            .
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {plans.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Cargando planes...</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[freePlan, proPlan].filter(Boolean).map((plan) => (
-                <div
-                  key={plan!.id}
-                  className="rounded-lg border bg-muted/30 p-4 flex items-start justify-between"
-                >
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold">{plan!.name}</span>
-                      <Badge variant="secondary" className="text-xs font-mono">
-                        {plan!.plan}
-                      </Badge>
-                    </div>
-                    <p className="text-xl font-bold">
-                      {parseFloat(plan!.price) === 0
-                        ? "Gratis"
-                        : `$${parseFloat(plan!.price).toLocaleString("es-AR")}/mes`}
-                    </p>
-                  </div>
-                  <div className="text-xs text-right text-muted-foreground space-y-0.5">
-                    <p>
-                      Reservas: <strong>{plan!.maxReservationsPerMonth ?? "∞"}</strong>
-                    </p>
-                    <p>
-                      Staff: <strong>{plan!.maxStaff ?? "∞"}</strong>
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Dynamic limits info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Límites dinámicos
-          </CardTitle>
-          <CardDescription>
-            Estado del sistema de límites de planes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800 p-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
-            <p className="text-sm text-green-800 dark:text-green-200">
-              Los límites de reservas y staff se leen dinámicamente desde la base de datos.
-              Cualquier cambio en Planes se refleja inmediatamente en toda la aplicación.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
       <Separator />
 
