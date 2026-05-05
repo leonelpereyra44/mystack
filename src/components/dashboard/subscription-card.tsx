@@ -26,7 +26,7 @@ import {
 
 interface SubscriptionData {
   subscription: {
-    plan: "FREE" | "PRO";
+    plan: string;
     status: string;
     currentPeriodEnd: string | null;
   };
@@ -44,26 +44,39 @@ interface SubscriptionData {
   };
 }
 
+interface PlanConfig {
+  id: string;
+  plan: string;
+  name: string;
+  description: string | null;
+  price: string;
+  maxReservationsPerMonth: number | null;
+  maxStaff: number | null;
+  features: string[];
+  sortOrder: number;
+}
+
 interface RefundEligibility {
   eligible: boolean;
   daysLeft?: number;
   reason?: string;
 }
 
-const PRO_FEATURES = [
-  "Staff ilimitado",
-  "Reservas ilimitadas",
-  "Recordatorios automáticos",
-  "Reportes y estadísticas",
-  "Sin marca MyStack",
-  "Soporte prioritario WhatsApp",
-];
+// Plan ordering for upgrade comparisons
+const PLAN_ORDER: Record<string, number> = {
+  FREE: 0,
+  BASIC: 1,
+  PRO: 2,
+  PREMIUM: 3,
+  ENTERPRISE: 4,
+};
 
 export function SubscriptionCard() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [upgrading, setUpgrading] = useState(false);
+  const [allPlans, setAllPlans] = useState<PlanConfig[]>([]);
+  const [upgrading, setUpgrading] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [refundEligibility, setRefundEligibility] = useState<RefundEligibility | null>(null);
@@ -82,22 +95,29 @@ export function SubscriptionCard() {
     }
   }, [searchParams]);
 
-  // Cargar datos de suscripción
+  // Cargar datos de suscripción y planes disponibles
   useEffect(() => {
-    async function fetchSubscription() {
+    async function fetchData() {
       try {
-        const response = await fetch("/api/subscription");
-        if (response.ok) {
-          const data = await response.json();
-          setData(data);
+        const [subResponse, plansResponse] = await Promise.all([
+          fetch("/api/subscription"),
+          fetch("/api/plans"),
+        ]);
+        if (subResponse.ok) {
+          const subData = await subResponse.json();
+          setData(subData);
+        }
+        if (plansResponse.ok) {
+          const plansData = await plansResponse.json();
+          setAllPlans(plansData.plans || []);
         }
       } catch (error) {
-        console.error("Error fetching subscription:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     }
-    fetchSubscription();
+    fetchData();
   }, []);
 
   // Verificar elegibilidad para reembolso cuando es PRO
@@ -121,17 +141,18 @@ export function SubscriptionCard() {
     }
   }, [data]);
 
-  const handleUpgrade = async () => {
-    setUpgrading(true);
+  const handleUpgrade = async (planKey: string) => {
+    setUpgrading(planKey);
     try {
       const response = await fetch("/api/subscription", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planKey }),
       });
 
       const result = await response.json();
 
       if (response.ok && result.initPoint) {
-        // Redirigir a Mercado Pago
         window.location.href = result.initPoint;
       } else {
         toast.error(result.error || "Error al iniciar la suscripción");
@@ -140,7 +161,7 @@ export function SubscriptionCard() {
       console.error("Error upgrading:", error);
       toast.error("Error al procesar la solicitud");
     } finally {
-      setUpgrading(false);
+      setUpgrading(null);
     }
   };
 
@@ -214,8 +235,19 @@ export function SubscriptionCard() {
     );
   }
 
-  const isPro = data.subscription.plan === "PRO";
+  const currentPlanKey = data.subscription.plan;
+  const isPro = currentPlanKey === "PRO";
   const isNearLimit = data.usage.reservationsPercentage >= 80;
+
+  // Plans the user can upgrade to (higher sortOrder or higher in PLAN_ORDER)
+  const currentOrder = PLAN_ORDER[currentPlanKey] ?? -1;
+  const upgradePlans = allPlans.filter((p) => {
+    const order = PLAN_ORDER[p.plan] ?? p.sortOrder;
+    const currentOrd = PLAN_ORDER[currentPlanKey] ?? -1;
+    return order > currentOrd || (!(p.plan in PLAN_ORDER) && p.sortOrder > (allPlans.find(ap => ap.plan === currentPlanKey)?.sortOrder ?? -1));
+  });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void currentOrder;
 
   return (
     <>
@@ -275,8 +307,8 @@ export function SubscriptionCard() {
             </ul>
           </div>
 
-          {/* Precio y acción */}
-          {isPro ? (
+          {/* Precio y acción - plan activo */}
+          {(isPro || upgradePlans.length === 0) && (
             <div className="space-y-4 pt-4 border-t">
               {/* Banner de derecho de arrepentimiento */}
               {refundEligibility?.eligible && (
@@ -287,7 +319,7 @@ export function SubscriptionCard() {
                       Derecho de arrepentimiento disponible
                     </p>
                     <p className="text-blue-700 dark:text-blue-300">
-                      Te quedan {refundEligibility.daysLeft} días para solicitar un reembolso completo 
+                      Te quedan {refundEligibility.daysLeft} días para solicitar un reembolso completo
                       (Ley 24.240)
                     </p>
                   </div>
@@ -301,11 +333,16 @@ export function SubscriptionCard() {
                   </Button>
                 </div>
               )}
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold">
-                    $15.000 <span className="text-muted-foreground font-normal">/mes</span>
+                    {data.planInfo.price === 0
+                      ? "Gratis"
+                      : `$${data.planInfo.price.toLocaleString("es-AR")}`}
+                    {data.planInfo.price > 0 && (
+                      <span className="text-muted-foreground font-normal">/mes</span>
+                    )}
                   </p>
                   {data.subscription.currentPeriodEnd && (
                     <p className="text-sm text-muted-foreground">
@@ -313,53 +350,73 @@ export function SubscriptionCard() {
                     </p>
                   )}
                 </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowCancelDialog(true)}
-                  disabled={data.subscription.status === "CANCELLED"}
-                >
-                  {data.subscription.status === "CANCELLED" ? "Cancelado" : "Cancelar plan"}
-                </Button>
+                {data.planInfo.price > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCancelDialog(true)}
+                    disabled={data.subscription.status === "CANCELLED"}
+                  >
+                    {data.subscription.status === "CANCELLED" ? "Cancelado" : "Cancelar plan"}
+                  </Button>
+                )}
               </div>
             </div>
-          ) : (
-            <div className="rounded-lg border-2 border-dashed border-[oklch(0.65_0.14_175)]/30 p-4 bg-[oklch(0.65_0.14_175)]/5">
-              <div className="flex items-start gap-4">
-                <div className="rounded-full bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] p-2">
-                  <Zap className="h-5 w-5 text-white" />
+          )}
+
+          {/* Planes disponibles para mejorar */}
+          {upgradePlans.length > 0 && (
+            <div className="space-y-3 pt-4 border-t">
+              <p className="text-sm font-medium text-muted-foreground">Mejorar plan</p>
+              {upgradePlans.map((upgradePlan) => (
+                <div
+                  key={upgradePlan.id}
+                  className="rounded-lg border-2 border-dashed border-[oklch(0.65_0.14_175)]/30 p-4 bg-[oklch(0.65_0.14_175)]/5"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-full bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] p-2 shrink-0">
+                      <Zap className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <h4 className="font-semibold">{upgradePlan.name}</h4>
+                        <span className="text-sm font-bold shrink-0">
+                          {parseFloat(upgradePlan.price) === 0
+                            ? "Gratis"
+                            : `$${parseFloat(upgradePlan.price).toLocaleString("es-AR")}/mes`}
+                        </span>
+                      </div>
+                      {upgradePlan.description && (
+                        <p className="text-sm text-muted-foreground mb-3">{upgradePlan.description}</p>
+                      )}
+                      <ul className="space-y-1 mb-4">
+                        {(upgradePlan.features as string[]).slice(0, 3).map((feature, i) => (
+                          <li key={i} className="flex items-center gap-2 text-sm">
+                            <Check className="h-4 w-4 text-[oklch(0.65_0.14_175)] shrink-0" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        onClick={() => handleUpgrade(upgradePlan.plan)}
+                        disabled={upgrading === upgradePlan.plan}
+                        className="bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] hover:opacity-90"
+                      >
+                        {upgrading === upgradePlan.plan ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Procesando...
+                          </>
+                        ) : (
+                          <>
+                            <Crown className="mr-2 h-4 w-4" />
+                            Mejorar a {upgradePlan.name}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold">Mejora a Plan Profesional</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Desbloquea todo el potencial de MyStack por solo $15.000/mes
-                  </p>
-                  <ul className="space-y-1 mb-4">
-                    {PRO_FEATURES.slice(0, 3).map((feature, i) => (
-                      <li key={i} className="flex items-center gap-2 text-sm">
-                        <Check className="h-4 w-4 text-[oklch(0.65_0.14_175)]" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button 
-                    onClick={handleUpgrade}
-                    disabled={upgrading}
-                    className="bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] hover:opacity-90"
-                  >
-                    {upgrading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Procesando...
-                      </>
-                    ) : (
-                      <>
-                        <Crown className="mr-2 h-4 w-4" />
-                        Mejorar ahora
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -375,7 +432,7 @@ export function SubscriptionCard() {
             </DialogDescription>
           </DialogHeader>
           <ul className="space-y-2 py-4">
-            {PRO_FEATURES.map((feature, i) => (
+            {(data?.planInfo.features ?? []).map((feature, i) => (
               <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                 <AlertCircle className="h-4 w-4 text-destructive" />
                 {feature}
@@ -420,7 +477,7 @@ export function SubscriptionCard() {
             <div className="rounded-lg bg-muted p-4 space-y-2">
               <p className="text-sm font-medium">Al confirmar:</p>
               <ul className="space-y-1 text-sm text-muted-foreground">
-                <li>• Se reembolsará el pago de $15.000</li>
+                <li>• Se reembolsará el pago de ${data?.planInfo.price ? data.planInfo.price.toLocaleString("es-AR") : "..."}</li>
                 <li>• Tu plan volverá a ser Gratuito inmediatamente</li>
                 <li>• El reembolso se acreditará en tu método de pago original en 5-10 días hábiles</li>
               </ul>

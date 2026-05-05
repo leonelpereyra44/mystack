@@ -117,3 +117,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Error al crear plan" }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { orders } = body as { orders: { id: string; sortOrder: number }[] };
+
+    if (!Array.isArray(orders) || orders.some((o) => typeof o.id !== "string" || typeof o.sortOrder !== "number")) {
+      return NextResponse.json({ error: "Formato inválido" }, { status: 400 });
+    }
+
+    await prisma.$transaction(
+      orders.map(({ id, sortOrder }) =>
+        prisma.planConfig.update({ where: { id }, data: { sortOrder } })
+      )
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error updating plan order:", error);
+    return NextResponse.json({ error: "Error al actualizar orden" }, { status: 500 });
+  }
+}

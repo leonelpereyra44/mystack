@@ -124,8 +124,9 @@ export default async function RootLayout({
   const isMaintenancePath = pathname.startsWith("/maintenance");
   const isAdminPath = pathname.startsWith("/admin");
   const isApiPath = pathname.startsWith("/api");
+  const isLoginPath = pathname.startsWith("/login");
 
-  if (!isMaintenancePath && !isAdminPath && !isApiPath) {
+  if (!isMaintenancePath && !isAdminPath && !isApiPath && !isLoginPath) {
     const [maintenance, session] = await Promise.all([
       isMaintenanceMode(),
       auth(),

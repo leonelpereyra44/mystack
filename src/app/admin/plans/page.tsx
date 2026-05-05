@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   CreditCard,
+  GripVertical,
   Loader2,
   Pencil,
   Plus,
@@ -15,6 +18,21 @@ import {
   Star,
   Sparkles,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import {
   Card,
@@ -96,6 +114,51 @@ function PlanIcon({ plan }: { plan: string }) {
   );
 }
 
+function SortableFeatureItem({
+  id,
+  feature,
+  onRemove,
+}: {
+  id: string;
+  feature: string;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5"
+    >
+      <button
+        type="button"
+        className="text-muted-foreground cursor-grab active:cursor-grabbing touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+      <span className="flex-1 text-sm">{feature}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-muted-foreground hover:text-destructive transition-colors"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 function EditPlanDialog({
   plan,
   onSaved,
@@ -119,6 +182,8 @@ function EditPlanDialog({
     features: [...plan.features],
   });
 
+  const sensors = useSensors(useSensor(PointerSensor));
+
   const addFeature = () => {
     const f = form.newFeature.trim();
     if (!f || form.features.includes(f)) return;
@@ -130,6 +195,16 @@ function EditPlanDialog({
       ...p,
       features: p.features.filter((_, i) => i !== idx),
     }));
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setForm((p) => {
+      const oldIndex = p.features.indexOf(active.id as string);
+      const newIndex = p.features.indexOf(over.id as string);
+      return { ...p, features: arrayMove(p.features, oldIndex, newIndex) };
+    });
   };
 
   const handleSave = async () => {
@@ -274,24 +349,27 @@ function EditPlanDialog({
 
           <div className="space-y-2">
             <Label>Características</Label>
-            <div className="space-y-1.5">
-              {form.features.map((feature, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5"
-                >
-                  <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                  <span className="flex-1 text-sm">{feature}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeFeature(i)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={form.features}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-1.5">
+                  {form.features.map((feature, i) => (
+                    <SortableFeatureItem
+                      key={feature}
+                      id={feature}
+                      feature={feature}
+                      onRemove={() => removeFeature(i)}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
             <div className="flex gap-2">
               <Input
                 placeholder="Nueva característica..."
@@ -584,6 +662,7 @@ export default function AdminPlansPage() {
   const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/plans")
@@ -599,6 +678,35 @@ export default function AdminPlansPage() {
 
   const handlePlanCreated = (created: PlanConfig) => {
     setPlans((prev) => [...prev, created].sort((a, b) => a.sortOrder - b.sortOrder));
+  };
+
+  const handleMove = async (index: number, direction: "up" | "down") => {
+    const sorted = [...plans].sort((a, b) => a.sortOrder - b.sortOrder);
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= sorted.length) return;
+
+    const updated = sorted.map((p, i) => {
+      if (i === index) return { ...p, sortOrder: sorted[swapIndex].sortOrder };
+      if (i === swapIndex) return { ...p, sortOrder: sorted[index].sortOrder };
+      return p;
+    });
+
+    setPlans(updated.sort((a, b) => a.sortOrder - b.sortOrder));
+    setReordering(true);
+    try {
+      const res = await fetch("/api/admin/plans", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orders: updated.map((p) => ({ id: p.id, sortOrder: p.sortOrder })),
+        }),
+      });
+      if (!res.ok) toast.error("Error al guardar el orden");
+    } catch {
+      toast.error("Error al guardar el orden");
+    } finally {
+      setReordering(false);
+    }
   };
 
   const handleDelete = async (plan: PlanConfig) => {
@@ -670,7 +778,7 @@ export default function AdminPlansPage() {
 
       {/* Plan Cards */}
       <div className="grid gap-6 md:grid-cols-2">
-        {plans.map((plan) => (
+        {[...plans].sort((a, b) => a.sortOrder - b.sortOrder).map((plan, index, arr) => (
           <Card
             key={plan.id}
             className={
@@ -702,6 +810,28 @@ export default function AdminPlansPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="flex flex-col">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleMove(index, "up")}
+                      disabled={reordering || index === 0}
+                      title="Mover arriba"
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleMove(index, "down")}
+                      disabled={reordering || index === arr.length - 1}
+                      title="Mover abajo"
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </Button>
+                  </div>
                   <EditPlanDialog plan={plan} onSaved={handlePlanSaved} />
                   {plan.plan !== "FREE" && plan.plan !== "PRO" && (
                     <Button

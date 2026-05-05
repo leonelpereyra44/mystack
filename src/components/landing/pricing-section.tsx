@@ -108,9 +108,9 @@ export async function PricingSection() {
             Elige el plan que mejor se adapte a tu negocio. Sin costos ocultos.
           </p>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto justify-items-center">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
           {displayPlans.map((plan) => {
-          const isPro = plan.plan === "PRO" || plan.plan === "PREMIUM";
+          const isPro = plan.plan === "PRO";
             const basePrice = parseFloat(plan.price);
 
             // Buscar promoción activa que aplique a este plan
@@ -188,7 +188,7 @@ function DynamicPricingCard({
 
   return (
     <Card
-      className={`relative overflow-visible border-2 ${
+      className={`relative overflow-visible border-2 h-full ${
         popular
           ? "border-[oklch(0.65_0.14_175)] shadow-xl shadow-[oklch(0.65_0.14_175)]/20"
           : "border-slate-200"
@@ -199,7 +199,7 @@ function DynamicPricingCard({
           Más Popular
         </div>
       )}
-      <CardContent className="p-6 pt-8">
+      <CardContent className="p-6 pt-8 flex flex-col h-full">
         <h3 className="text-xl font-semibold text-slate-900 mb-1">{name}</h3>
         <p className="text-sm text-slate-500 mb-4">{description}</p>
 
@@ -250,7 +250,7 @@ function DynamicPricingCard({
           </div>
         )}
 
-        <ul className="space-y-3 mb-8">
+        <ul className="space-y-3 mb-8 flex-1">
           {features.map((feature, i) => (
             <li key={i} className="flex items-center gap-2 text-sm text-slate-600">
               <CheckCircle2 className="w-4 h-4 text-[oklch(0.65_0.14_175)] shrink-0" />
