@@ -59,15 +59,17 @@ export const MP_URLS = {
 export async function createSubscription(params: {
   payerEmail: string;
   externalReference: string; // businessId
+  price: number;
+  reason: string;
 }) {
   try {
     const response = await preApproval.create({
       body: {
-        reason: "MyStack Plan Profesional",
+        reason: params.reason,
         auto_recurring: {
           frequency: 1,
           frequency_type: "months",
-          transaction_amount: PLANS.PRO.price,
+          transaction_amount: params.price,
           currency_id: "ARS",
         },
         payer_email: params.payerEmail,

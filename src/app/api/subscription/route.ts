@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createSubscription, PLANS } from "@/lib/mercadopago";
+import { createSubscription } from "@/lib/mercadopago";
+import { SubscriptionPlan } from "@prisma/client";
 
-// POST - Crear suscripción a Plan PRO
-export async function POST() {
+const VALID_PLANS = Object.values(SubscriptionPlan);
+
+// POST - Crear suscripción a un plan de pago
+export async function POST(request: Request) {
   try {
     const session = await auth();
     
@@ -12,6 +15,35 @@ export async function POST() {
       return NextResponse.json(
         { error: "No autorizado" },
         { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const planKey: string = body.plan ?? "PRO";
+
+    if (!VALID_PLANS.includes(planKey as SubscriptionPlan)) {
+      return NextResponse.json(
+        { error: "Plan inválido" },
+        { status: 400 }
+      );
+    }
+
+    // Buscar el plan en la DB para obtener precio y nombre reales
+    const planConfig = await prisma.planConfig.findFirst({
+      where: { plan: planKey as SubscriptionPlan, isActive: true },
+    });
+
+    if (!planConfig) {
+      return NextResponse.json(
+        { error: "Plan no encontrado o inactivo" },
+        { status: 400 }
+      );
+    }
+
+    if (Number(planConfig.price) === 0) {
+      return NextResponse.json(
+        { error: "No es posible suscribirse a un plan gratuito por este medio" },
+        { status: 400 }
       );
     }
 
@@ -28,18 +60,20 @@ export async function POST() {
       );
     }
 
-    // Verificar si ya tiene suscripción PRO activa
-    if (business.subscription?.plan === "PRO" && business.subscription?.status === "ACTIVE") {
+    // Verificar si ya tiene suscripción activa a ese plan
+    if (business.subscription?.plan === (planKey as SubscriptionPlan) && business.subscription?.status === "ACTIVE") {
       return NextResponse.json(
-        { error: "Ya tienes una suscripción activa al Plan Profesional" },
+        { error: `Ya tienes una suscripción activa al plan ${planConfig.name}` },
         { status: 400 }
       );
     }
 
-    // Crear la suscripción en Mercado Pago
+    // Crear la suscripción en Mercado Pago con precio y nombre del plan
     const result = await createSubscription({
       payerEmail: session.user.email!,
       externalReference: business.id,
+      price: Number(planConfig.price),
+      reason: `MyStack ${planConfig.name}`,
     });
 
     if (!result.success) {
@@ -54,7 +88,7 @@ export async function POST() {
       where: { businessId: business.id },
       create: {
         businessId: business.id,
-        plan: "FREE", // Se actualizará cuando MP confirme
+        plan: planKey as SubscriptionPlan,
         status: "TRIALING",
         mpSubscriptionId: result.subscriptionId,
       },
@@ -67,7 +101,6 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       initPoint: result.initPoint,
-      plan: PLANS.PRO,
     });
   } catch (error) {
     console.error("Error creating subscription:", error);
@@ -103,7 +136,14 @@ export async function GET() {
     }
 
     const plan = business.subscription?.plan || "FREE";
-    const planInfo = PLANS[plan as keyof typeof PLANS];
+
+    // Obtener configuración real del plan desde la DB
+    const planConfig = await prisma.planConfig.findFirst({
+      where: { plan: plan as never },
+    });
+
+    const maxReservations = planConfig?.maxReservationsPerMonth ?? Infinity;
+    const maxStaff = planConfig?.maxStaff ?? Infinity;
 
     // Contar reservas del mes actual
     const startOfMonth = new Date();
@@ -138,18 +178,18 @@ export async function GET() {
         currentPeriodEnd: business.subscription?.currentPeriodEnd,
       },
       planInfo: {
-        name: planInfo.name,
-        price: planInfo.price,
-        features: planInfo.features,
+        name: planConfig?.name ?? plan,
+        price: Number(planConfig?.price ?? 0),
+        features: (planConfig?.features as string[]) ?? [],
       },
       usage: {
         reservationsThisMonth,
-        maxReservations: planInfo.maxReservations,
+        maxReservations: maxReservations,
         staffCount,
-        maxStaff: planInfo.maxStaff,
-        reservationsPercentage: planInfo.maxReservations === Infinity 
-          ? 0 
-          : Math.round((reservationsThisMonth / planInfo.maxReservations) * 100),
+        maxStaff: maxStaff,
+        reservationsPercentage: maxReservations === Infinity
+          ? 0
+          : Math.round((reservationsThisMonth / maxReservations) * 100),
       },
     });
   } catch (error) {

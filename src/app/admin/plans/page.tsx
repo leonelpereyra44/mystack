@@ -662,6 +662,7 @@ export default function AdminPlansPage() {
   const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [planToDelete, setPlanToDelete] = useState<PlanConfig | null>(null);
   const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
@@ -685,6 +686,7 @@ export default function AdminPlansPage() {
     const swapIndex = direction === "up" ? index - 1 : index + 1;
     if (swapIndex < 0 || swapIndex >= sorted.length) return;
 
+    const originalPlans = [...plans];
     const updated = sorted.map((p, i) => {
       if (i === index) return { ...p, sortOrder: sorted[swapIndex].sortOrder };
       if (i === swapIndex) return { ...p, sortOrder: sorted[index].sortOrder };
@@ -701,17 +703,21 @@ export default function AdminPlansPage() {
           orders: updated.map((p) => ({ id: p.id, sortOrder: p.sortOrder })),
         }),
       });
-      if (!res.ok) toast.error("Error al guardar el orden");
+      if (!res.ok) {
+        toast.error("Error al guardar el orden");
+        setPlans(originalPlans);
+      }
     } catch {
       toast.error("Error al guardar el orden");
+      setPlans(originalPlans);
     } finally {
       setReordering(false);
     }
   };
 
   const handleDelete = async (plan: PlanConfig) => {
-    if (!confirm(`¿Eliminar el plan "${plan.name}"? Esta acción no se puede deshacer.`)) return;
     setDeletingId(plan.id);
+    setPlanToDelete(null);
     try {
       const res = await fetch(`/api/admin/plans/${plan.id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -837,7 +843,7 @@ export default function AdminPlansPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(plan)}
+                      onClick={() => setPlanToDelete(plan)}
                       disabled={deletingId === plan.id}
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
@@ -923,6 +929,29 @@ export default function AdminPlansPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Confirm delete dialog */}
+      <Dialog open={!!planToDelete} onOpenChange={(open) => { if (!open) setPlanToDelete(null); }}>
+        <DialogContent>
+          <DialogTitle>Eliminar plan</DialogTitle>
+          <DialogDescription>
+            ¿Confirmas que querés eliminar el plan <strong>{planToDelete?.name}</strong>? Esta acción no se puede deshacer. Los usuarios activos en este plan podrían quedar en un estado inconsistente.
+          </DialogDescription>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setPlanToDelete(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => planToDelete && handleDelete(planToDelete)}
+              disabled={!!deletingId}
+            >
+              {deletingId ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Eliminar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -62,15 +62,6 @@ interface RefundEligibility {
   reason?: string;
 }
 
-// Plan ordering for upgrade comparisons
-const PLAN_ORDER: Record<string, number> = {
-  FREE: 0,
-  BASIC: 1,
-  PRO: 2,
-  PREMIUM: 3,
-  ENTERPRISE: 4,
-};
-
 export function SubscriptionCard() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<SubscriptionData | null>(null);
@@ -239,15 +230,9 @@ export function SubscriptionCard() {
   const isPro = currentPlanKey === "PRO";
   const isNearLimit = data.usage.reservationsPercentage >= 80;
 
-  // Plans the user can upgrade to (higher sortOrder or higher in PLAN_ORDER)
-  const currentOrder = PLAN_ORDER[currentPlanKey] ?? -1;
-  const upgradePlans = allPlans.filter((p) => {
-    const order = PLAN_ORDER[p.plan] ?? p.sortOrder;
-    const currentOrd = PLAN_ORDER[currentPlanKey] ?? -1;
-    return order > currentOrd || (!(p.plan in PLAN_ORDER) && p.sortOrder > (allPlans.find(ap => ap.plan === currentPlanKey)?.sortOrder ?? -1));
-  });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  void currentOrder;
+  // Plans the user can upgrade to (higher sortOrder than current plan in DB)
+  const currentSortOrder = allPlans.find((p) => p.plan === currentPlanKey)?.sortOrder ?? -1;
+  const upgradePlans = allPlans.filter((p) => p.sortOrder > currentSortOrder);
 
   return (
     <>
