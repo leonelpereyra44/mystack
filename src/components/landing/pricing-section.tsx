@@ -14,7 +14,7 @@ interface ActivePromotion {
 }
 
 async function getPlansWithPromotions() {
-  const [plans, promotions] = await Promise.all([
+  const [rawPlans, rawPromotions] = await Promise.all([
     prisma.planConfig.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: "asc" },
@@ -27,6 +27,13 @@ async function getPlansWithPromotions() {
       },
     }),
   ]);
+
+  // Serialize Decimal fields to plain numbers/strings for the client
+  const plans = rawPlans.map((p) => ({ ...p, price: p.price.toString() }));
+  const promotions = rawPromotions.map((p) => ({
+    ...p,
+    discountValue: p.discountValue.toString(),
+  }));
 
   return { plans, promotions };
 }
