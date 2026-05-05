@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-// Límites por plan
+// Fallback estático (usado solo si la BD no tiene configuración)
 export const PLAN_LIMITS = {
   FREE: {
     maxReservationsPerMonth: 150,
@@ -13,6 +13,28 @@ export const PLAN_LIMITS = {
 } as const;
 
 export type PlanType = keyof typeof PLAN_LIMITS;
+
+/**
+ * Obtiene los límites reales del plan desde la BD.
+ * Cae al fallback estático si no hay configuración.
+ */
+async function getDynamicLimits(plan: PlanType) {
+  try {
+    const config = await prisma.planConfig.findUnique({
+      where: { plan },
+      select: { maxReservationsPerMonth: true, maxStaff: true },
+    });
+    if (config) {
+      return {
+        maxReservationsPerMonth: config.maxReservationsPerMonth ?? Infinity,
+        maxStaff: config.maxStaff ?? Infinity,
+      };
+    }
+  } catch {
+    // Si falla, usar fallback
+  }
+  return PLAN_LIMITS[plan];
+}
 
 /**
  * Verifica si el negocio puede crear más reservas según su plan
@@ -35,10 +57,10 @@ export async function canCreateReservation(businessId: string): Promise<{
   }
 
   const plan = (business.subscription?.plan || "FREE") as PlanType;
-  const limits = PLAN_LIMITS[plan];
+  const limits = await getDynamicLimits(plan);
 
-  // Si es PRO, siempre permitir
-  if (plan === "PRO") {
+  // Si no hay límite de reservas (PRO o configurado como ilimitado)
+  if (limits.maxReservationsPerMonth === Infinity) {
     return { allowed: true };
   }
 
@@ -102,10 +124,10 @@ export async function canCreateStaff(businessId: string): Promise<{
   }
 
   const plan = (business.subscription?.plan || "FREE") as PlanType;
-  const limits = PLAN_LIMITS[plan];
+  const limits = await getDynamicLimits(plan);
 
-  // Si es PRO, siempre permitir
-  if (plan === "PRO") {
+  // Si no hay límite de staff (ilimitado)
+  if (limits.maxStaff === Infinity) {
     return { allowed: true };
   }
 
@@ -151,7 +173,7 @@ export async function getPlanUsage(businessId: string) {
   }
 
   const plan = (business.subscription?.plan || "FREE") as PlanType;
-  const limits = PLAN_LIMITS[plan];
+  const limits = await getDynamicLimits(plan);
 
   // Contar reservas del mes actual
   const startOfMonth = new Date();

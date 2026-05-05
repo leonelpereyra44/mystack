@@ -4,7 +4,7 @@ import { LimitWarningBanner } from "@/components/dashboard/limit-warning-banner"
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { GettingStartedCards } from "@/components/dashboard/getting-started-cards";
 import { DashboardInteractive } from "@/components/dashboard/dashboard-interactive";
-import { PLAN_LIMITS } from "@/lib/plan-limits";
+
 import { getBusinessTerminology } from "@/lib/business-types";
 import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 
@@ -40,9 +40,13 @@ export default async function DashboardPage() {
     return null;
   }
 
-  // Obtener plan actual
-  const plan = (business.subscription?.plan || "FREE") as keyof typeof PLAN_LIMITS;
-  const limits = PLAN_LIMITS[plan];
+  // Obtener plan actual y límites dinámicos de la BD
+  const plan = business.subscription?.plan || "FREE";
+  const planConfig = await prisma.planConfig.findUnique({ where: { plan: plan as "FREE" | "PRO" } });
+  const limits = {
+    maxReservationsPerMonth: planConfig?.maxReservationsPerMonth ?? (plan === "FREE" ? 150 : null),
+    maxStaff: planConfig?.maxStaff ?? (plan === "FREE" ? 1 : null),
+  };
   const terminology = getBusinessTerminology(business.businessType);
 
   const todayAppointments = business.appointments.filter((apt) => {

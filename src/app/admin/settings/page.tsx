@@ -1,138 +1,318 @@
 "use client";
 
-import { useState } from "react";
-import { 
+import { useEffect, useState, useCallback } from "react";
+import {
   Settings,
   Save,
   Loader2,
   DollarSign,
   Users,
-  Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Megaphone,
+  RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+
+interface PlanConfig {
+  id: string;
+  plan: "FREE" | "PRO";
+  name: string;
+  price: string;
+  maxReservationsPerMonth: number | null;
+  maxStaff: number | null;
+}
+
+interface SystemConfigs {
+  maintenance_mode?: string;
+  maintenance_message?: string;
+  site_announcement?: string;
+  announcement_color?: string;
+}
 
 export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
-  
-  // Valores actuales (hardcodeados por ahora, se pueden mover a BD)
-  const [proPlanPrice, setProPlanPrice] = useState("15000");
-  const [freeReservationsLimit, setFreeReservationsLimit] = useState("150");
-  const [freeStaffLimit, setFreeStaffLimit] = useState("1");
+  const [loading, setLoading] = useState(true);
+
+  // System config state
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState(
+    "Estamos realizando mantenimiento. Volvemos pronto."
+  );
+  const [announcement, setAnnouncement] = useState("");
+  const [announcementColor, setAnnouncementColor] = useState("info");
+
+  // Plan config (read-only here, editable en /admin/plans)
+  const [plans, setPlans] = useState<PlanConfig[]>([]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [settingsRes, plansRes] = await Promise.all([
+        fetch("/api/admin/settings"),
+        fetch("/api/admin/plans"),
+      ]);
+
+      if (settingsRes.ok) {
+        const { configs } = (await settingsRes.json()) as { configs: SystemConfigs };
+        setMaintenanceMode(configs.maintenance_mode === "true");
+        setMaintenanceMessage(
+          configs.maintenance_message ||
+            "Estamos realizando mantenimiento. Volvemos pronto."
+        );
+        setAnnouncement(configs.site_announcement || "");
+        setAnnouncementColor(configs.announcement_color || "info");
+      }
+
+      if (plansRes.ok) {
+        const { plans: plansData } = await plansRes.json();
+        setPlans(plansData || []);
+      }
+    } catch {
+      toast.error("Error al cargar configuración");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSave = async () => {
     setSaving(true);
-    // Simular guardado - en producción esto iría a una API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success("Configuración guardada (demo)");
-    setSaving(false);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          maintenance_mode: String(maintenanceMode),
+          maintenance_message: maintenanceMessage,
+          site_announcement: announcement,
+          announcement_color: announcementColor,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Error al guardar");
+        return;
+      }
+
+      toast.success("Configuración guardada correctamente");
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const freePlan = plans.find((p) => p.plan === "FREE");
+  const proPlan = plans.find((p) => p.plan === "PRO");
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Configuración</h1>
-        <p className="text-muted-foreground">
-          Ajustes globales de la plataforma
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Configuración</h1>
+          <p className="text-muted-foreground">Ajustes globales de la plataforma</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Recargar
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Guardar cambios
+          </Button>
+        </div>
       </div>
 
-      {/* Pricing Settings */}
+      {/* Pricing Overview */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Precios
+            Planes actuales
           </CardTitle>
           <CardDescription>
-            Configuración de planes y precios
+            Resumen de configuración. Para editar ve a{" "}
+            <a href="/admin/plans" className="underline font-medium">
+              Planes
+            </a>
+            .
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="pro-price">Precio Plan PRO (ARS/mes)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  id="pro-price"
-                  type="number"
-                  value={proPlanPrice}
-                  onChange={(e) => setProPlanPrice(e.target.value)}
-                  className="pl-7"
-                />
-              </div>
+        <CardContent>
+          {plans.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Cargando planes...</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[freePlan, proPlan].filter(Boolean).map((plan) => (
+                <div
+                  key={plan!.id}
+                  className="rounded-lg border bg-muted/30 p-4 flex items-start justify-between"
+                >
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold">{plan!.name}</span>
+                      <Badge variant="secondary" className="text-xs font-mono">
+                        {plan!.plan}
+                      </Badge>
+                    </div>
+                    <p className="text-xl font-bold">
+                      {parseFloat(plan!.price) === 0
+                        ? "Gratis"
+                        : `$${parseFloat(plan!.price).toLocaleString("es-AR")}/mes`}
+                    </p>
+                  </div>
+                  <div className="text-xs text-right text-muted-foreground space-y-0.5">
+                    <p>
+                      Reservas: <strong>{plan!.maxReservationsPerMonth ?? "∞"}</strong>
+                    </p>
+                    <p>
+                      Staff: <strong>{plan!.maxStaff ?? "∞"}</strong>
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Nota: Cambiar el precio solo afectará a nuevas suscripciones. 
-            Las existentes mantienen su precio original.
-          </p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Free Plan Limits */}
+      {/* Dynamic limits info */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Límites Plan Gratuito
+            Límites dinámicos
           </CardTitle>
           <CardDescription>
-            Restricciones para el plan FREE
+            Estado del sistema de límites de planes
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="free-reservations">Reservas por mes</Label>
-              <Input
-                id="free-reservations"
-                type="number"
-                value={freeReservationsLimit}
-                onChange={(e) => setFreeReservationsLimit(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="free-staff">Máximo de staff</Label>
-              <Input
-                id="free-staff"
-                type="number"
-                value={freeStaffLimit}
-                onChange={(e) => setFreeStaffLimit(e.target.value)}
-              />
-            </div>
+        <CardContent>
+          <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800 p-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+            <p className="text-sm text-green-800 dark:text-green-200">
+              Los límites de reservas y staff se leen dinámicamente desde la base de datos.
+              Cualquier cambio en Planes se refleja inmediatamente en toda la aplicación.
+            </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Maintenance Mode */}
+      <Separator />
+
+      {/* Site Announcement */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Modo Mantenimiento
+            <Megaphone className="h-5 w-5" />
+            Anuncio del sitio
           </CardTitle>
           <CardDescription>
-            Activar para bloquear acceso temporal a la plataforma
+            Banner de anuncio en la landing page. Déjalo vacío para ocultarlo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <Label htmlFor="announcement">Texto del anuncio</Label>
+            <Textarea
+              id="announcement"
+              rows={2}
+              value={announcement}
+              onChange={(e) => setAnnouncement(e.target.value)}
+              placeholder="Ej: 🎉 ¡50% OFF en el Plan PRO este mes! Usá el código VERANO2025"
+            />
+            <p className="text-xs text-muted-foreground">
+              Puede incluir emojis. Se mostrará en la landing page.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Color del anuncio</Label>
+            <div className="flex gap-2">
+              {[
+                { value: "info", label: "Azul", className: "bg-blue-100 border-blue-300 text-blue-800" },
+                { value: "warning", label: "Naranja", className: "bg-orange-100 border-orange-300 text-orange-800" },
+                { value: "success", label: "Verde", className: "bg-green-100 border-green-300 text-green-800" },
+              ].map((color) => (
+                <button
+                  key={color.value}
+                  type="button"
+                  onClick={() => setAnnouncementColor(color.value)}
+                  className={`flex-1 rounded-lg border-2 px-3 py-2 text-xs font-medium transition-all ${
+                    color.className
+                  } ${
+                    announcementColor === color.value
+                      ? "ring-2 ring-offset-1 ring-current"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                >
+                  {color.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {announcement && (
+            <div
+              className={`rounded-lg border p-3 text-sm font-medium ${
+                announcementColor === "warning"
+                  ? "bg-orange-50 border-orange-200 text-orange-800"
+                  : announcementColor === "success"
+                  ? "bg-green-50 border-green-200 text-green-800"
+                  : "bg-blue-50 border-blue-200 text-blue-800"
+              }`}
+            >
+              <strong>Preview:</strong> {announcement}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Maintenance Mode */}
+      <Card className={maintenanceMode ? "border-destructive" : ""}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className={`h-5 w-5 ${maintenanceMode ? "text-destructive" : ""}`} />
+            Modo Mantenimiento
+          </CardTitle>
+          <CardDescription>
+            Muestra una página de mantenimiento a todos los visitantes (excepto admins).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <Label>Modo mantenimiento</Label>
+              <Label className={maintenanceMode ? "text-destructive font-semibold" : ""}>
+                {maintenanceMode ? "⚠️ Modo mantenimiento ACTIVO" : "Modo mantenimiento"}
+              </Label>
               <p className="text-sm text-muted-foreground">
-                Los usuarios verán una página de mantenimiento
+                Los visitantes verán la página de mantenimiento
               </p>
             </div>
             <Switch
@@ -140,45 +320,43 @@ export default function AdminSettingsPage() {
               onCheckedChange={setMaintenanceMode}
             />
           </div>
+
           {maintenanceMode && (
-            <div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                ⚠️ El modo mantenimiento está activo. Los usuarios no podrán acceder.
-              </p>
+            <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive font-medium">
+                  El sitio está en mantenimiento. Solo los administradores pueden acceder.
+                </p>
+              </div>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="maintenance-msg">Mensaje de mantenimiento</Label>
+            <Textarea
+              id="maintenance-msg"
+              rows={2}
+              value={maintenanceMessage}
+              onChange={(e) => setMaintenanceMessage(e.target.value)}
+              placeholder="Estamos realizando mantenimiento. Volvemos pronto."
+            />
+          </div>
         </CardContent>
       </Card>
 
-      <Separator />
-
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
+      {/* Save button */}
+      <div className="flex justify-end pb-6">
+        <Button onClick={handleSave} disabled={saving} size="lg">
           {saving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Guardando...
-            </>
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
           ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Guardar cambios
-            </>
+            <Save className="h-4 w-4 mr-2" />
           )}
+          Guardar todos los cambios
         </Button>
       </div>
-
-      {/* Info Card */}
-      <Card className="bg-muted/50">
-        <CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">
-            <strong>Nota:</strong> Esta configuración está en modo demo. 
-            Para implementar cambios persistentes, se necesita crear una tabla 
-            de configuración en la base de datos y una API correspondiente.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
+

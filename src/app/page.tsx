@@ -3,6 +3,8 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { LottiePlayer } from "@/components/ui/lottie-player";
 import { Card, CardContent } from "@/components/ui/card";
+import { PricingSection } from "@/components/landing/pricing-section";
+import { AnnouncementBanner } from "@/components/landing/announcement-banner";
 import {
   Calendar,
   Clock,
@@ -196,6 +198,9 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
       />
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        {/* Announcement Banner */}
+        <AnnouncementBanner />
+
         {/* Navigation */}
         <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -512,54 +517,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-              Planes simples y transparentes
-            </h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Elige el plan que mejor se adapte a tu negocio. Sin costos ocultos.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <PricingCard
-              name="Gratuito"
-              price="$0"
-              period=""
-              description="Ideal para empezar"
-              features={[
-                "1 profesional",
-                "Hasta 150 reservas/mes",
-                "Página de reservas con tu URL",
-                "Notificaciones por email",
-                "Calendario de disponibilidad",
-                "Soporte por email",
-              ]}
-              buttonText="Comenzar Gratis"
-              buttonVariant="outline"
-            />
-            <PricingCard
-              name="Profesional"
-              price="$15.000"
-              period="/mes"
-              description="Para negocios en crecimiento"
-              features={[
-                "Staff ilimitado",
-                "Reservas ilimitadas",
-                "Recordatorios automáticos",
-                "Reportes y estadísticas",
-                "Sin marca MyStack",
-                "Soporte prioritario WhatsApp",
-              ]}
-              buttonText="Comenzar Prueba"
-              buttonVariant="primary"
-              popular
-            />
-          </div>
-        </div>
-      </section>
+      {/* Pricing Section - Dynamic from DB */}
+      <PricingSection />
 
       {/* FAQ Section */}
       <section id="faq" className="py-24 bg-slate-50">
@@ -793,64 +752,6 @@ function TestimonialCard({
             <p className="text-sm text-white/70">{role}</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PricingCard({
-  name,
-  price,
-  period = "/mes",
-  description,
-  features,
-  buttonText,
-  buttonVariant,
-  popular,
-}: {
-  name: string;
-  price: string;
-  period?: string;
-  description: string;
-  features: string[];
-  buttonText: string;
-  buttonVariant: "primary" | "outline";
-  popular?: boolean;
-}) {
-  return (
-    <Card className={`relative overflow-visible border-2 ${popular ? "border-[oklch(0.65_0.14_175)] shadow-xl shadow-[oklch(0.65_0.14_175)]/20" : "border-slate-200"}`}>
-      {popular && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] text-white text-sm font-medium rounded-full whitespace-nowrap">
-          Más Popular
-        </div>
-      )}
-      <CardContent className="p-6 pt-8">
-        <h3 className="text-xl font-semibold text-slate-900 mb-1">{name}</h3>
-        <p className="text-sm text-slate-500 mb-4">{description}</p>
-        <div className="mb-6">
-          <span className="text-4xl font-bold text-slate-900">{price}</span>
-          {period && <span className="text-slate-500">{period}</span>}
-        </div>
-        <ul className="space-y-3 mb-8">
-          {features.map((feature, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm text-slate-600">
-              <CheckCircle2 className="w-4 h-4 text-[oklch(0.65_0.14_175)]" />
-              {feature}
-            </li>
-          ))}
-        </ul>
-        <Link href="/register" className="block">
-          <Button
-            className={`w-full ${
-              buttonVariant === "primary"
-                ? "bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)] hover:opacity-90 text-white"
-                : "border-slate-300 text-slate-700 hover:bg-slate-50"
-            }`}
-            variant={buttonVariant === "primary" ? "default" : "outline"}
-          >
-            {buttonText}
-          </Button>
-        </Link>
       </CardContent>
     </Card>
   );

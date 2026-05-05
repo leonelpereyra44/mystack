@@ -296,8 +296,11 @@ model Subscription {
 }
 
 enum SubscriptionPlan {
-  FREE  // Gratuito: 150 reservas/mes, 1 staff
-  PRO   // Profesional: $15.000/mes, ilimitado
+  FREE        // Gratuito: 150 reservas/mes, 1 staff
+  BASIC       // Básico: configurable
+  PRO         // Profesional: $15.000/mes, ilimitado
+  PREMIUM     // Premium: configurable
+  ENTERPRISE  // Empresarial: configurable
 }
 
 enum SubscriptionStatus {
@@ -305,6 +308,67 @@ enum SubscriptionStatus {
   CANCELLED
   PAST_DUE
   TRIALING
+}
+
+// ============================================
+// PLAN CONFIG (Configuración dinámica de planes)
+// ============================================
+
+model PlanConfig {
+  id                      String           @id @default(cuid())
+  plan                    SubscriptionPlan @unique
+  name                    String
+  description             String?          @db.Text
+  price                   Decimal          @db.Decimal(10, 2)
+  maxReservationsPerMonth Int?             // null = ilimitado
+  maxStaff                Int?             // null = ilimitado
+  features                Json             // String[] - lista de features
+  isActive                Boolean          @default(true)
+  sortOrder               Int              @default(0)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+
+  @@map("plan_configs")
+}
+
+// ============================================
+// PROMOTIONS (Ofertas por tiempo limitado)
+// ============================================
+
+model Promotion {
+  id            String           @id @default(cuid())
+  name          String
+  code          String?          @unique  // Código promocional (opcional)
+  description   String?          @db.Text
+  discountType  DiscountType     @default(PERCENTAGE)
+  discountValue Decimal          @db.Decimal(10, 2)
+  appliesTo     SubscriptionPlan[]
+  startsAt      DateTime
+  endsAt        DateTime?        // null = sin vencimiento
+  maxUses       Int?             // null = ilimitado
+  usedCount     Int              @default(0)
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("promotions")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+// ============================================
+// SYSTEM CONFIG (Configuración global de la plataforma)
+// ============================================
+
+model SystemConfig {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
 }
 
 // ============================================

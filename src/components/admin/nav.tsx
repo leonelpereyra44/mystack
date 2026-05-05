@@ -11,7 +11,9 @@ import {
   Settings,
   LogOut,
   Shield,
-  BarChart3
+  BarChart3,
+  Tag,
+  Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,16 @@ const navItems = [
     title: "Estadísticas",
     href: "/admin/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Planes",
+    href: "/admin/plans",
+    icon: Layers,
+  },
+  {
+    title: "Promociones",
+    href: "/admin/promotions",
+    icon: Tag,
   },
   {
     title: "Configuración",
