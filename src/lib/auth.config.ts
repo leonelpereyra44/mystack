@@ -20,7 +20,10 @@ export const authConfig: NextAuthConfig = {
                        nextUrl.pathname.startsWith("/register");
 
       // Si está logueado y va a login/register, redirigir según rol
-      if (isLoggedIn && isOnAuth) {
+      // Excepción: si viene de /maintenance (modo mantenimiento activo),
+      // dejar pasar a /login para que pueda cambiar de cuenta
+      const fromMaintenance = nextUrl.searchParams.get("callbackUrl")?.includes("/maintenance");
+      if (isLoggedIn && isOnAuth && !fromMaintenance) {
         if (isAdmin) {
           return Response.redirect(new URL("/admin", nextUrl));
         }

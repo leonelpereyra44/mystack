@@ -58,7 +58,7 @@ export default async function MaintenancePage() {
         <p className="mt-8 text-xs text-slate-400">
           Si eres administrador,{" "}
           <a
-            href="/admin"
+            href="/login?callbackUrl=%2Fadmin"
             className="underline hover:text-slate-600 transition-colors"
           >
             accede al panel
