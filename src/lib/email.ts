@@ -22,7 +22,7 @@ export async function sendAppointmentConfirmation(data: AppointmentEmailData) {
 
   try {
     const result = await resend.emails.send({
-      from: process.env.EMAIL_FROM || "MyStack <noreply@mystack.app>",
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
       to: data.customerEmail,
       subject: `Turno confirmado en ${data.businessName}`,
       html: `
@@ -91,12 +91,14 @@ interface PendingConfirmationEmailData extends AppointmentEmailData {
 }
 
 export async function sendAppointmentPendingConfirmation(data: PendingConfirmationEmailData) {
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "http://localhost:3000";
+  const baseUrl =
+  process.env.NEXTAUTH_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
   const confirmUrl = `${baseUrl}/appointments/${data.appointmentId}/confirm/${data.confirmationToken}`;
 
   try {
     const result = await resend.emails.send({
-      from: process.env.EMAIL_FROM || "MyStack <noreply@mystack.app>",
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
       to: data.customerEmail,
       subject: `Confirmá tu turno en ${data.businessName}`,
       html: `
@@ -160,7 +162,7 @@ export async function sendAppointmentPendingConfirmation(data: PendingConfirmati
 export async function sendAppointmentCancellation(data: AppointmentEmailData) {
   try {
     const result = await resend.emails.send({
-      from: process.env.EMAIL_FROM || "MyStack <noreply@mystack.app>",
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
       to: data.customerEmail,
       subject: `Turno cancelado - ${data.businessName}`,
       html: `
@@ -221,7 +223,7 @@ export async function sendContactEmail(data: ContactEmailData) {
   try {
     // Enviar email al equipo de soporte
     const result = await resend.emails.send({
-      from: process.env.EMAIL_FROM || "MyStack <noreply@mystack.app>",
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
       to: contactEmail,
       replyTo: data.email,
       subject: `[${data.category}] ${data.subject}`,
@@ -265,7 +267,7 @@ export async function sendContactEmail(data: ContactEmailData) {
 
     // Enviar confirmación al usuario
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || "MyStack <noreply@mystack.app>",
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
       to: data.email,
       subject: `Recibimos tu mensaje - MyStack`,
       html: `

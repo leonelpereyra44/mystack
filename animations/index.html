@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyStack - Brand Animation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f172a;
+      overflow: hidden;
+    }
+
+    [data-composition-id="mystack-brand"] {
+      width: 1920px;
+      height: 1080px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scene-content {
+      width: 100%;
+      height: 100%;
+      padding: 120px 160px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+
+    /* Background decoratives */
+    .glow-1 {
+      position: absolute;
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79, 70, 229, 0.3) 0%, transparent 70%);
+      top: -200px;
+      right: -200px;
+      pointer-events: none;
+    }
+
+    .glow-2 {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.25) 0%, transparent 70%);
+      bottom: -150px;
+      left: -150px;
+      pointer-events: none;
+    }
+
+    .grid-pattern {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(79, 70, 229, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79, 70, 229, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* Scene 1 - Hero */
+    .hero-title {
+      font-size: 140px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #4f46e5 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 24px;
+    }
+
+    .hero-tagline {
+      font-size: 48px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 48px;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 40px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-radius: 16px;
+      color: white;
+      font-size: 24px;
+      font-weight: 600;
+      width: fit-content;
+    }
+
+    .hero-cta-arrow {
+      width: 28px;
+      height: 28px;
+    }
+
+    /* Scene 2 - Value Props */
+    .value-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 40px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .value-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .value-icon svg {
+      width: 40px;
+      height: 40px;
+      color: white;
+    }
+
+    .value-content h3 {
+      font-size: 36px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 8px;
+    }
+
+    .value-content p {
+      font-size: 22px;
+      color: #94a3b8;
+    }
+
+    .values-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Scene 3 - 24/7 */
+    .big-stat {
+      font-size: 200px;
+      font-weight: 800;
+      color: white;
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 48px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-top: 16px;
+    }
+
+    .stat-highlight {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Scene 4 - CTA */
+    .final-cta {
+      text-align: center;
+    }
+
+    .final-cta h2 {
+      font-size: 72px;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 24px;
+    }
+
+    .final-cta p {
+      font-size: 32px;
+      color: #94a3b8;
+      margin-bottom: 48px;
+    }
+
+    /* Floating shapes */
+    .floating-shape {
+      position: absolute;
+      border-radius: 16px;
+      opacity: 0.1;
+      pointer-events: none;
+    }
+
+    .shape-1 {
+      width: 120px;
+      height: 120px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      top: 15%;
+      left: 10%;
+      transform: rotate(15deg);
+    }
+
+    .shape-2 {
+      width: 80px;
+      height: 80px;
+      border: 3px solid #4f46e5;
+      top: 25%;
+      right: 15%;
+      transform: rotate(-10deg);
+    }
+
+    .shape-3 {
+      width: 60px;
+      height: 60px;
+      background: #7c3aed;
+      bottom: 20%;
+      left: 20%;
+      border-radius: 50%;
+    }
+
+    .shape-4 {
+      width: 100px;
+      height: 100px;
+      border: 3px solid #7c3aed;
+      bottom: 30%;
+      right: 10%;
+      transform: rotate(25deg);
+    }
+  </style>
+</head>
+<body>
+  <div data-composition-id="mystack-brand" data-width="1920" data-height="1080">
+    
+    <!-- Scene 1: Hero -->
+    <div class="scene" id="scene-1" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);">
+      <div class="glow-1"></div>
+      <div class="glow-2"></div>
+      <div class="grid-pattern"></div>
+      <div class="floating-shape shape-1"></div>
+      <div class="floating-shape shape-2"></div>
+      <div class="scene-content" style="align-items: flex-start;">
+        <div class="hero-title">MyStack</div>
+        <div class="hero-tagline">Reservas online para tu negocio</div>
+        <div class="hero-cta">
+          Comenzar gratis
+          <svg class="hero-cta-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 2: Value Props -->
+    <div class="scene" id="scene-2" style="background: #0f172a;">
+      <div class="glow-1"></div>
+      <div class="glow-2"></div>
+      <div class="grid-pattern"></div>
+      <div class="floating-shape shape-3"></div>
+      <div class="floating-shape shape-4"></div>
+      <div class="scene-content">
+        <div class="values-grid">
+          <div class="value-card">
+            <div class="value-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </div>
+            <div class="value-content">
+              <h3>Reservas 24/7</h3>
+              <p>Tus clientes reservan a cualquier hora</p>
+            </div>
+          </div>
+          <div class="value-card">
+            <div class="value-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <div class="value-content">
+              <h3>Gestión de equipo</h3>
+              <p>Organiza horarios y servicios</p>
+            </div>
+          </div>
+          <div class="value-card">
+            <div class="value-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+            <div class="value-content">
+              <h3>Notificaciones automáticas</h3>
+              <p>Reduce ausencias y cancelaciones</p>
+            </div>
+          </div>
+          <div class="value-card">
+            <div class="value-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="20" x2="12" y2="10"></line>
+                <line x1="18" y1="20" x2="18" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="16"></line>
+              </svg>
+            </div>
+            <div class="value-content">
+              <h3>Estadísticas</h3>
+              <p>Visualiza el rendimiento de tu negocio</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 3: 24/7 -->
+    <div class="scene" id="scene-3" style="background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);">
+      <div class="glow-1"></div>
+      <div class="glow-2"></div>
+      <div class="scene-content" style="align-items: center; text-align: center;">
+        <div class="big-stat">24/7</div>
+        <div class="stat-label">Disponibilidad <span class="stat-highlight">constante</span></div>
+      </div>
+    </div>
+
+    <!-- Scene 4: Final CTA -->
+    <div class="scene" id="scene-4" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+      <div class="scene-content final-cta">
+        <h2>Empieza hoy mismo</h2>
+        <p>Gratis para siempre. Sin tarjeta de crédito.</p>
+        <div class="hero-cta" style="background: white; color: #4f46e5; margin: 0 auto;">
+          Crear mi cuenta
+          <svg class="hero-cta-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+
+    const tl = gsap.timeline({ paused: true });
+
+    // Scene 1: Hero entrance (0s - 2.5s)
+    tl.from(".hero-title", { y: 80, opacity: 0, duration: 0.6, ease: "power3.out" }, 0.2)
+      .from(".hero-tagline", { y: 50, opacity: 0, duration: 0.5, ease: "power2.out" }, 0.5)
+      .from(".hero-cta", { y: 30, opacity: 0, duration: 0.4, ease: "back.out(1.5)" }, 0.8)
+      .from(".floating-shape", { scale: 0, opacity: 0, duration: 0.8, ease: "elastic.out(1, 0.5)", stagger: 0.1 }, 0.3)
+      .from(".glow-1", { scale: 0.5, opacity: 0, duration: 1, ease: "power2.out" }, 0)
+      .from(".glow-2", { scale: 0.5, opacity: 0, duration: 1, ease: "power2.out" }, 0.2);
+
+    // Scene 2: Value cards (2.9s - 5.5s)
+    tl.from(".value-card", { y: 60, opacity: 0, duration: 0.5, ease: "power3.out", stagger: 0.15 }, 3.2)
+      .from(".value-icon", { scale: 0, rotation: -180, duration: 0.6, ease: "back.out(2)", stagger: 0.15 }, 3.4);
+
+    // Scene 3: 24/7 stat (5.9s - 8.5s)
+    tl.from(".big-stat", { scale: 0.5, opacity: 0, duration: 0.7, ease: "power3.out" }, 6.2)
+      .from(".stat-label", { y: 40, opacity: 0, duration: 0.5, ease: "power2.out" }, 6.6);
+
+    // Scene 4: Final CTA (8.9s - 10s)
+    tl.from(".final-cta h2", { y: 50, opacity: 0, duration: 0.5, ease: "power3.out" }, 9.2)
+      .from(".final-cta p", { y: 30, opacity: 0, duration: 0.4, ease: "power2.out" }, 9.4)
+      .from(".final-cta .hero-cta", { y: 30, opacity: 0, duration: 0.4, ease: "back.out(1.5)" }, 9.6);
+
+    // Ambient animations for floating shapes
+    gsap.to(".glow-1", {
+      scale: 1.1,
+      opacity: 0.4,
+      duration: 3,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: -1
+    });
+
+    gsap.to(".glow-2", {
+      scale: 1.15,
+      opacity: 0.35,
+      duration: 4,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: -1
+    });
+
+    gsap.to(".shape-1", {
+      y: -20,
+      rotation: 25,
+      duration: 3,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: -1
+    });
+
+    gsap.to(".shape-2", {
+      y: 15,
+      rotation: -5,
+      duration: 2.5,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: -1
+    });
+
+    gsap.to(".shape-3", {
+      y: -25,
+      duration: 3.5,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: -1
+    });
+
+    gsap.to(".shape-4", {
+      y: 20,
+      rotation: 35,
+      duration: 4,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: -1
+    });
+
+    window.__timelines["mystack-brand"] = tl;
+  </script>
+</body>
+</html>
