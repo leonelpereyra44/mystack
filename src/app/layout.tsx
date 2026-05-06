@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { Analytics } from "@vercel/analytics/next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isMaintenanceMode } from "@/lib/system-config";
@@ -146,6 +147,7 @@ export default async function RootLayout({
         <SessionProvider>
           {children}
           <Toaster />
+          <Analytics />
         </SessionProvider>
       </body>
     </html>
