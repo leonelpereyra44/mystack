@@ -69,9 +69,11 @@ export async function POST(request: Request) {
     }
 
     // Crear la suscripción en Mercado Pago con precio y nombre del plan
+    // El externalReference tiene formato "businessId:planKey" para que el webhook
+    // sepa qué plan activar sin necesitar estado en la DB antes del pago
     const result = await createSubscription({
       payerEmail: session.user.email!,
-      externalReference: business.id,
+      externalReference: `${business.id}:${planKey}`,
       price: Number(planConfig.price),
       reason: `MyStack ${planConfig.name}`,
     });
@@ -83,7 +85,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Actualizar o crear el registro de suscripción con estado pendiente
+    // NO actualizamos la DB aquí — el webhook de MP activa el plan al confirmar el pago.
+    // Guardamos solo el mpSubscriptionId para poder cancelar si el usuario lo solicita antes de pagar.
     await prisma.subscription.upsert({
       where: { businessId: business.id },
       create: {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { SubscriptionPlan } from "@prisma/client";
 import crypto from "crypto";
 
 // Verificar la firma del webhook de Mercado Pago
@@ -89,9 +90,18 @@ export async function POST(request: NextRequest) {
       }
 
       const preapproval = await mpResponse.json();
-      const businessId = preapproval.external_reference;
+      const externalReference = preapproval.external_reference as string | undefined;
 
-      console.log("Preapproval status:", preapproval.status, "for business:", businessId);
+      // externalReference tiene formato "businessId:planKey" (nuevo) o solo "businessId" (legacy)
+      let businessId: string;
+      let planKeyFromRef: string | null = null;
+      if (externalReference?.includes(":")) {
+        [businessId, planKeyFromRef] = externalReference.split(":", 2);
+      } else {
+        businessId = externalReference ?? "";
+      }
+
+      console.log("Preapproval status:", preapproval.status, "for business:", businessId, "plan:", planKeyFromRef);
 
       if (!businessId) {
         console.error("No external_reference (businessId) in preapproval");
@@ -101,12 +111,17 @@ export async function POST(request: NextRequest) {
       // Mapear estados de MP a nuestros estados
       let subscriptionStatus: "ACTIVE" | "CANCELLED" | "PAST_DUE" | "TRIALING" = "TRIALING";
 
-      // Obtener el plan real desde la DB (no hardcodear PRO)
-      const existingSubscription = await prisma.subscription.findFirst({
-        where: { businessId },
-        select: { plan: true },
-      });
-      const actualPlan = existingSubscription?.plan ?? "PRO";
+      // Obtener el plan: primero del externalReference, luego de la DB como fallback
+      let actualPlan: string;
+      if (planKeyFromRef) {
+        actualPlan = planKeyFromRef;
+      } else {
+        const existingSubscription = await prisma.subscription.findFirst({
+          where: { businessId },
+          select: { plan: true },
+        });
+        actualPlan = existingSubscription?.plan ?? "PRO";
+      }
 
       switch (preapproval.status) {
         case "authorized":
@@ -124,11 +139,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Actualizar la suscripción en la base de datos
+      // Si se cancela sin haber pagado nunca, volver el plan a FREE
+      const planToSet = subscriptionStatus === "CANCELLED" ? "FREE" : (actualPlan as SubscriptionPlan);
+
       await prisma.subscription.upsert({
         where: { businessId },
         create: {
           businessId,
-          plan: actualPlan,
+          plan: planToSet,
           status: subscriptionStatus,
           mpSubscriptionId: preapprovalId,
           mpCustomerId: preapproval.payer_id?.toString(),
@@ -136,7 +154,7 @@ export async function POST(request: NextRequest) {
           currentPeriodEnd: preapproval.next_payment_date ? new Date(preapproval.next_payment_date) : null,
         },
         update: {
-          plan: actualPlan,
+          plan: planToSet,
           status: subscriptionStatus,
           mpCustomerId: preapproval.payer_id?.toString(),
           currentPeriodStart: preapproval.date_created ? new Date(preapproval.date_created) : undefined,

@@ -237,6 +237,7 @@ export function SubscriptionCard() {
 
   const currentPlanKey = data.subscription.plan;
   const isPro = currentPlanKey === "PRO";
+  const isTrialing = data.subscription.status === "TRIALING";
   const isNearLimit = data.usage.reservationsPercentage >= 80;
 
   // Plans the user can upgrade to — primary: DB sortOrder; fallback: PLAN_ORDER
@@ -271,6 +272,19 @@ export function SubscriptionCard() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Banner de pago pendiente */}
+          {isTrialing && (
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
+              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-amber-900 dark:text-amber-100">Pago pendiente</p>
+                <p className="text-amber-700 dark:text-amber-300">
+                  Iniciaste el proceso de upgrade pero el pago no se confirmó aún. Tu plan sigue siendo <strong>Gratuito</strong> hasta que se acredite el pago.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Uso actual (solo para plan FREE) */}
           {!isPro && (
             <div className="space-y-3">
