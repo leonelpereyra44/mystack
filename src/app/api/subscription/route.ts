@@ -136,7 +136,8 @@ export async function GET() {
       );
     }
 
-    const plan = business.subscription?.plan || "FREE";
+    // Solo aplica el plan pago si la suscripción está ACTIVA (no TRIALING, CANCELLED, etc.)
+    const plan = business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE";
 
     // Obtener configuración real del plan desde la DB
     const planConfig = await prisma.planConfig.findFirst({

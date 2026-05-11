@@ -40,8 +40,8 @@ export default async function DashboardPage() {
     return null;
   }
 
-  // Obtener plan actual y límites dinámicos de la BD
-  const plan = business.subscription?.plan || "FREE";
+  // Solo aplica el plan pago si la suscripción está ACTIVA
+  const plan = business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE";
   const planConfig = await prisma.planConfig.findUnique({ where: { plan: plan as "FREE" | "PRO" } });
   const limits = {
     maxReservationsPerMonth: planConfig?.maxReservationsPerMonth ?? (plan === "FREE" ? 150 : null),

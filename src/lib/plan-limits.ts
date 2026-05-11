@@ -56,7 +56,8 @@ export async function canCreateReservation(businessId: string): Promise<{
     return { allowed: false, reason: "Negocio no encontrado" };
   }
 
-  const plan = (business.subscription?.plan || "FREE") as PlanType;
+  // Solo aplica el plan pago si la suscripción está ACTIVA (no TRIALING, CANCELLED, etc.)
+  const plan = (business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE") as PlanType;
   const limits = await getDynamicLimits(plan);
 
   // Si no hay límite de reservas (PRO o configurado como ilimitado)
@@ -123,7 +124,8 @@ export async function canCreateStaff(businessId: string): Promise<{
     return { allowed: false, reason: "Negocio no encontrado" };
   }
 
-  const plan = (business.subscription?.plan || "FREE") as PlanType;
+  // Solo aplica el plan pago si la suscripción está ACTIVA
+  const plan = (business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE") as PlanType;
   const limits = await getDynamicLimits(plan);
 
   // Si no hay límite de staff (ilimitado)
@@ -172,7 +174,8 @@ export async function getPlanUsage(businessId: string) {
     return null;
   }
 
-  const plan = (business.subscription?.plan || "FREE") as PlanType;
+  // Solo aplica el plan pago si la suscripción está ACTIVA
+  const plan = (business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE") as PlanType;
   const limits = await getDynamicLimits(plan);
 
   // Contar reservas del mes actual
