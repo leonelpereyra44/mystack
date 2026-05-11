@@ -33,6 +33,13 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ChangePasswordForm } from "./change-password-form";
 import { SubscriptionCard } from "./subscription-card";
 import { BookingPreview } from "./booking-preview";
@@ -50,6 +57,8 @@ interface Business {
   address: string | null;
   businessType: string;
   allowMultipleBookings: boolean;
+  bookingInterval: number;
+  slotCapacity: number;
   instagram: string | null;
   facebook: string | null;
   twitter: string | null;
@@ -86,6 +95,10 @@ export function SettingsForm({ business }: SettingsFormProps) {
   const [copied, setCopied] = useState(false);
   const [allowMultiple, setAllowMultiple] = useState(business.allowMultipleBookings);
   const [savingBookingSettings, setSavingBookingSettings] = useState(false);
+  const [bookingInterval, setBookingInterval] = useState(business.bookingInterval);
+  const [savingInterval, setSavingInterval] = useState(false);
+  const [slotCapacity, setSlotCapacity] = useState(business.slotCapacity);
+  const [savingCapacity, setSavingCapacity] = useState(false);
   const [businessType, setBusinessType] = useState(business.businessType);
   const [savingBusinessType, setSavingBusinessType] = useState(false);
   
@@ -175,6 +188,53 @@ export function SettingsForm({ business }: SettingsFormProps) {
       toast.error("Error al guardar");
     } finally {
       setSavingBookingSettings(false);
+    }
+  };
+
+  const handleIntervalChange = async (value: string) => {
+    const interval = parseInt(value);
+    setSavingInterval(true);
+    try {
+      const response = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingInterval: interval }),
+      });
+
+      if (response.ok) {
+        setBookingInterval(interval);
+        toast.success("Intervalo actualizado");
+        router.refresh();
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSavingInterval(false);
+    }
+  };
+
+  const handleCapacityChange = async (value: number) => {
+    setSavingCapacity(true);
+    try {
+      const response = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slotCapacity: value }),
+      });
+
+      if (response.ok) {
+        setSlotCapacity(value);
+        toast.success("Capacidad actualizada");
+        router.refresh();
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSavingCapacity(false);
     }
   };
 
@@ -630,6 +690,65 @@ export function SettingsForm({ business }: SettingsFormProps) {
                 "Desactivado"
               )}
             </Button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base">Intervalo entre turnos</Label>
+              <p className="text-sm text-muted-foreground">
+                Cada cuánto tiempo puede empezar un nuevo turno
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {savingInterval && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              <Select
+                value={String(bookingInterval)}
+                onValueChange={handleIntervalChange}
+                disabled={savingInterval}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 minutos</SelectItem>
+                  <SelectItem value="30">30 minutos</SelectItem>
+                  <SelectItem value="45">45 minutos</SelectItem>
+                  <SelectItem value="60">1 hora</SelectItem>
+                  <SelectItem value="90">1 hora 30 min</SelectItem>
+                  <SelectItem value="120">2 horas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base">Capacidad por turno</Label>
+              <p className="text-sm text-muted-foreground">
+                Cantidad máxima de personas que pueden reservar el mismo horario
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {savingCapacity && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={slotCapacity}
+                disabled={savingCapacity}
+                className="w-[100px] text-center"
+                onChange={(e) => {
+                  const val = Math.min(50, Math.max(1, parseInt(e.target.value) || 1));
+                  setSlotCapacity(val);
+                }}
+                onBlur={(e) => {
+                  const val = Math.min(50, Math.max(1, parseInt(e.target.value) || 1));
+                  if (val !== business.slotCapacity) {
+                    handleCapacityChange(val);
+                  }
+                }}
+              />
+            </div>
           </div>
           
           <div className="rounded-lg bg-muted/50 p-4 flex gap-3">

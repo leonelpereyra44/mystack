@@ -72,6 +72,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ slots: [] });
     }
 
+    // Get business booking interval and slot capacity
+    const businessData = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { bookingInterval: true, slotCapacity: true },
+    });
+    const bookingInterval = businessData?.bookingInterval ?? 30;
+    const slotCapacity = businessData?.slotCapacity ?? 1;
+
     // Get service duration
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
@@ -140,7 +148,7 @@ export async function GET(request: Request) {
         .padStart(2, "0")}`;
       allSlots.push(timeStr);
 
-      currentMin += 30; // 30 min intervals
+      currentMin += bookingInterval; // configurable interval
       if (currentMin >= 60) {
         currentHour += 1;
         currentMin = 0;
@@ -160,7 +168,8 @@ export async function GET(request: Request) {
       },
     });
 
-    // Filter out taken slots
+    // Filter out taken slots + compute remaining capacity per slot
+    const slotCounts: Record<string, number> = {};
     const availableSlots = allSlots.filter((slot) => {
       const [slotHour, slotMin] = slot.split(":").map(Number);
       const slotStart = slotHour * 60 + slotMin;
@@ -185,18 +194,19 @@ export async function GET(request: Request) {
       }
 
       // Check if this slot conflicts with any existing appointment
-      for (const apt of existingAppointments) {
+      const overlappingCount = existingAppointments.filter((apt) => {
         const [aptStartHour, aptStartMin] = apt.startTime.split(":").map(Number);
         const [aptEndHour, aptEndMin] = apt.endTime.split(":").map(Number);
         const aptStart = aptStartHour * 60 + aptStartMin;
         const aptEnd = aptEndHour * 60 + aptEndMin;
+        return slotStart < aptEnd && slotEnd > aptStart;
+      }).length;
 
-        // Check for overlap
-        if (slotStart < aptEnd && slotEnd > aptStart) {
-          return false;
-        }
+      if (overlappingCount >= slotCapacity) {
+        return false;
       }
 
+      slotCounts[slot] = slotCapacity - overlappingCount;
       return true;
     });
 
@@ -215,7 +225,7 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json({ slots: finalSlots });
+    return NextResponse.json({ slots: finalSlots, slotCounts, slotCapacity });
   } catch (error) {
     console.error("Error fetching available slots:", error);
     return NextResponse.json(

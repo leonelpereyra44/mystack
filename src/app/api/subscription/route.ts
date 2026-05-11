@@ -93,6 +93,7 @@ export async function POST(request: Request) {
         mpSubscriptionId: result.subscriptionId,
       },
       update: {
+        plan: planKey as SubscriptionPlan,
         mpSubscriptionId: result.subscriptionId,
         status: "TRIALING",
       },

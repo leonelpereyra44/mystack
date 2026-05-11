@@ -100,21 +100,24 @@ export async function POST(request: NextRequest) {
 
       // Mapear estados de MP a nuestros estados
       let subscriptionStatus: "ACTIVE" | "CANCELLED" | "PAST_DUE" | "TRIALING" = "TRIALING";
-      let plan: "FREE" | "PRO" = "FREE";
+
+      // Obtener el plan real desde la DB (no hardcodear PRO)
+      const existingSubscription = await prisma.subscription.findFirst({
+        where: { businessId },
+        select: { plan: true },
+      });
+      const actualPlan = existingSubscription?.plan ?? "PRO";
 
       switch (preapproval.status) {
         case "authorized":
           subscriptionStatus = "ACTIVE";
-          plan = "PRO";
           break;
         case "pending":
           subscriptionStatus = "TRIALING";
-          plan = "FREE";
           break;
         case "paused":
         case "cancelled":
           subscriptionStatus = "CANCELLED";
-          plan = "FREE";
           break;
         default:
           subscriptionStatus = "TRIALING";
@@ -125,7 +128,7 @@ export async function POST(request: NextRequest) {
         where: { businessId },
         create: {
           businessId,
-          plan,
+          plan: actualPlan,
           status: subscriptionStatus,
           mpSubscriptionId: preapprovalId,
           mpCustomerId: preapproval.payer_id?.toString(),
@@ -133,7 +136,7 @@ export async function POST(request: NextRequest) {
           currentPeriodEnd: preapproval.next_payment_date ? new Date(preapproval.next_payment_date) : null,
         },
         update: {
-          plan,
+          plan: actualPlan,
           status: subscriptionStatus,
           mpCustomerId: preapproval.payer_id?.toString(),
           currentPeriodStart: preapproval.date_created ? new Date(preapproval.date_created) : undefined,
@@ -142,7 +145,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      console.log(`Subscription updated: business=${businessId}, plan=${plan}, status=${subscriptionStatus}`);
+      console.log(`Subscription updated: business=${businessId}, plan=${actualPlan}, status=${subscriptionStatus}`);
     }
 
     // Manejar pagos de suscripción
@@ -165,13 +168,18 @@ export async function POST(request: NextRequest) {
         
         // Si el pago está aprobado y tiene external_reference
         if (payment.status === "approved" && payment.external_reference) {
+          // Obtener el plan real desde la DB en vez de hardcodear "PRO"
+          const sub = await prisma.subscription.findFirst({
+            where: { businessId: payment.external_reference },
+            select: { plan: true },
+          });
           await prisma.subscription.update({
             where: { businessId: payment.external_reference },
             data: {
-              plan: "PRO",
+              plan: sub?.plan ?? "PRO",
               status: "ACTIVE",
-              lastPaymentId: paymentId.toString(), // Guardar para posibles reembolsos
-              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 días
+              lastPaymentId: paymentId.toString(),
+              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             },
           });
         }

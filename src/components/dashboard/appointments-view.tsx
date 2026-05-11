@@ -27,9 +27,10 @@ interface Appointment {
 
 interface AppointmentsViewProps {
   appointments: Appointment[];
+  slotCapacity: number;
 }
 
-export function AppointmentsView({ appointments }: AppointmentsViewProps) {
+export function AppointmentsView({ appointments, slotCapacity }: AppointmentsViewProps) {
   const [view, setView] = useState<"list" | "calendar">("list");
 
   return (
@@ -61,7 +62,7 @@ export function AppointmentsView({ appointments }: AppointmentsViewProps) {
 
       {/* Contenido según vista */}
       {view === "list" ? (
-        <AppointmentsList appointments={appointments} />
+        <AppointmentsList appointments={appointments} slotCapacity={slotCapacity} />
       ) : (
         <AppointmentsCalendar appointments={appointments} />
       )}

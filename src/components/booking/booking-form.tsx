@@ -57,6 +57,7 @@ interface BookingFormProps {
   schedules: Schedule[];
   timezone: string;
   businessType?: string;
+  bookingInterval?: number;
 }
 
 const bookingSchema = z.object({
@@ -110,6 +111,7 @@ export function BookingForm({
   staff,
   schedules,
   businessType = "salon",
+  bookingInterval = 30,
 }: BookingFormProps) {
   const terminology = getBusinessTerminology(businessType);
   const [step, setStep] = useState(1);
@@ -252,7 +254,7 @@ export function BookingForm({
         .padStart(2, "0")}`;
       slots.push(timeStr);
 
-      currentMin += 30; // 30 min intervals
+      currentMin += bookingInterval; // configurable interval
       if (currentMin >= 60) {
         currentHour += 1;
         currentMin = 0;

@@ -55,8 +55,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Parse date correctly
     const appointmentDate = parseDateString(date);
 
-    // Check for conflicting appointments (excluding this one)
-    const existingAppointment = await prisma.appointment.findFirst({
+    // Check for conflicting appointments (excluding this one, respecting slotCapacity)
+    const overlappingCount = await prisma.appointment.count({
       where: {
         businessId: appointment.businessId,
         date: appointmentDate,
@@ -86,7 +86,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       },
     });
 
-    if (existingAppointment) {
+    if (overlappingCount >= appointment.business.slotCapacity) {
       return NextResponse.json(
         { error: "Este horario ya no está disponible" },
         { status: 409 }

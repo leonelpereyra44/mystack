@@ -460,6 +460,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                         schedules={business.schedules}
                         timezone={business.timezone}
                         businessType={business.businessType}
+                        bookingInterval={business.bookingInterval}
                       />
                     )}
                   </div>

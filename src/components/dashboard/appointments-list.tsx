@@ -85,6 +85,7 @@ function isAppointmentUpcoming(appointmentDate: Date, startTime: string): boolea
 
 interface AppointmentsListProps {
   appointments: Appointment[];
+  slotCapacity: number;
 }
 
 const statusConfig = {
@@ -95,7 +96,7 @@ const statusConfig = {
   NO_SHOW: { label: "No asistió", variant: "destructive" as const, icon: XCircle },
 };
 
-export function AppointmentsList({ appointments }: AppointmentsListProps) {
+export function AppointmentsList({ appointments, slotCapacity }: AppointmentsListProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,6 +111,14 @@ export function AppointmentsList({ appointments }: AppointmentsListProps) {
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
+
+  // Compute occupancy per slot (date+startTime) across ALL appointments (not just page)
+  const slotOccupancy = appointments.reduce((acc, apt) => {
+    if (apt.status === "CANCELLED") return acc;
+    const key = `${format(parseUTCDate(apt.date), "yyyy-MM-dd")}_${apt.startTime}`;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   // Filter, sort, and paginate in memory
   const filteredAppointments = appointments.filter((apt) => {
@@ -161,15 +170,14 @@ export function AppointmentsList({ appointments }: AppointmentsListProps) {
     }
   };
 
-  // Group appointments by date
+  // Group appointments by date, then by startTime
   const groupedAppointments = paginatedAppointments.reduce((groups, apt) => {
     const dateKey = format(parseUTCDate(apt.date), "yyyy-MM-dd");
-    if (!groups[dateKey]) {
-      groups[dateKey] = [];
-    }
-    groups[dateKey].push(apt);
+    if (!groups[dateKey]) groups[dateKey] = {};
+    if (!groups[dateKey][apt.startTime]) groups[dateKey][apt.startTime] = [];
+    groups[dateKey][apt.startTime].push(apt);
     return groups;
-  }, {} as Record<string, Appointment[]>);
+  }, {} as Record<string, Record<string, Appointment[]>>);
 
   if (paginatedAppointments.length === 0) {
     return (
@@ -241,155 +249,154 @@ export function AppointmentsList({ appointments }: AppointmentsListProps) {
       </div>
 
       <div className="space-y-6">
-        {Object.entries(groupedAppointments).map(([dateKey, dayAppointments]) => (
+        {Object.entries(groupedAppointments).map(([dateKey, timeGroups]) => (
           <div key={dateKey}>
-            <h3 className="mb-3 font-semibold text-sm md:text-base">
+            <h3 className="mb-3 font-semibold text-sm md:text-base capitalize">
               {format(parseUTCDate(dateKey), "EEEE, d 'de' MMMM", { locale: es })}
             </h3>
-            <div className="space-y-3">
-              {dayAppointments.map((apt, index) => {
-                const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
-                const StatusIcon = status.icon;
+            <div className="space-y-4">
+              {Object.entries(timeGroups).map(([timeKey, slotAppointments]) => {
+                const slotKey = `${dateKey}_${timeKey}`;
+                const occupied = slotOccupancy[slotKey] || slotAppointments.length;
 
                 return (
-                  <Card key={`${apt.id}-${index}`}>
-                    <CardContent className="p-3 md:p-4">
-                      {/* Mobile: Stack layout */}
-                      <div className="flex flex-col gap-3 md:hidden">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-2.5 py-1.5 min-w-[60px]">
-                              <span className="text-xs text-muted-foreground">
-                                {format(parseUTCDate(apt.date), "d MMM", { locale: es })}
-                              </span>
-                              <span className="text-base font-bold">{apt.startTime}</span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">{apt.customerName}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {apt.service.name}
-                              </p>
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm"><MoreHorizontal className="h-4 w-4" /></Button>} />
-                            <DropdownMenuContent align="end">
-                              {apt.status === "PENDING" && (
-                                <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                  Confirmar
-                                </DropdownMenuItem>
-                              )}
-                              {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
-                                <>
-                                  <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Completado
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    No asistió
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Cancelar
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Badge variant={status.variant} className="text-xs">
-                            <StatusIcon className="mr-1 h-3 w-3" />
-                            {status.label}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {apt.endTime}
-                          </span>
-                        </div>
-                      </div>
+                  <div key={timeKey}>
+                    {/* Time sub-header */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-semibold text-sm tabular-nums">{timeKey}</span>
+                      {slotAppointments[0] && (
+                        <span className="text-xs text-muted-foreground">→ {slotAppointments[0].endTime}</span>
+                      )}
+                      {slotCapacity > 1 && (
+                        <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${
+                          occupied >= slotCapacity
+                            ? "bg-destructive/10 text-destructive"
+                            : occupied >= slotCapacity * 0.8
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}>
+                          {occupied}/{slotCapacity} cupos
+                        </span>
+                      )}
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
 
-                      {/* Desktop: Row layout */}
-                      <div className="hidden md:flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="flex flex-col items-center justify-center rounded-lg bg-muted px-3 py-2 min-w-[70px]">
-                            <span className="text-xs text-muted-foreground">
-                              {format(parseUTCDate(apt.date), "d MMM", { locale: es })}
-                            </span>
-                            <span className="text-lg font-bold">{apt.startTime}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {apt.endTime}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{apt.customerName}</p>
-                              <Badge variant={status.variant}>
-                                <StatusIcon className="mr-1 h-3 w-3" />
-                                {status.label}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {apt.service.name}
-                              {apt.staff && ` • ${apt.staff.name}`}
-                            </p>
-                            <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Mail className="h-3 w-3" />
-                                {apt.customerEmail}
-                              </span>
-                              {apt.customerPhone && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  {apt.customerPhone}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                    {/* Cards for this time slot */}
+                    <div className="space-y-2 pl-0 md:pl-4">
+                      {slotAppointments.map((apt, index) => {
+                        const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
+                        const StatusIcon = status.icon;
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>} />
-                          <DropdownMenuContent align="end">
-                            {apt.status === "PENDING" && (
-                              <DropdownMenuItem
-                                onClick={() => updateStatus(apt.id, "CONFIRMED")}
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Confirmar
-                              </DropdownMenuItem>
-                            )}
-                            {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => updateStatus(apt.id, "COMPLETED")}
-                                >
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                  Marcar completado
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => updateStatus(apt.id, "NO_SHOW")}
-                                >
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  No asistió
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => setCancelId(apt.id)}
-                                >
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  Cancelar turno
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        return (
+                          <Card key={`${apt.id}-${index}`}>
+                            <CardContent className="p-3 md:p-4">
+                              {/* Mobile: Stack layout */}
+                              <div className="flex flex-col gap-2 md:hidden">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <p className="font-medium text-sm">{apt.customerName}</p>
+                                    <p className="text-xs text-muted-foreground">{apt.service.name}</p>
+                                    {apt.staff && (
+                                      <p className="text-xs text-muted-foreground">{apt.staff.name}</p>
+                                    )}
+                                  </div>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm"><MoreHorizontal className="h-4 w-4" /></Button>} />
+                                    <DropdownMenuContent align="end">
+                                      {apt.status === "PENDING" && (
+                                        <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
+                                          <CheckCircle className="mr-2 h-4 w-4" />
+                                          Confirmar
+                                        </DropdownMenuItem>
+                                      )}
+                                      {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
+                                        <>
+                                          <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
+                                            <CheckCircle className="mr-2 h-4 w-4" />
+                                            Completado
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            No asistió
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            Cancelar
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                                <Badge variant={status.variant} className="text-xs w-fit">
+                                  <StatusIcon className="mr-1 h-3 w-3" />
+                                  {status.label}
+                                </Badge>
+                              </div>
+
+                              {/* Desktop: Row layout */}
+                              <div className="hidden md:flex items-center justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium">{apt.customerName}</p>
+                                    <Badge variant={status.variant}>
+                                      <StatusIcon className="mr-1 h-3 w-3" />
+                                      {status.label}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {apt.service.name}
+                                    {apt.staff && ` • ${apt.staff.name}`}
+                                  </p>
+                                  <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <Mail className="h-3 w-3" />
+                                      {apt.customerEmail}
+                                    </span>
+                                    {apt.customerPhone && (
+                                      <span className="flex items-center gap-1">
+                                        <Phone className="h-3 w-3" />
+                                        {apt.customerPhone}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger render={<Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>} />
+                                  <DropdownMenuContent align="end">
+                                    {apt.status === "PENDING" && (
+                                      <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        Confirmar
+                                      </DropdownMenuItem>
+                                    )}
+                                    {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
+                                      <>
+                                        <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
+                                          <CheckCircle className="mr-2 h-4 w-4" />
+                                          Marcar completado
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
+                                          <XCircle className="mr-2 h-4 w-4" />
+                                          No asistió
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
+                                          <XCircle className="mr-2 h-4 w-4" />
+                                          Cancelar turno
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>

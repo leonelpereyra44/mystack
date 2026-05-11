@@ -2,6 +2,10 @@
 
 # Personal docs
 GIT-WORKFLOW.md
+ROADMAP.md
+to-do.txt
+REVIEW-2025-05-04.md
+design.md
 
 # dependencies
 /node_modules
@@ -52,7 +56,9 @@ next-env.d.ts
 
 /src/generated/prisma
 
-# Development notes
-ROADMAP.md
-to-do.txt
+
+
+
+# Brand video workspace
+/mystack-brand/
 

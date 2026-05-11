@@ -77,6 +77,8 @@ export function NewAppointmentModal({
   const [isLoading, setIsLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [slotCounts, setSlotCounts] = useState<Record<string, number>>({});
+  const [slotCapacity, setSlotCapacity] = useState(1);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [daysAvailability, setDaysAvailability] = useState<Record<string, { hasSlots: boolean; slotsCount: number }>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -180,8 +182,11 @@ export function NewAppointmentModal({
       if (response.ok) {
         const data = await response.json();
         setAvailableSlots(data.slots || []);
+        setSlotCounts(data.slotCounts || {});
+        setSlotCapacity(data.slotCapacity ?? 1);
       } else {
         setAvailableSlots([]);
+        setSlotCounts({});
       }
     } catch (error) {
       console.error("Error loading available slots:", error);
@@ -389,6 +394,11 @@ export function NewAppointmentModal({
                   {availableSlots.map((time) => (
                     <SelectItem key={time} value={time}>
                       {time}
+                      {slotCapacity > 1 && slotCounts[time] !== undefined && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          · {slotCounts[time]} {slotCounts[time] === 1 ? "lugar" : "lugares"}
+                        </span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>

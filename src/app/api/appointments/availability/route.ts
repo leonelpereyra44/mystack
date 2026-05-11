@@ -36,6 +36,14 @@ export async function GET(request: Request) {
       where: { businessId },
     });
 
+    // Obtener intervalo de reserva y capacidad por slot del negocio
+    const businessData = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { bookingInterval: true, slotCapacity: true },
+    });
+    const bookingInterval = businessData?.bookingInterval ?? 30;
+    const slotCapacity = businessData?.slotCapacity ?? 1;
+
     // Si hay staff seleccionado, obtener sus horarios
     let staffSchedules: { dayOfWeek: number; startTime: string; endTime: string; isWorking: boolean }[] = [];
     if (staffId) {
@@ -145,7 +153,7 @@ export async function GET(request: Request) {
           .padStart(2, "0")}`;
         allSlots.push(timeStr);
 
-        currentMin += 30;
+        currentMin += bookingInterval;
         if (currentMin >= 60) {
           currentHour += 1;
           currentMin = 0;
@@ -159,17 +167,15 @@ export async function GET(request: Request) {
         const slotStart = slotHour * 60 + slotMin;
         const slotEnd = slotStart + service.duration;
 
-        for (const apt of dayAppointments) {
+        const overlappingCount = dayAppointments.filter((apt) => {
           const [aptStartHour, aptStartMin] = apt.startTime.split(":").map(Number);
           const [aptEndHour, aptEndMin] = apt.endTime.split(":").map(Number);
           const aptStart = aptStartHour * 60 + aptStartMin;
           const aptEnd = aptEndHour * 60 + aptEndMin;
+          return slotStart < aptEnd && slotEnd > aptStart;
+        }).length;
 
-          if (slotStart < aptEnd && slotEnd > aptStart) {
-            return false;
-          }
-        }
-        return true;
+        return overlappingCount < slotCapacity;
       });
 
       // Si es hoy en Argentina (UTC-3), filtrar horarios pasados

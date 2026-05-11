@@ -60,7 +60,7 @@ export default async function AppointmentsPage() {
         />
       </div>
 
-      <AppointmentsView appointments={appointments} />
+      <AppointmentsView appointments={appointments} slotCapacity={business.slotCapacity} />
     </div>
   );
 }
