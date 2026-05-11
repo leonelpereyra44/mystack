@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -57,6 +58,11 @@ interface BusinessSchedule {
   isOpen: boolean;
 }
 
+interface Service {
+  id: string;
+  name: string;
+}
+
 const staffSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
@@ -80,6 +86,9 @@ export default function EditStaffPage({ params }: EditStaffPageProps) {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
   const [businessSchedules, setBusinessSchedules] = useState<BusinessSchedule[]>([]);
+  const [color, setColor] = useState("#6366f1");
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
   const {
     register,
@@ -104,6 +113,10 @@ export default function EditStaffPage({ params }: EditStaffPageProps) {
           setValue("email", staff.email || "");
           setValue("phone", staff.phone || "");
           setValue("isActive", staff.isActive);
+          if (staff.color) setColor(staff.color);
+          if (Array.isArray(staff.services)) {
+            setSelectedServiceIds(staff.services.map((s: Service) => s.id));
+          }
         } else {
           setError("Miembro no encontrado");
         }
@@ -115,6 +128,14 @@ export default function EditStaffPage({ params }: EditStaffPageProps) {
     }
     fetchStaff();
   }, [id, setValue]);
+
+  // Cargar todos los servicios disponibles
+  useEffect(() => {
+    fetch("/api/services")
+      .then((r) => r.json())
+      .then((data) => setAllServices(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   // Cargar horarios
   useEffect(() => {
@@ -141,7 +162,7 @@ export default function EditStaffPage({ params }: EditStaffPageProps) {
       const response = await fetch(`/api/staff/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, color, serviceIds: selectedServiceIds }),
       });
 
       if (!response.ok) {
@@ -179,6 +200,12 @@ export default function EditStaffPage({ params }: EditStaffPageProps) {
         },
       ];
     });
+  };
+
+  const toggleService = (serviceId: string) => {
+    setSelectedServiceIds((prev) =>
+      prev.includes(serviceId) ? prev.filter((s) => s !== serviceId) : [...prev, serviceId]
+    );
   };
 
   const saveSchedules = async () => {
@@ -308,6 +335,43 @@ export default function EditStaffPage({ params }: EditStaffPageProps) {
                   Miembro activo (disponible para turnos)
                 </Label>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="color">Color en el calendario</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="color"
+                    type="color"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="h-9 w-12 cursor-pointer rounded border border-input p-0.5"
+                  />
+                  <span className="text-sm text-muted-foreground">{color}</span>
+                </div>
+              </div>
+
+              {allServices.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Servicios que puede realizar</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Si no seleccionas ninguno, podrá realizar todos los servicios
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                    {allServices.map((service) => (
+                      <div key={service.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`service-edit-${service.id}`}
+                          checked={selectedServiceIds.includes(service.id)}
+                          onCheckedChange={() => toggleService(service.id)}
+                        />
+                        <Label htmlFor={`service-edit-${service.id}`} className="cursor-pointer font-normal">
+                          {service.name}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-2 pt-4">
                 <Button type="submit" disabled={isLoading}>

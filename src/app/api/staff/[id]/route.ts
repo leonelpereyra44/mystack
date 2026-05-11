@@ -32,6 +32,9 @@ export async function GET(request: Request, { params }: RouteParams) {
         schedules: {
           orderBy: { dayOfWeek: "asc" },
         },
+        services: {
+          select: { id: true, name: true },
+        },
       },
     });
 
@@ -92,16 +95,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       email?: string;
       phone?: string;
       isActive?: boolean;
+      color?: string;
+      services?: { set: { id: string }[] };
     } = {};
     
     if ("name" in body) data.name = body.name;
     if ("email" in body) data.email = body.email;
     if ("phone" in body) data.phone = body.phone;
     if ("isActive" in body) data.isActive = body.isActive;
+    if ("color" in body) data.color = body.color;
+    if ("serviceIds" in body && Array.isArray(body.serviceIds)) {
+      data.services = { set: body.serviceIds.map((id: string) => ({ id })) };
+    }
 
     const staff = await prisma.staff.update({
       where: { id },
       data,
+      include: { services: { select: { id: true, name: true } } },
     });
 
     return NextResponse.json(staff);

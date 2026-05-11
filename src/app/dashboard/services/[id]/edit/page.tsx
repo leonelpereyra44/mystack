@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Clock } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -38,6 +38,22 @@ const serviceSchema = z.object({
 
 type ServiceFormData = z.infer<typeof serviceSchema>;
 
+interface ServiceScheduleEntry {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+}
+
+const DAYS = [
+  { value: 1, label: "Lunes" },
+  { value: 2, label: "Martes" },
+  { value: 3, label: "Miércoles" },
+  { value: 4, label: "Jueves" },
+  { value: 5, label: "Viernes" },
+  { value: 6, label: "Sábado" },
+  { value: 0, label: "Domingo" },
+];
+
 interface EditServicePageProps {
   params: Promise<{ id: string }>;
 }
@@ -48,6 +64,10 @@ export default function EditServicePage({ params }: EditServicePageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Schedule state
+  const [schedules, setSchedules] = useState<ServiceScheduleEntry[]>([]);
+  const [savingSchedules, setSavingSchedules] = useState(false);
 
   const {
     register,
@@ -78,9 +98,13 @@ export default function EditServicePage({ params }: EditServicePageProps) {
   useEffect(() => {
     async function fetchService() {
       try {
-        const response = await fetch(`/api/services/${id}`);
-        if (response.ok) {
-          const service = await response.json();
+        const [serviceRes, scheduleRes] = await Promise.all([
+          fetch(`/api/services/${id}`),
+          fetch(`/api/services/${id}/schedule`),
+        ]);
+
+        if (serviceRes.ok) {
+          const service = await serviceRes.json();
           setValue("name", service.name);
           setValue("description", service.description || "");
           setValue("duration", service.duration);
@@ -88,6 +112,17 @@ export default function EditServicePage({ params }: EditServicePageProps) {
           setValue("isActive", service.isActive);
         } else {
           setError("Servicio no encontrado");
+        }
+
+        if (scheduleRes.ok) {
+          const { schedules: existing } = await scheduleRes.json();
+          setSchedules(
+            existing.map((s: ServiceScheduleEntry) => ({
+              dayOfWeek: s.dayOfWeek,
+              startTime: s.startTime,
+              endTime: s.endTime,
+            }))
+          );
         }
       } catch {
         setError("Error al cargar el servicio");
@@ -122,6 +157,60 @@ export default function EditServicePage({ params }: EditServicePageProps) {
       setError("Error al actualizar el servicio");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const isDayEnabled = (dayOfWeek: number) =>
+    schedules.some((s) => s.dayOfWeek === dayOfWeek);
+
+  const getDaySchedule = (dayOfWeek: number): ServiceScheduleEntry | undefined =>
+    schedules.find((s) => s.dayOfWeek === dayOfWeek);
+
+  const toggleDay = (dayOfWeek: number) => {
+    if (isDayEnabled(dayOfWeek)) {
+      setSchedules((prev) => prev.filter((s) => s.dayOfWeek !== dayOfWeek));
+    } else {
+      setSchedules((prev) => [
+        ...prev,
+        { dayOfWeek, startTime: "09:00", endTime: "18:00" },
+      ]);
+    }
+  };
+
+  const updateDayTime = (
+    dayOfWeek: number,
+    field: "startTime" | "endTime",
+    value: string
+  ) => {
+    setSchedules((prev) =>
+      prev.map((s) => (s.dayOfWeek === dayOfWeek ? { ...s, [field]: value } : s))
+    );
+  };
+
+  const handleSaveSchedules = async () => {
+    setSavingSchedules(true);
+    try {
+      const response = await fetch(`/api/services/${id}/schedule`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedules }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        toast.error(result.error || "Error al guardar franjas");
+        return;
+      }
+
+      toast.success(
+        schedules.length > 0
+          ? "Franjas horarias guardadas"
+          : "Franjas eliminadas — el servicio usa el horario del negocio"
+      );
+    } catch {
+      toast.error("Error al guardar franjas");
+    } finally {
+      setSavingSchedules(false);
     }
   };
 
@@ -256,6 +345,88 @@ export default function EditServicePage({ params }: EditServicePageProps) {
           </form>
         </CardContent>
       </Card>
+
+      {/* Service Schedule */}
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Franjas Horarias del Servicio
+          </CardTitle>
+          <CardDescription>
+            Define los días y horarios en que se puede reservar este servicio
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+            <Info className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>
+              Si no configuras franjas horarias, este servicio estará disponible
+              durante todo el horario del negocio. Activar días restringe la
+              disponibilidad solo a las horas indicadas.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {DAYS.map(({ value, label }) => {
+              const enabled = isDayEnabled(value);
+              const sched = getDaySchedule(value);
+              return (
+                <div key={value} className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id={`day-${value}`}
+                    checked={enabled}
+                    onChange={() => toggleDay(value)}
+                    className="h-4 w-4 rounded border-gray-300 shrink-0"
+                  />
+                  <Label
+                    htmlFor={`day-${value}`}
+                    className="w-24 shrink-0 font-normal cursor-pointer"
+                  >
+                    {label}
+                  </Label>
+                  {enabled && sched ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <Input
+                        type="time"
+                        value={sched.startTime}
+                        onChange={(e) =>
+                          updateDayTime(value, "startTime", e.target.value)
+                        }
+                        className="w-32"
+                      />
+                      <span className="text-muted-foreground text-sm">a</span>
+                      <Input
+                        type="time"
+                        value={sched.endTime}
+                        onChange={(e) =>
+                          updateDayTime(value, "endTime", e.target.value)
+                        }
+                        className="w-32"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      {enabled ? "" : "No disponible"}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <Button
+            onClick={handleSaveSchedules}
+            disabled={savingSchedules}
+            className="mt-2"
+          >
+            {savingSchedules && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Guardar Franjas
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
+

@@ -16,6 +16,8 @@ interface Appointment {
   customerPhone: string | null;
   status: string;
   notes: string | null;
+  serviceId: string;
+  staffId: string | null;
   service: {
     name: string;
     duration: number;
@@ -28,9 +30,11 @@ interface Appointment {
 interface AppointmentsViewProps {
   appointments: Appointment[];
   slotCapacity: number;
+  services?: { id: string; name: string }[];
+  staff?: { id: string; name: string }[];
 }
 
-export function AppointmentsView({ appointments, slotCapacity }: AppointmentsViewProps) {
+export function AppointmentsView({ appointments, slotCapacity, services, staff }: AppointmentsViewProps) {
   const [view, setView] = useState<"list" | "calendar">("list");
 
   return (
@@ -62,7 +66,7 @@ export function AppointmentsView({ appointments, slotCapacity }: AppointmentsVie
 
       {/* Contenido según vista */}
       {view === "list" ? (
-        <AppointmentsList appointments={appointments} slotCapacity={slotCapacity} />
+        <AppointmentsList appointments={appointments} slotCapacity={slotCapacity} services={services} staff={staff} />
       ) : (
         <AppointmentsCalendar appointments={appointments} />
       )}

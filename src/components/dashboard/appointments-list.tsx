@@ -22,6 +22,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +64,8 @@ interface Appointment {
   customerPhone: string | null;
   status: string;
   notes: string | null;
+  serviceId: string;
+  staffId: string | null;
   service: {
     name: string;
     duration: number;
@@ -86,6 +96,8 @@ function isAppointmentUpcoming(appointmentDate: Date, startTime: string): boolea
 interface AppointmentsListProps {
   appointments: Appointment[];
   slotCapacity: number;
+  services?: { id: string; name: string }[];
+  staff?: { id: string; name: string }[];
 }
 
 const statusConfig = {
@@ -96,9 +108,11 @@ const statusConfig = {
   NO_SHOW: { label: "No asistió", variant: "destructive" as const, icon: XCircle },
 };
 
-export function AppointmentsList({ appointments, slotCapacity }: AppointmentsListProps) {
+export function AppointmentsList({ appointments, slotCapacity, services, staff }: AppointmentsListProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
+  const [filterServiceId, setFilterServiceId] = useState<string>("all");
+  const [filterStaffId, setFilterStaffId] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -122,9 +136,14 @@ export function AppointmentsList({ appointments, slotCapacity }: AppointmentsLis
 
   // Filter, sort, and paginate in memory
   const filteredAppointments = appointments.filter((apt) => {
-    if (filter === "all") return true;
-    const upcoming = isAppointmentUpcoming(apt.date, apt.startTime);
-    return filter === "upcoming" ? upcoming : !upcoming;
+    if (filter !== "all") {
+      const upcoming = isAppointmentUpcoming(apt.date, apt.startTime);
+      if (filter === "upcoming" && !upcoming) return false;
+      if (filter === "past" && upcoming) return false;
+    }
+    if (filterServiceId !== "all" && apt.serviceId !== filterServiceId) return false;
+    if (filterStaffId !== "all" && apt.staffId !== filterStaffId) return false;
+    return true;
   });
 
   const sortedAppointments = [...filteredAppointments].sort((a, b) => {
@@ -143,6 +162,37 @@ export function AppointmentsList({ appointments, slotCapacity }: AppointmentsLis
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
+  const downloadCSV = () => {
+    const headers = ["Fecha", "Hora", "Cliente", "Email", "Teléfono", "Servicio", "Personal", "Estado"];
+    const statusLabels: Record<string, string> = {
+      PENDING: "Pendiente",
+      CONFIRMED: "Confirmado",
+      COMPLETED: "Completado",
+      CANCELLED: "Cancelado",
+      NO_SHOW: "No asistió",
+    };
+    const rows = sortedAppointments.map((apt) => [
+      format(parseUTCDate(apt.date), "dd/MM/yyyy"),
+      apt.startTime,
+      apt.customerName,
+      apt.customerEmail,
+      apt.customerPhone || "",
+      apt.service.name,
+      apt.staff?.name || "",
+      statusLabels[apt.status] || apt.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `turnos-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const updateStatus = async (id: string, status: string) => {
     setIsUpdating(true);
@@ -183,7 +233,77 @@ export function AppointmentsList({ appointments, slotCapacity }: AppointmentsLis
     return (
       <>
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex gap-2">
+            <Button 
+              variant={filter === "upcoming" ? "default" : "outline"} 
+              size="sm"
+              onClick={() => handleFilterChange("upcoming")}
+            >
+              Próximos
+            </Button>
+            <Button 
+              variant={filter === "past" ? "default" : "outline"} 
+              size="sm"
+              onClick={() => handleFilterChange("past")}
+            >
+              Pasados
+            </Button>
+            <Button 
+              variant={filter === "all" ? "default" : "outline"} 
+              size="sm"
+              onClick={() => handleFilterChange("all")}
+            >
+              Todos
+            </Button>
+          </div>
+          {services && services.length > 1 && (
+            <Select value={filterServiceId} onValueChange={(v) => { if (v) { setFilterServiceId(v); setCurrentPage(1); } }}>
+              <SelectTrigger className="h-8 w-[160px]">
+                <SelectValue placeholder="Servicio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los servicios</SelectItem>
+                {services.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {staff && staff.length > 0 && (
+            <Select value={filterStaffId} onValueChange={(v) => { if (v) { setFilterStaffId(v); setCurrentPage(1); } }}>
+              <SelectTrigger className="h-8 w-[160px]">
+                <SelectValue placeholder="Personal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todo el personal</SelectItem>
+                {staff.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Calendar className="h-12 w-12 text-muted-foreground" />
+            <p className="mt-4 text-muted-foreground">
+              {filter === "past" 
+                ? "No hay turnos pasados" 
+                : "No hay turnos programados"}
+            </p>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* Filter Tabs */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex gap-2">
           <Button 
             variant={filter === "upcoming" ? "default" : "outline"} 
             size="sm"
@@ -206,45 +326,41 @@ export function AppointmentsList({ appointments, slotCapacity }: AppointmentsLis
             Todos
           </Button>
         </div>
-
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">
-              {filter === "past" 
-                ? "No hay turnos pasados" 
-                : "No hay turnos programados"}
-            </p>
-          </CardContent>
-        </Card>
-      </>
-    );
-  }
-
-  return (
-    <>
-      {/* Filter Tabs */}
-      <div className="flex gap-2 mb-4">
-        <Button 
-          variant={filter === "upcoming" ? "default" : "outline"} 
+        {services && services.length > 1 && (
+          <Select value={filterServiceId} onValueChange={(v) => { if (v) { setFilterServiceId(v); setCurrentPage(1); } }}>
+            <SelectTrigger className="h-8 w-[160px]">
+              <SelectValue placeholder="Servicio" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los servicios</SelectItem>
+              {services.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {staff && staff.length > 0 && (
+          <Select value={filterStaffId} onValueChange={(v) => { if (v) { setFilterStaffId(v); setCurrentPage(1); } }}>
+            <SelectTrigger className="h-8 w-[160px]">
+              <SelectValue placeholder="Personal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todo el personal</SelectItem>
+              {staff.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <Button
+          variant="outline"
           size="sm"
-          onClick={() => handleFilterChange("upcoming")}
+          className="ml-auto h-8 gap-1"
+          onClick={downloadCSV}
+          disabled={sortedAppointments.length === 0}
         >
-          Próximos
-        </Button>
-        <Button 
-          variant={filter === "past" ? "default" : "outline"} 
-          size="sm"
-          onClick={() => handleFilterChange("past")}
-        >
-          Pasados
-        </Button>
-        <Button 
-          variant={filter === "all" ? "default" : "outline"} 
-          size="sm"
-          onClick={() => handleFilterChange("all")}
-        >
-          Todos
+          <Download className="h-3.5 w-3.5" />
+          CSV
         </Button>
       </div>
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Copy, ExternalLink, Info, Check, AlertTriangle, Trash2, Instagram, Facebook, Globe, Twitter } from "lucide-react";
+import { Loader2, Copy, ExternalLink, Info, Check, AlertTriangle, Trash2, Instagram, Facebook, Globe, Twitter, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { signOut } from "next-auth/react";
 
@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChangePasswordForm } from "./change-password-form";
+import { Switch } from "@/components/ui/switch";
 import { SubscriptionCard } from "./subscription-card";
 import { BookingPreview } from "./booking-preview";
 import { LogoUpload } from "./logo-upload";
@@ -59,11 +60,16 @@ interface Business {
   allowMultipleBookings: boolean;
   bookingInterval: number;
   slotCapacity: number;
+  bufferTime: number;
+  showPrices: boolean;
+  showDurations: boolean;
+  minBookingNotice: number;
   instagram: string | null;
   facebook: string | null;
   twitter: string | null;
   tiktok: string | null;
   website: string | null;
+  welcomeMessage: string | null;
   subscription: {
     plan: string;
     status: string;
@@ -99,6 +105,14 @@ export function SettingsForm({ business }: SettingsFormProps) {
   const [savingInterval, setSavingInterval] = useState(false);
   const [slotCapacity, setSlotCapacity] = useState(business.slotCapacity);
   const [savingCapacity, setSavingCapacity] = useState(false);
+  const [bufferTime, setBufferTime] = useState(business.bufferTime);
+  const [savingBufferTime, setSavingBufferTime] = useState(false);
+  const [showPrices, setShowPrices] = useState(business.showPrices);
+  const [showDurations, setShowDurations] = useState(business.showDurations);
+  const [minBookingNotice, setMinBookingNotice] = useState(business.minBookingNotice);
+  const [savingMinNotice, setSavingMinNotice] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState(business.welcomeMessage ?? "");
+  const [savingWelcomeMessage, setSavingWelcomeMessage] = useState(false);
   const [businessType, setBusinessType] = useState(business.businessType);
   const [savingBusinessType, setSavingBusinessType] = useState(false);
   
@@ -108,6 +122,18 @@ export function SettingsForm({ business }: SettingsFormProps) {
   const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    publicUrl: true,
+    logo: true,
+    businessType: false,
+    businessInfo: true,
+    bookingSettings: false,
+    dangerZone: false,
+  });
+  const toggleSection = (key: string) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // Suggested services modal
   const [showSuggestedModal, setShowSuggestedModal] = useState(false);
@@ -236,6 +262,93 @@ export function SettingsForm({ business }: SettingsFormProps) {
       toast.error("Error al guardar");
     } finally {
       setSavingCapacity(false);
+    }
+  };
+
+  const handleBufferTimeChange = async (value: number) => {
+    setSavingBufferTime(true);
+    try {
+      const response = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bufferTime: value }),
+      });
+      if (response.ok) {
+        setBufferTime(value);
+        toast.success("Buffer actualizado");
+        router.refresh();
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSavingBufferTime(false);
+    }
+  };
+
+  const handleToggleField = async (field: "showPrices" | "showDurations", value: boolean) => {
+    try {
+      const response = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (response.ok) {
+        if (field === "showPrices") setShowPrices(value);
+        else setShowDurations(value);
+        toast.success("Configuración actualizada");
+        router.refresh();
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error al guardar");
+    }
+  };
+
+  const handleMinNoticeBlur = async () => {
+    if (minBookingNotice === business.minBookingNotice) return;
+    setSavingMinNotice(true);
+    try {
+      const response = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ minBookingNotice }),
+      });
+      if (response.ok) {
+        toast.success("Antelación mínima actualizada");
+        router.refresh();
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSavingMinNotice(false);
+    }
+  };
+
+  const handleWelcomeMessageBlur = async () => {
+    const newVal = welcomeMessage.trim() || null;
+    if (newVal === business.welcomeMessage) return;
+    setSavingWelcomeMessage(true);
+    try {
+      const response = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ welcomeMessage: newVal }),
+      });
+      if (response.ok) {
+        toast.success("Mensaje de bienvenida actualizado");
+        router.refresh();
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSavingWelcomeMessage(false);
     }
   };
 
@@ -414,12 +527,23 @@ export function SettingsForm({ business }: SettingsFormProps) {
     <div className="space-y-6">
       {/* Public URL */}
       <Card>
-        <CardHeader>
-          <CardTitle>Tu página de reservas</CardTitle>
-          <CardDescription>
-            Comparte este enlace con tus clientes para que puedan reservar turnos
-          </CardDescription>
+        <CardHeader
+          className="cursor-pointer select-none flex flex-row items-start justify-between space-y-0"
+          onClick={() => toggleSection("publicUrl")}
+        >
+          <div>
+            <CardTitle>Tu página de reservas</CardTitle>
+            <CardDescription>
+              Comparte este enlace con tus clientes para que puedan reservar turnos
+            </CardDescription>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 text-muted-foreground transition-transform mt-1 shrink-0 ${
+              openSections.publicUrl ? "" : "-rotate-90"
+            }`}
+          />
         </CardHeader>
+        {openSections.publicUrl && (
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
             <Input value={publicUrl} readOnly className="font-mono" />
@@ -439,16 +563,28 @@ export function SettingsForm({ business }: SettingsFormProps) {
             </span>
           </div>
         </CardContent>
+        )}
       </Card>
 
       {/* Logo Upload */}
       <Card>
-        <CardHeader>
-          <CardTitle>Logo del Negocio</CardTitle>
-          <CardDescription>
-            Sube una imagen que represente tu negocio. Se mostrará en tu página pública.
-          </CardDescription>
+        <CardHeader
+          className="cursor-pointer select-none flex flex-row items-start justify-between space-y-0"
+          onClick={() => toggleSection("logo")}
+        >
+          <div>
+            <CardTitle>Logo del Negocio</CardTitle>
+            <CardDescription>
+              Sube una imagen que represente tu negocio. Se mostrará en tu página pública.
+            </CardDescription>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 text-muted-foreground transition-transform mt-1 shrink-0 ${
+              openSections.logo ? "" : "-rotate-90"
+            }`}
+          />
         </CardHeader>
+        {openSections.logo && (
         <CardContent>
           <LogoUpload 
             currentLogo={business.logo} 
@@ -456,16 +592,28 @@ export function SettingsForm({ business }: SettingsFormProps) {
             onLogoChange={() => router.refresh()}
           />
         </CardContent>
+        )}
       </Card>
 
       {/* Business Type */}
       <Card>
-        <CardHeader>
-          <CardTitle>Tipo de Negocio</CardTitle>
-          <CardDescription>
-            Elige el icono que mejor represente tu negocio
-          </CardDescription>
+        <CardHeader
+          className="cursor-pointer select-none flex flex-row items-start justify-between space-y-0"
+          onClick={() => toggleSection("businessType")}
+        >
+          <div>
+            <CardTitle>Tipo de Negocio</CardTitle>
+            <CardDescription>
+              Elige el icono que mejor represente tu negocio
+            </CardDescription>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 text-muted-foreground transition-transform mt-1 shrink-0 ${
+              openSections.businessType ? "" : "-rotate-90"
+            }`}
+          />
         </CardHeader>
+        {openSections.businessType && (
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {BUSINESS_TYPES.map((type) => {
@@ -507,16 +655,28 @@ export function SettingsForm({ business }: SettingsFormProps) {
             </div>
           )}
         </CardContent>
+        )}
       </Card>
 
       {/* Business Info */}
       <Card>
-        <CardHeader>
-          <CardTitle>Información del Negocio</CardTitle>
-          <CardDescription>
-            Esta información se mostrará en tu página pública
-          </CardDescription>
+        <CardHeader
+          className="cursor-pointer select-none flex flex-row items-start justify-between space-y-0"
+          onClick={() => toggleSection("businessInfo")}
+        >
+          <div>
+            <CardTitle>Información del Negocio</CardTitle>
+            <CardDescription>
+              Esta información se mostrará en tu página pública
+            </CardDescription>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 text-muted-foreground transition-transform mt-1 shrink-0 ${
+              openSections.businessInfo ? "" : "-rotate-90"
+            }`}
+          />
         </CardHeader>
+        {openSections.businessInfo && (
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
@@ -656,16 +816,28 @@ export function SettingsForm({ business }: SettingsFormProps) {
             </Button>
           </form>
         </CardContent>
+        )}
       </Card>
 
       {/* Booking Settings */}
       <Card>
-        <CardHeader>
-          <CardTitle>Configuración de Reservas</CardTitle>
-          <CardDescription>
-            Controla cómo los clientes pueden hacer reservas
-          </CardDescription>
+        <CardHeader
+          className="cursor-pointer select-none flex flex-row items-start justify-between space-y-0"
+          onClick={() => toggleSection("bookingSettings")}
+        >
+          <div>
+            <CardTitle>Configuración de Reservas</CardTitle>
+            <CardDescription>
+              Controla cómo los clientes pueden hacer reservas
+            </CardDescription>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 text-muted-foreground transition-transform mt-1 shrink-0 ${
+              openSections.bookingSettings ? "" : "-rotate-90"
+            }`}
+          />
         </CardHeader>
+        {openSections.bookingSettings && (
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
@@ -751,7 +923,115 @@ export function SettingsForm({ business }: SettingsFormProps) {
               />
             </div>
           </div>
-          
+
+          {/* Buffer entre turnos */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base">Buffer entre turnos</Label>
+              <p className="text-sm text-muted-foreground">
+                Minutos de descanso/limpieza entre cada turno
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {savingBufferTime && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={bufferTime}
+                  disabled={savingBufferTime}
+                  className="w-[80px] text-center"
+                  onChange={(e) => {
+                    const val = Math.min(60, Math.max(0, parseInt(e.target.value) || 0));
+                    setBufferTime(val);
+                  }}
+                  onBlur={(e) => {
+                    const val = Math.min(60, Math.max(0, parseInt(e.target.value) || 0));
+                    if (val !== business.bufferTime) {
+                      handleBufferTimeChange(val);
+                    }
+                  }}
+                />
+                <span className="text-sm text-muted-foreground">min</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Show Prices */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base">Mostrar precios</Label>
+              <p className="text-sm text-muted-foreground">
+                Muestra el precio de cada servicio en la página de reservas
+              </p>
+            </div>
+            <Switch
+              checked={showPrices}
+              onCheckedChange={(v) => handleToggleField("showPrices", v)}
+            />
+          </div>
+
+          {/* Show Durations */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base">Mostrar duración</Label>
+              <p className="text-sm text-muted-foreground">
+                Muestra la duración de cada servicio en la página de reservas
+              </p>
+            </div>
+            <Switch
+              checked={showDurations}
+              onCheckedChange={(v) => handleToggleField("showDurations", v)}
+            />
+          </div>
+
+          {/* Min Booking Notice */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base">Antelación mínima</Label>
+              <p className="text-sm text-muted-foreground">
+                Horas de anticipación mínima para poder realizar una reserva (0 = sin límite)
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {savingMinNotice && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min={0}
+                  max={72}
+                  value={minBookingNotice}
+                  disabled={savingMinNotice}
+                  className="w-[80px] text-center"
+                  onChange={(e) => setMinBookingNotice(Math.min(72, Math.max(0, parseInt(e.target.value) || 0)))}
+                  onBlur={handleMinNoticeBlur}
+                />
+                <span className="text-sm text-muted-foreground">hs</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Welcome Message */}
+          <div className="space-y-2">
+            <Label className="text-base">Mensaje de bienvenida</Label>
+            <p className="text-sm text-muted-foreground">
+              Texto personalizado que se muestra al inicio del formulario de reservas
+            </p>
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Ej: ¡Gracias por elegirnos! Recordá traer tu documento."
+                value={welcomeMessage}
+                onChange={(e) => setWelcomeMessage(e.target.value)}
+                onBlur={handleWelcomeMessageBlur}
+                disabled={savingWelcomeMessage}
+                rows={3}
+                className="resize-none"
+              />
+              {savingWelcomeMessage && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-2" />}
+            </div>
+          </div>
+
           <div className="rounded-lg bg-muted/50 p-4 flex gap-3">
             <Info className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
             <div className="text-sm text-muted-foreground">
@@ -763,6 +1043,7 @@ export function SettingsForm({ business }: SettingsFormProps) {
             </div>
           </div>
         </CardContent>
+        )}
       </Card>
 
       {/* Change Password */}
@@ -773,15 +1054,26 @@ export function SettingsForm({ business }: SettingsFormProps) {
 
       {/* Danger Zone */}
       <Card className="border-destructive/50">
-        <CardHeader>
-          <CardTitle className="text-destructive flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Zona de Peligro
-          </CardTitle>
-          <CardDescription>
-            Acciones irreversibles que afectan permanentemente tu cuenta
-          </CardDescription>
+        <CardHeader
+          className="cursor-pointer select-none flex flex-row items-start justify-between space-y-0"
+          onClick={() => toggleSection("dangerZone")}
+        >
+          <div>
+            <CardTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Zona de Peligro
+            </CardTitle>
+            <CardDescription>
+              Acciones irreversibles que afectan permanentemente tu cuenta
+            </CardDescription>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 text-muted-foreground transition-transform mt-1 shrink-0 ${
+              openSections.dangerZone ? "" : "-rotate-90"
+            }`}
+          />
         </CardHeader>
+        {openSections.dangerZone && (
         <CardContent className="space-y-4">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -801,6 +1093,7 @@ export function SettingsForm({ business }: SettingsFormProps) {
             Eliminar mi negocio
           </Button>
         </CardContent>
+        )}
       </Card>
 
       {/* Delete Business Dialog */}

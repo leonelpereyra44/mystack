@@ -97,6 +97,11 @@ model Business {
   allowMultipleBookings Boolean @default(false) // Si false, solo 1 turno activo por email
   bookingInterval Int  @default(30)
   slotCapacity    Int  @default(1)  // Cantidad máxima de reservas por slot (1 = solo 1 persona)
+  showPrices      Boolean @default(true)   // Mostrar precios en la página de reservas
+  showDurations   Boolean @default(true)   // Mostrar duración en la página de reservas
+  minBookingNotice Int @default(0)         // Horas de antelación mínima para reservar
+  welcomeMessage  String? @db.Text         // Mensaje personalizado en el formulario de reservas
+  bufferTime      Int @default(0)           // Minutos de descanso/buffer entre turnos
   
   // Redes sociales
   instagram   String?
@@ -152,10 +157,29 @@ model Service {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business     Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
   appointments Appointment[]
+  staff        Staff[]          // Profesionales que pueden realizarlo (M2M)
+  schedules    ServiceSchedule[] // Franjas horarias específicas del servicio
 
   @@map("services")
+}
+
+// ============================================
+// SERVICE SCHEDULE (Franjas horarias por servicio)
+// ============================================
+
+model ServiceSchedule {
+  id         String  @id @default(cuid())
+  serviceId  String
+  dayOfWeek  Int     // 0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
+  startTime  String  // "HH:MM"
+  endTime    String  // "HH:MM"
+
+  service    Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, dayOfWeek])
+  @@map("service_schedules")
 }
 
 // ============================================
@@ -169,6 +193,7 @@ model Staff {
   email       String?
   phone       String?
   image       String?
+  color       String   @default("#6366f1")  // Color para el calendario
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -178,6 +203,7 @@ model Staff {
   appointments Appointment[]
   schedules    StaffSchedule[]
   blockedTimes BlockedTime[]
+  services     Service[]     // Servicios que puede realizar (M2M)
 
   @@map("staff")
 }

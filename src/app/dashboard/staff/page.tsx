@@ -13,6 +13,7 @@ export default async function StaffPage() {
     include: {
       staff: {
         orderBy: { createdAt: "desc" },
+        include: { services: { select: { id: true, name: true } } },
       },
     },
   });

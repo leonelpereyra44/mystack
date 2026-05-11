@@ -10,7 +10,6 @@ import {
   Clock, 
   Users,
   Loader2,
-  Lock,
   Crown
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -142,22 +141,66 @@ export default function AnalyticsPage() {
   }
 
   if (requiresPro) {
+    const previewData: AnalyticsData = {
+      period: { start: "", end: "", months: 1 },
+      summary: { totalAppointments: 48, totalRevenue: 84500, averageTicket: 3200, cancellationRate: 8 },
+      trends: { revenueChange: 15, appointmentsChange: 12 },
+      popularServices: [
+        { name: "Corte de cabello", count: 18, revenue: 27000 },
+        { name: "Coloración", count: 12, revenue: 36000 },
+        { name: "Peinado", count: 10, revenue: 15000 },
+        { name: "Tratamiento", count: 8, revenue: 6500 },
+      ],
+      peakHours: [
+        { hour: 10, hourLabel: "10:00", count: 12 },
+        { hour: 11, hourLabel: "11:00", count: 9 },
+        { hour: 14, hourLabel: "14:00", count: 8 },
+        { hour: 16, hourLabel: "16:00", count: 7 },
+      ],
+      appointmentsByDay: [
+        { day: 0, dayLabel: "Dom", count: 3 },
+        { day: 1, dayLabel: "Lun", count: 8 },
+        { day: 2, dayLabel: "Mar", count: 9 },
+        { day: 3, dayLabel: "Mié", count: 7 },
+        { day: 4, dayLabel: "Jue", count: 10 },
+        { day: 5, dayLabel: "Vie", count: 11 },
+        { day: 6, dayLabel: "Sáb", count: 6 },
+      ],
+      statusCounts: { total: 48, confirmed: 40, cancelled: 4, pending: 4, completed: 0, noShow: 0 },
+      monthlyRevenue: [],
+      staffStats: [
+        { name: "Ana García", appointments: 24, revenue: 42000 },
+        { name: "Carlos López", appointments: 16, revenue: 28800 },
+        { name: "María Torres", appointments: 8, revenue: 13700 },
+      ],
+    };
+    const maxDayPreview = Math.max(...previewData.appointmentsByDay.map((d) => d.count), 1);
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4">
-        <div className="p-4 rounded-full bg-primary/10 mb-4">
-          <Lock className="h-12 w-12 text-primary" />
+      <div className="relative">
+        <div className="pointer-events-none select-none blur-sm opacity-60">
+          <PreviewAnalytics data={previewData} maxDayCount={maxDayPreview} />
         </div>
-        <h2 className="text-2xl font-bold mb-2">Reportes y Analytics</h2>
-        <p className="text-muted-foreground mb-6 max-w-md">
-          Accede a estadísticas detalladas de tu negocio: ingresos, servicios populares, 
-          horarios pico y más con el plan PRO.
-        </p>
-        <Link href="/dashboard/settings">
-          <Button className="gap-2">
-            <Crown className="h-4 w-4" />
-            Actualizar a PRO
-          </Button>
-        </Link>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Card className="shadow-2xl max-w-sm w-full mx-4">
+            <CardContent className="pt-8 pb-8 flex flex-col items-center text-center gap-4">
+              <div className="p-4 rounded-full bg-primary/10">
+                <Crown className="h-10 w-10 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Reportes y Analytics</h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Accede a estadísticas detalladas: ingresos, servicios populares, horarios pico y rendimiento del equipo.
+                </p>
+              </div>
+              <Link href="/dashboard/settings">
+                <Button className="gap-2 w-full">
+                  <Crown className="h-4 w-4" />
+                  Actualizar a PRO
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -436,6 +479,97 @@ export default function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function PreviewAnalytics({ data, maxDayCount }: { data: AnalyticsData; maxDayCount: number }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ingresos Estimados</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(data.summary.totalRevenue)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Citas</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.summary.totalAppointments}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ticket Promedio</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(data.summary.averageTicket)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tasa de Cancelación</CardTitle>
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.summary.cancellationRate}%</div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Servicios Más Populares</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {data.popularServices.map((service, index) => (
+                <div key={index} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">{service.name}</span>
+                    <span className="text-muted-foreground">{service.count} citas</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${(service.count / data.popularServices[0].count) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Citas por Día</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end justify-between gap-2 h-40">
+              {data.appointmentsByDay.map((day) => {
+                const heightPercent = maxDayCount > 0 ? (day.count / maxDayCount) * 100 : 0;
+                return (
+                  <div key={day.day} className="flex-1 flex flex-col items-center gap-2">
+                    <span className="text-sm font-medium">{day.count}</span>
+                    <div className="w-full bg-muted rounded-t-md relative" style={{ height: "100px" }}>
+                      <div className="absolute bottom-0 left-0 right-0 bg-primary rounded-t-md" style={{ height: `${heightPercent}%` }} />
+                    </div>
+                    <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -42,6 +42,8 @@ interface StaffMember {
   phone: string | null;
   image: string | null;
   isActive: boolean;
+  color: string;
+  services: { id: string; name: string }[];
 }
 
 interface StaffListProps {
@@ -175,12 +177,18 @@ export function StaffList({ staff }: StaffListProps) {
           <Card key={member.id}>
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={member.image || undefined} />
-                  <AvatarFallback>
-                    {member.name.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={member.image || undefined} />
+                    <AvatarFallback>
+                      {member.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span
+                    className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background"
+                    style={{ background: member.color || "#6366f1" }}
+                  />
+                </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-medium">{member.name}</p>
@@ -193,6 +201,20 @@ export function StaffList({ staff }: StaffListProps) {
                   )}
                   {member.phone && (
                     <p className="text-sm text-muted-foreground">{member.phone}</p>
+                  )}
+                  {member.services?.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {member.services.slice(0, 3).map((s) => (
+                        <Badge key={s.id} variant="outline" className="text-xs py-0">
+                          {s.name}
+                        </Badge>
+                      ))}
+                      {member.services.length > 3 && (
+                        <Badge variant="outline" className="text-xs py-0">
+                          +{member.services.length - 3}
+                        </Badge>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

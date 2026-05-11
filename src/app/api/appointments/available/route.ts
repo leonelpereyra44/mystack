@@ -75,14 +75,17 @@ export async function GET(request: Request) {
     // Get business booking interval and slot capacity
     const businessData = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { bookingInterval: true, slotCapacity: true },
+      select: { bookingInterval: true, slotCapacity: true, minBookingNotice: true, bufferTime: true },
     });
     const bookingInterval = businessData?.bookingInterval ?? 30;
     const slotCapacity = businessData?.slotCapacity ?? 1;
+    const minBookingNotice = businessData?.minBookingNotice ?? 0;
+    const bufferTime = businessData?.bufferTime ?? 0;
 
-    // Get service duration
+    // Get service duration + staff assignments
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
+      include: { staff: { select: { id: true } } },
     });
 
     if (!service) {
@@ -90,6 +93,13 @@ export async function GET(request: Request) {
         { error: "Servicio no encontrado" },
         { status: 404 }
       );
+    }
+
+    // If the service has staff assigned and no specific staffId was requested,
+    // return the list of eligible staff IDs so the booking form can prompt selection
+    const serviceStaffIds = service.staff.map((s) => s.id);
+    if (serviceStaffIds.length > 0 && !staffId) {
+      return NextResponse.json({ slots: [], requiresStaffSelection: true, serviceStaffIds });
     }
 
     // Determinar el horario efectivo a usar
@@ -129,6 +139,39 @@ export async function GET(request: Request) {
 
       effectiveOpenTime = minutesToTime(effectiveStartMinutes);
       effectiveCloseTime = minutesToTime(effectiveEndMinutes);
+    }
+
+    // ========================================
+    // APLICAR FRANJAS HORARIAS DEL SERVICIO
+    // ========================================
+    const serviceSchedules = await prisma.serviceSchedule.findMany({
+      where: { serviceId },
+    });
+
+    if (serviceSchedules.length > 0) {
+      // Service has custom schedules — find the one for today
+      const daySchedule = serviceSchedules.find((s) => s.dayOfWeek === dayOfWeek);
+
+      if (!daySchedule) {
+        // Service not offered on this day of the week
+        return NextResponse.json({ slots: [] });
+      }
+
+      // Intersect service window with effective (business ∩ staff) window
+      const svcStart = timeToMinutes(daySchedule.startTime);
+      const svcEnd = timeToMinutes(daySchedule.endTime);
+      const effStart = timeToMinutes(effectiveOpenTime);
+      const effEnd = timeToMinutes(effectiveCloseTime);
+
+      const intersectStart = Math.max(svcStart, effStart);
+      const intersectEnd = Math.min(svcEnd, effEnd);
+
+      if (intersectStart >= intersectEnd) {
+        return NextResponse.json({ slots: [] });
+      }
+
+      effectiveOpenTime = minutesToTime(intersectStart);
+      effectiveCloseTime = minutesToTime(intersectEnd);
     }
 
     // Generate all possible slots based on effective schedule
@@ -199,7 +242,7 @@ export async function GET(request: Request) {
         const [aptEndHour, aptEndMin] = apt.endTime.split(":").map(Number);
         const aptStart = aptStartHour * 60 + aptStartMin;
         const aptEnd = aptEndHour * 60 + aptEndMin;
-        return slotStart < aptEnd && slotEnd > aptStart;
+        return slotStart < aptEnd + bufferTime && slotEnd > aptStart;
       }).length;
 
       if (overlappingCount >= slotCapacity) {
@@ -219,10 +262,23 @@ export async function GET(request: Request) {
 
     if (selectedDateStr === todayArgStr) {
       const currentMinutes = nowArg.getUTCHours() * 60 + nowArg.getUTCMinutes();
+      const marginMinutes = Math.max(30, minBookingNotice * 60);
       finalSlots = availableSlots.filter((slot) => {
         const [h, m] = slot.split(":").map(Number);
-        return h * 60 + m > currentMinutes + 30; // Al menos 30 min de margen
+        return h * 60 + m > currentMinutes + marginMinutes;
       });
+    } else if (minBookingNotice > 0) {
+      // For future dates, filter slots that are within minBookingNotice hours from now
+      const limitMs = nowArg.getTime() + minBookingNotice * 60 * 60 * 1000;
+      const limitArg = new Date(limitMs);
+      const limitDateStr = `${limitArg.getUTCFullYear()}-${String(limitArg.getUTCMonth() + 1).padStart(2, "0")}-${String(limitArg.getUTCDate()).padStart(2, "0")}`;
+      if (selectedDateStr === limitDateStr) {
+        const limitMinutes = limitArg.getUTCHours() * 60 + limitArg.getUTCMinutes();
+        finalSlots = availableSlots.filter((slot) => {
+          const [h, m] = slot.split(":").map(Number);
+          return h * 60 + m > limitMinutes;
+        });
+      }
     }
 
     return NextResponse.json({ slots: finalSlots, slotCounts, slotCapacity });

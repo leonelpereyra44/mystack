@@ -35,6 +35,7 @@ interface Service {
   name: string;
   duration: number;
   price: number | { toNumber: () => number };
+  staff?: { id: string }[];
 }
 
 interface Staff {
@@ -58,6 +59,9 @@ interface BookingFormProps {
   timezone: string;
   businessType?: string;
   bookingInterval?: number;
+  showPrices?: boolean;
+  showDurations?: boolean;
+  welcomeMessage?: string | null;
 }
 
 const bookingSchema = z.object({
@@ -112,6 +116,9 @@ export function BookingForm({
   schedules,
   businessType = "salon",
   bookingInterval = 30,
+  showPrices = true,
+  showDurations = true,
+  welcomeMessage,
 }: BookingFormProps) {
   const terminology = getBusinessTerminology(businessType);
   const [step, setStep] = useState(1);
@@ -204,6 +211,11 @@ export function BookingForm({
     }
   }, [selectedServiceId, selectedStaffId, loadAvailability]);
   const selectedStaff = staff.find((s) => s.id === selectedStaffId);
+
+  const serviceStaffIds = selectedService?.staff?.map((s) => s.id) ?? [];
+  const availableStaff = serviceStaffIds.length > 0
+    ? staff.filter((s) => serviceStaffIds.includes(s.id))
+    : staff;
 
   const getDaySchedule = (date: Date) => {
     const dayOfWeek = date.getDay();
@@ -585,6 +597,12 @@ export function BookingForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
+      {/* Welcome message */}
+      {welcomeMessage && (
+        <div className="mb-4 rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground">
+          {welcomeMessage}
+        </div>
+      )}
       {/* Step 1: Select Service */}
       {step >= 1 && (
         <Card className="mb-4">
@@ -625,12 +643,14 @@ export function BookingForm({
                       />
                       <div>
                         <p className="font-medium">{service.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {service.duration} min
-                        </p>
+                        {showDurations && (
+                          <p className="text-sm text-muted-foreground">
+                            {service.duration} min
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <p className="font-semibold">${price.toFixed(2)}</p>
+                    {showPrices && <p className="font-semibold">${price.toFixed(2)}</p>}
                   </label>
                 );
               })}
@@ -733,7 +753,7 @@ export function BookingForm({
               </div>
             )}
 
-            {staff.length > 0 && (
+            {availableStaff.length > 0 && (
               <div>
                 <Label>Profesional (opcional)</Label>
                 <Select onValueChange={handleStaffChange} value={selectedStaffId || ""}>
@@ -744,7 +764,7 @@ export function BookingForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Sin preferencia</SelectItem>
-                    {staff.map((member) => (
+                    {availableStaff.map((member) => (
                       <SelectItem key={member.id} value={member.id}>
                         {member.name}
                       </SelectItem>

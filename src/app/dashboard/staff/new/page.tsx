@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -28,10 +29,25 @@ const staffSchema = z.object({
 
 type StaffFormData = z.infer<typeof staffSchema>;
 
+interface Service {
+  id: string;
+  name: string;
+}
+
 export default function NewStaffPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [color, setColor] = useState("#6366f1");
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/services")
+      .then((r) => r.json())
+      .then((data) => setServices(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   const {
     register,
@@ -49,7 +65,7 @@ export default function NewStaffPage() {
       const response = await fetch("/api/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, color, serviceIds: selectedServiceIds }),
       });
 
       if (!response.ok) {
@@ -66,6 +82,12 @@ export default function NewStaffPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleService = (id: string) => {
+    setSelectedServiceIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -136,6 +158,43 @@ export default function NewStaffPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="color">Color en el calendario</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="color"
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-9 w-12 cursor-pointer rounded border border-input p-0.5"
+                />
+                <span className="text-sm text-muted-foreground">{color}</span>
+              </div>
+            </div>
+
+            {services.length > 0 && (
+              <div className="space-y-2">
+                <Label>Servicios que puede realizar</Label>
+                <p className="text-sm text-muted-foreground">
+                  Si no seleccionas ninguno, podrá realizar todos los servicios
+                </p>
+                <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                  {services.map((service) => (
+                    <div key={service.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`service-${service.id}`}
+                        checked={selectedServiceIds.includes(service.id)}
+                        onCheckedChange={() => toggleService(service.id)}
+                      />
+                      <Label htmlFor={`service-${service.id}`} className="cursor-pointer font-normal">
+                        {service.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-4 pt-4">
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -153,3 +212,4 @@ export default function NewStaffPage() {
     </div>
   );
 }
+

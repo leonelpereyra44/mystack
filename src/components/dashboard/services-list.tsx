@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, MoreHorizontal, Search, Filter, GripVertical } from "lucide-react";
+import { Pencil, Trash2, MoreHorizontal, Search, Filter, GripVertical, Copy } from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -75,11 +75,13 @@ function SortableServiceCard({
   onEdit,
   onToggleActive,
   onDelete,
+  onClone,
 }: {
   service: Service;
   onEdit: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
+  onClone: () => void;
 }) {
   const {
     attributes,
@@ -142,6 +144,10 @@ function SortableServiceCard({
               <DropdownMenuItem onClick={onEdit}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onClone}>
+                <Copy className="mr-2 h-4 w-4" />
+                Duplicar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onToggleActive}>
                 {service.isActive ? "Desactivar" : "Activar"}
@@ -301,6 +307,35 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
     }
   };
 
+  const handleClone = async (service: Service) => {
+    const price = typeof service.price === "object" && "toNumber" in service.price
+      ? service.price.toNumber()
+      : Number(service.price);
+    try {
+      const response = await fetch("/api/services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Copia de ${service.name}`,
+          description: service.description,
+          duration: service.duration,
+          price,
+          isActive: service.isActive,
+        }),
+      });
+      if (response.ok) {
+        const cloned = await response.json();
+        setServices([...services, cloned]);
+        toast.success("Servicio duplicado");
+        router.refresh();
+      } else {
+        toast.error("Error al duplicar el servicio");
+      }
+    } catch {
+      toast.error("Error al duplicar el servicio");
+    }
+  };
+
   if (initialServices.length === 0) {
     return (
       <Card>
@@ -415,6 +450,7 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
                   onEdit={() => router.push(`/dashboard/services/${service.id}/edit`)}
                   onToggleActive={() => toggleActive(service.id, service.isActive)}
                   onDelete={() => setDeleteId(service.id)}
+                  onClone={() => handleClone(service)}
                 />
               ))}
             </div>
@@ -456,6 +492,10 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
                       >
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleClone(service)}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Duplicar
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => toggleActive(service.id, service.isActive)}

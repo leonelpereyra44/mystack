@@ -78,6 +78,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
       services: {
         where: { isActive: true },
         orderBy: { name: "asc" },
+        include: { staff: { select: { id: true } } },
       },
       staff: {
         where: { isActive: true },
@@ -388,46 +389,7 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                 )}
 
                 {/* Servicios Preview (Mobile visible, Desktop hidden si hay sidebar) */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden lg:block">
-                  <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                          <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                          </svg>
-                        </div>
-                        <h3 className="font-semibold text-slate-900">{terminology.services}</h3>
-                      </div>
-                      <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {services.length} disponibles
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <div className="space-y-2">
-                      {services.slice(0, 4).map((service) => (
-                        <div 
-                          key={service.id} 
-                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900 truncate">{service.name}</p>
-                            <p className="text-xs text-slate-500">{service.duration} min</p>
-                          </div>
-                          <span className="text-sm font-semibold text-primary ml-3">
-                            ${service.price.toLocaleString("es-AR")}
-                          </span>
-                        </div>
-                      ))}
-                      {services.length > 4 && (
-                        <p className="text-xs text-center text-slate-500 pt-2">
-                          +{services.length - 4} {terminology.services.toLowerCase()} más
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
+
               </aside>
 
               {/* Main - Booking Form */}
@@ -461,6 +423,9 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                         timezone={business.timezone}
                         businessType={business.businessType}
                         bookingInterval={business.bookingInterval}
+                        showPrices={business.showPrices}
+                        showDurations={business.showDurations}
+                        welcomeMessage={business.welcomeMessage}
                       />
                     )}
                   </div>
