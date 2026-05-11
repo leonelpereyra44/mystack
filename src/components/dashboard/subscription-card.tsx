@@ -62,6 +62,15 @@ interface RefundEligibility {
   reason?: string;
 }
 
+// Fallback order for upgrade comparisons when DB sortOrder values aren't distinct
+const PLAN_ORDER: Record<string, number> = {
+  FREE: 0,
+  BASIC: 1,
+  PRO: 2,
+  PREMIUM: 3,
+  ENTERPRISE: 4,
+};
+
 export function SubscriptionCard() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<SubscriptionData | null>(null);
@@ -230,9 +239,14 @@ export function SubscriptionCard() {
   const isPro = currentPlanKey === "PRO";
   const isNearLimit = data.usage.reservationsPercentage >= 80;
 
-  // Plans the user can upgrade to (higher sortOrder than current plan in DB)
+  // Plans the user can upgrade to — primary: DB sortOrder; fallback: PLAN_ORDER
   const currentSortOrder = allPlans.find((p) => p.plan === currentPlanKey)?.sortOrder ?? -1;
-  const upgradePlans = allPlans.filter((p) => p.sortOrder > currentSortOrder);
+  const currentPlanFallbackOrder = PLAN_ORDER[currentPlanKey] ?? -1;
+  const upgradePlans = allPlans.filter((p) => {
+    if (p.sortOrder !== currentSortOrder) return p.sortOrder > currentSortOrder;
+    // Tiebreaker: use hardcoded PLAN_ORDER when sortOrder values are equal
+    return (PLAN_ORDER[p.plan] ?? p.sortOrder) > currentPlanFallbackOrder;
+  });
 
   return (
     <>
