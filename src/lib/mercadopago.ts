@@ -47,11 +47,13 @@ export type PlanType = keyof typeof PLANS;
 
 // URLs de retorno
 const BASE_URL = process.env.NEXTAUTH_URL || "https://mystack.com.ar";
+// MP rechaza localhost como back_url — usar la URL de producción en dev local
+const MP_BASE_URL = BASE_URL.includes("localhost") ? "https://mystack.com.ar" : BASE_URL;
 
 export const MP_URLS = {
-  success: `${BASE_URL}/dashboard/settings?subscription=success`,
-  failure: `${BASE_URL}/dashboard/settings?subscription=error`,
-  pending: `${BASE_URL}/dashboard/settings?subscription=pending`,
+  success: `${MP_BASE_URL}/dashboard/settings?subscription=success`,
+  failure: `${MP_BASE_URL}/dashboard/settings?subscription=error`,
+  pending: `${MP_BASE_URL}/dashboard/settings?subscription=pending`,
   webhook: `${BASE_URL}/api/webhooks/mercadopago`,
 };
 
