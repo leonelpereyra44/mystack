@@ -191,7 +191,8 @@ export function SettingsForm({ business }: SettingsFormProps) {
     }
   };
 
-  const handleIntervalChange = async (value: string) => {
+  const handleIntervalChange = async (value: string | null) => {
+    if (!value) return;
     const interval = parseInt(value);
     setSavingInterval(true);
     try {
