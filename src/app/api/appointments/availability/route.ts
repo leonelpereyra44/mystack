@@ -19,9 +19,10 @@ export async function GET(request: Request) {
       );
     }
 
-    // Obtener servicio para saber la duración
+    // Obtener servicio para saber la duración + sus franjas horarias
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
+      include: { schedules: true },
     });
 
     if (!service) {
@@ -36,16 +37,28 @@ export async function GET(request: Request) {
       where: { businessId },
     });
 
-    // Obtener intervalo de reserva y capacidad por slot del negocio
+    // Obtener configuración del negocio
     const businessData = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { bookingInterval: true, slotCapacity: true },
+      select: {
+        bookingInterval: true,
+        slotCapacity: true,
+        minBookingNotice: true,
+        bufferTime: true,
+      },
     });
     const bookingInterval = businessData?.bookingInterval ?? 30;
     const slotCapacity = businessData?.slotCapacity ?? 1;
+    const minBookingNotice = businessData?.minBookingNotice ?? 0;
+    const bufferTime = businessData?.bufferTime ?? 0;
 
     // Si hay staff seleccionado, obtener sus horarios
-    let staffSchedules: { dayOfWeek: number; startTime: string; endTime: string; isWorking: boolean }[] = [];
+    let staffSchedules: {
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      isWorking: boolean;
+    }[] = [];
     if (staffId) {
       const staffScheduleData = await prisma.staffSchedule.findMany({
         where: { staffId },
@@ -53,25 +66,86 @@ export async function GET(request: Request) {
       staffSchedules = staffScheduleData;
     }
 
-    // Calcular disponibilidad para cada día
-    // Usar fecha de Argentina (UTC-3, sin DST) para el inicio
+    // =============================================
+    // Zona horaria Argentina (UTC-3, sin DST)
+    // =============================================
     const nowArg = new Date(Date.now() - 3 * 60 * 60 * 1000);
     const start = startDate
       ? new Date(startDate + "T12:00:00Z")
-      : new Date(Date.UTC(nowArg.getUTCFullYear(), nowArg.getUTCMonth(), nowArg.getUTCDate(), 12, 0, 0));
-    
-    const availability: Record<string, { hasSlots: boolean; slotsCount: number }> = {};
+      : new Date(
+          Date.UTC(
+            nowArg.getUTCFullYear(),
+            nowArg.getUTCMonth(),
+            nowArg.getUTCDate(),
+            12,
+            0,
+            0
+          )
+        );
 
-    // Obtener todas las citas del rango para optimizar
+    // =============================================
+    // Obtener bloqueos de agenda para todo el rango
+    // =============================================
     const endDate = addDays(start, days);
+    const blockedTimesAll = await prisma.blockedTime.findMany({
+      where: {
+        businessId,
+        date: { gte: start, lte: endDate },
+        // Misma lógica que en /api/appointments/available:
+        // Si hay staffId: bloqueos de ese staff + bloqueos del negocio
+        // Si no hay staffId: solo bloqueos del negocio
+        ...(staffId
+          ? { OR: [{ staffId }, { staffId: null }] }
+          : { staffId: null }
+        ),
+      },
+      select: {
+        date: true,
+        isAllDay: true,
+        startTime: true,
+        endTime: true,
+        staffId: true,
+      },
+    });
+
+    // Agrupar bloqueos por fecha
+    const blockedByDate: Record<
+      string,
+      { isAllDay: boolean; ranges: { start: number; end: number }[] }[]
+    > = {};
+    for (const bt of blockedTimesAll) {
+      const dateKey = format(bt.date, "yyyy-MM-dd");
+      if (!blockedByDate[dateKey]) blockedByDate[dateKey] = [];
+      if (bt.isAllDay) {
+        blockedByDate[dateKey].push({ isAllDay: true, ranges: [] });
+      } else if (bt.startTime && bt.endTime) {
+        blockedByDate[dateKey].push({
+          isAllDay: false,
+          ranges: [
+            {
+              start: timeToMinutes(bt.startTime),
+              end: timeToMinutes(bt.endTime),
+            },
+          ],
+        });
+      }
+    }
+
+    // =============================================
+    // Obtener citas existentes para el rango
+    // Excluir PENDING con token expirado (misma lógica que /available)
+    // =============================================
     const existingAppointments = await prisma.appointment.findMany({
       where: {
         businessId,
-        date: {
-          gte: start,
-          lte: endDate,
-        },
+        date: { gte: start, lte: endDate },
         status: { notIn: ["CANCELLED"] },
+        NOT: {
+          AND: [
+            { status: "PENDING" },
+            { tokenExpiresAt: { lt: new Date() } },
+          ],
+        },
         ...(staffId && { staffId }),
       },
       select: {
@@ -92,51 +166,106 @@ export async function GET(request: Request) {
       appointmentsByDate[dateKey].push(apt);
     }
 
-    // Procesar cada día
+    // ServiceSchedule: indexar por dayOfWeek para acceso rápido
+    const serviceScheduleByDay: Record<
+      number,
+      { startTime: string; endTime: string }
+    > = {};
+    for (const ss of service.schedules) {
+      serviceScheduleByDay[ss.dayOfWeek] = {
+        startTime: ss.startTime,
+        endTime: ss.endTime,
+      };
+    }
+    const serviceHasCustomSchedule = service.schedules.length > 0;
+
+    const availability: Record<
+      string,
+      { hasSlots: boolean; slotsCount: number }
+    > = {};
+
+    // =============================================
+    // Procesar cada día del rango
+    // =============================================
     for (let i = 0; i < days; i++) {
       const currentDate = addDays(start, i);
       const dateKey = format(currentDate, "yyyy-MM-dd");
       const dayOfWeek = currentDate.getDay();
 
-      // Obtener horario del negocio para ese día
-      const businessSchedule = businessSchedules.find(s => s.dayOfWeek === dayOfWeek);
-      
+      // 1. Verificar si el negocio está abierto ese día
+      const businessSchedule = businessSchedules.find(
+        (s) => s.dayOfWeek === dayOfWeek
+      );
       if (!businessSchedule || !businessSchedule.isOpen) {
         availability[dateKey] = { hasSlots: false, slotsCount: 0 };
         continue;
       }
 
-      // Determinar horario efectivo
+      // 2. Verificar bloqueos de todo el día
+      const dayBlocks = blockedByDate[dateKey] ?? [];
+      const hasFullDayBlock = dayBlocks.some((b) => b.isAllDay);
+      if (hasFullDayBlock) {
+        availability[dateKey] = { hasSlots: false, slotsCount: 0 };
+        continue;
+      }
+
+      // 3. Determinar horario efectivo (negocio ∩ staff)
       let effectiveOpenTime = businessSchedule.openTime;
       let effectiveCloseTime = businessSchedule.closeTime;
 
-      // Si hay staff seleccionado, usar intersección de horarios
       if (staffId && staffSchedules.length > 0) {
-        const staffSchedule = staffSchedules.find(s => s.dayOfWeek === dayOfWeek);
-        
+        const staffSchedule = staffSchedules.find(
+          (s) => s.dayOfWeek === dayOfWeek
+        );
         if (!staffSchedule || !staffSchedule.isWorking) {
           availability[dateKey] = { hasSlots: false, slotsCount: 0 };
           continue;
         }
 
-        const staffStartMinutes = timeToMinutes(staffSchedule.startTime);
-        const staffEndMinutes = timeToMinutes(staffSchedule.endTime);
-        const businessStartMinutes = timeToMinutes(businessSchedule.openTime);
-        const businessEndMinutes = timeToMinutes(businessSchedule.closeTime);
+        const staffStart = timeToMinutes(staffSchedule.startTime);
+        const staffEnd = timeToMinutes(staffSchedule.endTime);
+        const bizStart = timeToMinutes(businessSchedule.openTime);
+        const bizEnd = timeToMinutes(businessSchedule.closeTime);
 
-        const effectiveStartMinutes = Math.max(staffStartMinutes, businessStartMinutes);
-        const effectiveEndMinutes = Math.min(staffEndMinutes, businessEndMinutes);
+        const effStart = Math.max(staffStart, bizStart);
+        const effEnd = Math.min(staffEnd, bizEnd);
 
-        if (effectiveStartMinutes >= effectiveEndMinutes) {
+        if (effStart >= effEnd) {
           availability[dateKey] = { hasSlots: false, slotsCount: 0 };
           continue;
         }
 
-        effectiveOpenTime = minutesToTime(effectiveStartMinutes);
-        effectiveCloseTime = minutesToTime(effectiveEndMinutes);
+        effectiveOpenTime = minutesToTime(effStart);
+        effectiveCloseTime = minutesToTime(effEnd);
       }
 
-      // Generar slots posibles
+      // 4. Aplicar ServiceSchedule (intersección)
+      if (serviceHasCustomSchedule) {
+        const svcSchedule = serviceScheduleByDay[dayOfWeek];
+        if (!svcSchedule) {
+          // El servicio no se ofrece este día
+          availability[dateKey] = { hasSlots: false, slotsCount: 0 };
+          continue;
+        }
+
+        const svcStart = timeToMinutes(svcSchedule.startTime);
+        const svcEnd = timeToMinutes(svcSchedule.endTime);
+        const effStart = timeToMinutes(effectiveOpenTime);
+        const effEnd = timeToMinutes(effectiveCloseTime);
+
+        const intersectStart = Math.max(svcStart, effStart);
+        const intersectEnd = Math.min(svcEnd, effEnd);
+
+        if (intersectStart >= intersectEnd) {
+          availability[dateKey] = { hasSlots: false, slotsCount: 0 };
+          continue;
+        }
+
+        effectiveOpenTime = minutesToTime(intersectStart);
+        effectiveCloseTime = minutesToTime(intersectEnd);
+      }
+
+      // 5. Generar slots posibles
       const [openHour, openMin] = effectiveOpenTime.split(":").map(Number);
       const [closeHour, closeMin] = effectiveCloseTime.split(":").map(Number);
 
@@ -160,36 +289,73 @@ export async function GET(request: Request) {
         }
       }
 
-      // Filtrar slots ocupados
-      const dayAppointments = appointmentsByDate[dateKey] || [];
+      // 6. Filtrar slots bloqueados (bloqueos parciales)
+      const partialBlocks = dayBlocks
+        .filter((b) => !b.isAllDay)
+        .flatMap((b) => b.ranges);
+
+      // 7. Filtrar slots ocupados (respetando bufferTime)
+      const dayAppointments = appointmentsByDate[dateKey] ?? [];
+
       const availableSlots = allSlots.filter((slot) => {
-        const [slotHour, slotMin] = slot.split(":").map(Number);
-        const slotStart = slotHour * 60 + slotMin;
+        const [slotH, slotM] = slot.split(":").map(Number);
+        const slotStart = slotH * 60 + slotM;
         const slotEnd = slotStart + service.duration;
 
+        // Verificar bloqueos parciales
+        for (const block of partialBlocks) {
+          if (slotStart < block.end && slotEnd > block.start) {
+            return false;
+          }
+        }
+
+        // Verificar ocupación (con bufferTime)
         const overlappingCount = dayAppointments.filter((apt) => {
-          const [aptStartHour, aptStartMin] = apt.startTime.split(":").map(Number);
-          const [aptEndHour, aptEndMin] = apt.endTime.split(":").map(Number);
-          const aptStart = aptStartHour * 60 + aptStartMin;
-          const aptEnd = aptEndHour * 60 + aptEndMin;
-          return slotStart < aptEnd && slotEnd > aptStart;
+          const [aptH, aptM] = apt.startTime.split(":").map(Number);
+          const [aptEH, aptEM] = apt.endTime.split(":").map(Number);
+          const aptStart = aptH * 60 + aptM;
+          const aptEnd = aptEH * 60 + aptEM;
+          return slotStart < aptEnd + bufferTime && slotEnd > aptStart;
         }).length;
 
         return overlappingCount < slotCapacity;
       });
 
-      // Si es hoy en Argentina (UTC-3), filtrar horarios pasados
+      // 8. Filtrar horarios pasados / minBookingNotice
       const nowArgLoop = new Date(Date.now() - 3 * 60 * 60 * 1000);
-      const todayArgLoopStr = `${nowArgLoop.getUTCFullYear()}-${String(nowArgLoop.getUTCMonth() + 1).padStart(2, "0")}-${String(nowArgLoop.getUTCDate()).padStart(2, "0")}`;
-      const isToday = dateKey === todayArgLoopStr;
+      const todayArgStr = `${nowArgLoop.getUTCFullYear()}-${String(
+        nowArgLoop.getUTCMonth() + 1
+      ).padStart(2, "0")}-${String(nowArgLoop.getUTCDate()).padStart(2, "0")}`;
+      const isToday = dateKey === todayArgStr;
 
       let finalSlots = availableSlots;
+
       if (isToday) {
-        const currentMinutes = nowArgLoop.getUTCHours() * 60 + nowArgLoop.getUTCMinutes();
+        // Para hoy: usar max(30min, minBookingNotice) como margen
+        const currentMinutes =
+          nowArgLoop.getUTCHours() * 60 + nowArgLoop.getUTCMinutes();
+        const marginMinutes = Math.max(30, minBookingNotice * 60);
         finalSlots = availableSlots.filter((slot) => {
           const [h, m] = slot.split(":").map(Number);
-          return h * 60 + m > currentMinutes + 30;
+          return h * 60 + m > currentMinutes + marginMinutes;
         });
+      } else if (minBookingNotice > 0) {
+        // Para fechas futuras: verificar si algún slot cae dentro del periodo
+        // de aviso mínimo (escenario cross-day: ej. aviso de 12h a las 8 PM)
+        const limitMs = Date.now() + minBookingNotice * 60 * 60 * 1000;
+        const limitArg = new Date(limitMs - 3 * 60 * 60 * 1000);
+        const limitDateStr = `${limitArg.getUTCFullYear()}-${String(
+          limitArg.getUTCMonth() + 1
+        ).padStart(2, "0")}-${String(limitArg.getUTCDate()).padStart(2, "0")}`;
+
+        if (dateKey === limitDateStr) {
+          const limitMinutes =
+            limitArg.getUTCHours() * 60 + limitArg.getUTCMinutes();
+          finalSlots = availableSlots.filter((slot) => {
+            const [h, m] = slot.split(":").map(Number);
+            return h * 60 + m > limitMinutes;
+          });
+        }
       }
 
       availability[dateKey] = {

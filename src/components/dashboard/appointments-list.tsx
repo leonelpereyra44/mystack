@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  CalendarPlus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,8 @@ interface AppointmentsListProps {
   slotCapacity: number;
   services?: { id: string; name: string }[];
   staff?: { id: string; name: string }[];
+  businessName: string;
+  businessAddress?: string | null;
 }
 
 const statusConfig = {
@@ -108,7 +111,7 @@ const statusConfig = {
   NO_SHOW: { label: "No asistió", variant: "destructive" as const, icon: XCircle },
 };
 
-export function AppointmentsList({ appointments, slotCapacity, services, staff }: AppointmentsListProps) {
+export function AppointmentsList({ appointments, slotCapacity, services, staff, businessName, businessAddress }: AppointmentsListProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
   const [filterServiceId, setFilterServiceId] = useState<string>("all");
@@ -116,6 +119,7 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff }
   const [currentPage, setCurrentPage] = useState(1);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [exportModal, setExportModal] = useState<null | "csv" | "ics">(null);
 
   const handleFilterChange = (newFilter: "upcoming" | "past" | "all") => {
     setFilter(newFilter);
@@ -192,6 +196,97 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff }
     a.download = `turnos-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Convierte fecha Argentina (UTC-3) a formato ICS/GCal UTC: 20260515T130000Z
+  const toUTCStamp = (date: Date, timeStr: string): string => {
+    const d = parseUTCDate(date);
+    const [hour, minute] = timeStr.split(":").map(Number);
+    // Argentina = UTC-3 → sumar 3h para obtener UTC
+    const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), hour + 3, minute, 0));
+    return utc.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  };
+
+  const downloadICS = () => {
+    const icsStatusMap: Record<string, string> = {
+      CONFIRMED: "CONFIRMED",
+      PENDING: "TENTATIVE",
+      COMPLETED: "CONFIRMED",
+      CANCELLED: "CANCELLED",
+      NO_SHOW: "CANCELLED",
+    };
+
+    const escapeICS = (str: string) =>
+      str.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+
+    const dtstamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+    const events = sortedAppointments.map((apt) => {
+      const dtstart = toUTCStamp(apt.date, apt.startTime);
+      const dtend = toUTCStamp(apt.date, apt.endTime);
+      const summary = escapeICS(`${apt.service.name} - ${apt.customerName}`);
+      const descParts = [
+        `Servicio: ${apt.service.name}`,
+        `Duración: ${apt.service.duration} min`,
+        `Cliente: ${apt.customerName}`,
+        `Email: ${apt.customerEmail}`,
+        apt.customerPhone ? `Teléfono: ${apt.customerPhone}` : null,
+        apt.staff ? `Profesional: ${apt.staff.name}` : null,
+        apt.notes ? `Notas: ${apt.notes}` : null,
+      ].filter(Boolean).join("\\n");
+      const location = businessAddress ? escapeICS(businessAddress) : "";
+      const status = icsStatusMap[apt.status] ?? "TENTATIVE";
+
+      return [
+        "BEGIN:VEVENT",
+        `UID:${apt.id}@mystack`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART:${dtstart}`,
+        `DTEND:${dtend}`,
+        `SUMMARY:${summary}`,
+        `DESCRIPTION:${descParts}`,
+        location ? `LOCATION:${location}` : null,
+        `STATUS:${status}`,
+        `ORGANIZER;CN=${escapeICS(businessName)}:MAILTO:noreply@mystack.app`,
+        "END:VEVENT",
+      ].filter(Boolean).join("\r\n");
+    });
+
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//MyStack//Turnos//ES",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      ...events,
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `turnos-${format(new Date(), "yyyy-MM-dd")}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Deep link para agregar UN turno a Google Calendar
+  const getGoogleCalendarUrl = (apt: Appointment): string => {
+    const dtstart = toUTCStamp(apt.date, apt.startTime);
+    const dtend = toUTCStamp(apt.date, apt.endTime);
+    const title = encodeURIComponent(`${apt.service.name} - ${apt.customerName}`);
+    const details = encodeURIComponent(
+      [
+        `Cliente: ${apt.customerName}`,
+        `Email: ${apt.customerEmail}`,
+        apt.customerPhone ? `Teléfono: ${apt.customerPhone}` : null,
+        apt.staff ? `Profesional: ${apt.staff.name}` : null,
+        apt.notes ? `Notas: ${apt.notes}` : null,
+      ].filter(Boolean).join("\n")
+    );
+    const location = businessAddress ? encodeURIComponent(businessAddress) : "";
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dtstart}/${dtend}&details=${details}${location ? `&location=${location}` : ""}&sf=true&output=xml`;
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -283,6 +378,14 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff }
               </SelectContent>
             </Select>
           )}
+          <Button variant="outline" size="sm" className="ml-auto h-8 gap-1" onClick={downloadCSV} disabled>
+            <Download className="h-3.5 w-3.5" />
+            CSV
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 gap-1" onClick={downloadICS} disabled>
+            <CalendarPlus className="h-3.5 w-3.5" />
+            Calendario
+          </Button>
         </div>
 
         <Card>
@@ -356,11 +459,21 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff }
           variant="outline"
           size="sm"
           className="ml-auto h-8 gap-1"
-          onClick={downloadCSV}
+          onClick={() => setExportModal("csv")}
           disabled={sortedAppointments.length === 0}
         >
           <Download className="h-3.5 w-3.5" />
           CSV
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1"
+          onClick={() => setExportModal("ics")}
+          disabled={sortedAppointments.length === 0}
+        >
+          <CalendarPlus className="h-3.5 w-3.5" />
+          Calendario
         </Button>
       </div>
 
@@ -418,31 +531,36 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff }
                                   </div>
                                   <DropdownMenu>
                                     <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm"><MoreHorizontal className="h-4 w-4" /></Button>} />
-                                    <DropdownMenuContent align="end">
-                                      {apt.status === "PENDING" && (
-                                        <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
-                                          <CheckCircle className="mr-2 h-4 w-4" />
-                                          Confirmar
-                                        </DropdownMenuItem>
-                                      )}
-                                      {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
-                                        <>
-                                          <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
-                                            <CheckCircle className="mr-2 h-4 w-4" />
-                                            Completado
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
-                                            <XCircle className="mr-2 h-4 w-4" />
-                                            No asistió
-                                          </DropdownMenuItem>
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
-                                            <XCircle className="mr-2 h-4 w-4" />
-                                            Cancelar
-                                          </DropdownMenuItem>
-                                        </>
-                                      )}
-                                    </DropdownMenuContent>
+                                     <DropdownMenuContent align="end">
+                                       {apt.status === "PENDING" && (
+                                         <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
+                                           <CheckCircle className="mr-2 h-4 w-4" />
+                                           Confirmar
+                                         </DropdownMenuItem>
+                                       )}
+                                       {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
+                                         <>
+                                           <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
+                                             <CheckCircle className="mr-2 h-4 w-4" />
+                                             Completado
+                                           </DropdownMenuItem>
+                                           <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
+                                             <XCircle className="mr-2 h-4 w-4" />
+                                             No asistió
+                                           </DropdownMenuItem>
+                                           <DropdownMenuSeparator />
+                                           <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
+                                             <XCircle className="mr-2 h-4 w-4" />
+                                             Cancelar
+                                           </DropdownMenuItem>
+                                         </>
+                                       )}
+                                       <DropdownMenuSeparator />
+                                       <DropdownMenuItem onClick={() => window.open(getGoogleCalendarUrl(apt), "_blank", "noopener,noreferrer")}>
+                                         <CalendarPlus className="mr-2 h-4 w-4" />
+                                         Agregar a Google Calendar
+                                       </DropdownMenuItem>
+                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 </div>
                                 <Badge variant={status.variant} className="text-xs w-fit">
@@ -480,31 +598,36 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff }
                                 </div>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger render={<Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>} />
-                                  <DropdownMenuContent align="end">
-                                    {apt.status === "PENDING" && (
-                                      <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
-                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                        Confirmar
-                                      </DropdownMenuItem>
-                                    )}
-                                    {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
-                                      <>
-                                        <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
-                                          <CheckCircle className="mr-2 h-4 w-4" />
-                                          Marcar completado
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
-                                          <XCircle className="mr-2 h-4 w-4" />
-                                          No asistió
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
-                                          <XCircle className="mr-2 h-4 w-4" />
-                                          Cancelar turno
-                                        </DropdownMenuItem>
-                                      </>
-                                    )}
-                                  </DropdownMenuContent>
+                                   <DropdownMenuContent align="end">
+                                     {apt.status === "PENDING" && (
+                                       <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
+                                         <CheckCircle className="mr-2 h-4 w-4" />
+                                         Confirmar
+                                       </DropdownMenuItem>
+                                     )}
+                                     {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
+                                       <>
+                                         <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
+                                           <CheckCircle className="mr-2 h-4 w-4" />
+                                           Marcar completado
+                                         </DropdownMenuItem>
+                                         <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
+                                           <XCircle className="mr-2 h-4 w-4" />
+                                           No asistió
+                                         </DropdownMenuItem>
+                                         <DropdownMenuSeparator />
+                                         <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
+                                           <XCircle className="mr-2 h-4 w-4" />
+                                           Cancelar turno
+                                         </DropdownMenuItem>
+                                       </>
+                                     )}
+                                     <DropdownMenuSeparator />
+                                     <DropdownMenuItem onClick={() => window.open(getGoogleCalendarUrl(apt), "_blank", "noopener,noreferrer")}>
+                                       <CalendarPlus className="mr-2 h-4 w-4" />
+                                       Agregar a Google Calendar
+                                     </DropdownMenuItem>
+                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
                             </CardContent>
@@ -546,6 +669,63 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff }
           </Button>
         </div>
       )}
+
+      {/* Export Dialog */}
+      <Dialog open={exportModal !== null} onOpenChange={() => setExportModal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {exportModal === "csv" ? "Exportar como CSV" : "Exportar al calendario"}
+            </DialogTitle>
+            <div className="space-y-2 pt-1 text-sm text-muted-foreground">
+              {exportModal === "csv" ? (
+                <>
+                  <p>
+                    Se descargará un archivo <strong className="text-foreground">.csv</strong> con{" "}
+                    <strong className="text-foreground">{sortedAppointments.length} {sortedAppointments.length === 1 ? "turno" : "turnos"}</strong>
+                    {filter !== "all" && <> ({filter === "upcoming" ? "próximos" : "pasados"})</>}.
+                  </p>
+                  <p>
+                    Podés abrirlo con Excel, Google Sheets u otras planillas de cálculo. Incluye fecha, hora, cliente, servicio, profesional y estado de cada turno.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    Se descargará un archivo <strong className="text-foreground">.ics</strong> con{" "}
+                    <strong className="text-foreground">{sortedAppointments.length} {sortedAppointments.length === 1 ? "turno" : "turnos"}</strong>
+                    {filter !== "all" && <> ({filter === "upcoming" ? "próximos" : "pasados"})</>}.
+                  </p>
+                  <p>
+                    Para importarlo en <strong className="text-foreground">Google Calendar</strong>: abrí calendar.google.com → Otros calendarios → Importar.
+                  </p>
+                  <p>
+                    También es compatible con <strong className="text-foreground">Apple Calendar</strong> y <strong className="text-foreground">Outlook</strong> (Archivo → Importar).
+                  </p>
+                </>
+              )}
+            </div>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportModal(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (exportModal === "csv") downloadCSV();
+                else downloadICS();
+                setExportModal(null);
+              }}
+            >
+              {exportModal === "csv" ? (
+                <><Download className="mr-2 h-4 w-4" />Descargar CSV</>
+              ) : (
+                <><CalendarPlus className="mr-2 h-4 w-4" />Descargar .ics</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Cancel Dialog */}
       <Dialog open={!!cancelId} onOpenChange={() => setCancelId(null)}>

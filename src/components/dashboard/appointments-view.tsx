@@ -32,9 +32,11 @@ interface AppointmentsViewProps {
   slotCapacity: number;
   services?: { id: string; name: string }[];
   staff?: { id: string; name: string }[];
+  businessName: string;
+  businessAddress?: string | null;
 }
 
-export function AppointmentsView({ appointments, slotCapacity, services, staff }: AppointmentsViewProps) {
+export function AppointmentsView({ appointments, slotCapacity, services, staff, businessName, businessAddress }: AppointmentsViewProps) {
   const [view, setView] = useState<"list" | "calendar">("list");
 
   return (
@@ -66,7 +68,7 @@ export function AppointmentsView({ appointments, slotCapacity, services, staff }
 
       {/* Contenido según vista */}
       {view === "list" ? (
-        <AppointmentsList appointments={appointments} slotCapacity={slotCapacity} services={services} staff={staff} />
+        <AppointmentsList appointments={appointments} slotCapacity={slotCapacity} services={services} staff={staff} businessName={businessName} businessAddress={businessAddress} />
       ) : (
         <AppointmentsCalendar appointments={appointments} />
       )}

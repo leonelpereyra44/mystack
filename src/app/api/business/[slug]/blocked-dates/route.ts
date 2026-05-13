@@ -30,13 +30,14 @@ export async function GET(
       where: {
         businessId: business.id,
         date: { gte: today },
-        // Si se especifica staffId, incluir bloqueos del staff Y del negocio completo
-        ...(staffId && {
-          OR: [
-            { staffId: staffId },
-            { staffId: null }, // Bloqueos de todo el negocio
-          ],
-        }),
+        // Si se especifica staffId, incluir bloqueos del staff Y del negocio completo.
+        // Si NO hay staffId, devolver solo bloqueos del negocio (staffId null).
+        // Esto evita que las vacaciones de un staff específico bloqueen días
+        // para clientes que no eligieron profesional.
+        ...(staffId
+          ? { OR: [{ staffId: staffId }, { staffId: null }] }
+          : { staffId: null }
+        ),
       },
       select: {
         date: true,

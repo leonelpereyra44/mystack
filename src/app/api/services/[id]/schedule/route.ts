@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
@@ -72,6 +79,56 @@ export async function PUT(request: Request, context: RouteContext) {
       typeof s.endTime !== "string"
     ) {
       return NextResponse.json({ error: "Datos de franja inválidos" }, { status: 400 });
+    }
+
+    // Validar formato HH:MM
+    if (!TIME_RE.test(s.startTime) || !TIME_RE.test(s.endTime)) {
+      return NextResponse.json(
+        { error: `Formato de hora inválido en el día ${s.dayOfWeek}. Usá HH:MM (ej: 09:00)` },
+        { status: 400 }
+      );
+    }
+
+    // Validar que inicio < fin
+    if (timeToMinutes(s.startTime) >= timeToMinutes(s.endTime)) {
+      return NextResponse.json(
+        { error: `La hora de inicio debe ser anterior a la de fin en el día ${s.dayOfWeek}` },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Validar que cada franja esté dentro del horario del negocio
+  const businessSchedules = await prisma.businessSchedule.findMany({
+    where: { businessId: service.businessId },
+  });
+
+  const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+  for (const s of schedules) {
+    const bizSchedule = businessSchedules.find((bs) => bs.dayOfWeek === s.dayOfWeek);
+
+    if (!bizSchedule) continue;
+
+    if (!bizSchedule.isOpen) {
+      return NextResponse.json(
+        { error: `El negocio está cerrado el ${days[s.dayOfWeek]}` },
+        { status: 400 }
+      );
+    }
+
+    const svcStart = timeToMinutes(s.startTime);
+    const svcEnd = timeToMinutes(s.endTime);
+    const bizStart = timeToMinutes(bizSchedule.openTime);
+    const bizEnd = timeToMinutes(bizSchedule.closeTime);
+
+    if (svcStart < bizStart || svcEnd > bizEnd) {
+      return NextResponse.json(
+        {
+          error: `El horario del ${days[s.dayOfWeek]} debe estar dentro del horario del negocio (${bizSchedule.openTime} - ${bizSchedule.closeTime})`,
+        },
+        { status: 400 }
+      );
     }
   }
 

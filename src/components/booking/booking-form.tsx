@@ -128,6 +128,7 @@ export function BookingForm({
   const [appointmentData, setAppointmentData] = useState<AppointmentData | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState(false);
   const [existingAppointment, setExistingAppointment] = useState<ExistingAppointmentError | null>(null);
   const [daysAvailability, setDaysAvailability] = useState<Record<string, { hasSlots: boolean; slotsCount: number }>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -201,6 +202,31 @@ export function BookingForm({
     }
   }, [businessSlug, selectedStaffId]);
 
+  // Cargar slots disponibles para una fecha concreta
+  const loadAvailableSlots = useCallback(async (date: Date, staffId?: string) => {
+    if (!selectedServiceId) return;
+    setLoadingSlots(true);
+    setSlotsError(false);
+    setAvailableSlots([]);
+    try {
+      let url = `/api/appointments/available?businessId=${businessId}&serviceId=${selectedServiceId}&date=${format(date, "yyyy-MM-dd")}`;
+      if (staffId) {
+        url += `&staffId=${staffId}`;
+      }
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableSlots(data.slots || []);
+      } else {
+        setSlotsError(true);
+      }
+    } catch {
+      setSlotsError(true);
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [businessId, selectedServiceId]);
+
   useEffect(() => {
     loadBlockedDates();
   }, [loadBlockedDates]);
@@ -246,77 +272,11 @@ export function BookingForm({
       .map(([dateStr]) => new Date(dateStr + "T12:00:00"));
   };
 
-  const generateTimeSlots = (date: Date, duration: number) => {
-    const schedule = getDaySchedule(date);
-    if (!schedule || !schedule.isOpen) return [];
-
-    const slots: string[] = [];
-    const [openHour, openMin] = schedule.openTime.split(":").map(Number);
-    const [closeHour, closeMin] = schedule.closeTime.split(":").map(Number);
-
-    let currentHour = openHour;
-    let currentMin = openMin;
-
-    while (
-      currentHour * 60 + currentMin + duration <=
-      closeHour * 60 + closeMin
-    ) {
-      const timeStr = `${currentHour.toString().padStart(2, "0")}:${currentMin
-        .toString()
-        .padStart(2, "0")}`;
-      slots.push(timeStr);
-
-      currentMin += bookingInterval; // configurable interval
-      if (currentMin >= 60) {
-        currentHour += 1;
-        currentMin = 0;
-      }
-    }
-
-    return slots;
-  };
-
-  const loadAvailableSlots = async (date: Date, staffIdParam?: string) => {
-    if (!selectedService) return;
-    
-    setLoadingSlots(true);
-    
-    // Generate all possible slots
-    const allSlots = generateTimeSlots(date, selectedService.duration);
-    
-    try {
-      // Construir URL con parámetros opcionales
-      let url = `/api/appointments/available?businessId=${businessId}&date=${format(
-        date,
-        "yyyy-MM-dd"
-      )}&serviceId=${selectedService.id}`;
-      
-      // Agregar staffId si se seleccionó un staff específico
-      const staffToUse = staffIdParam || selectedStaffId;
-      if (staffToUse) {
-        url += `&staffId=${staffToUse}`;
-      }
-      
-      const response = await fetch(url);
-      
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableSlots(data.slots || allSlots);
-      } else {
-        setAvailableSlots(allSlots);
-      }
-    } catch {
-      setAvailableSlots(allSlots);
-    }
-    
-    setLoadingSlots(false);
-  };
-
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
       setValue("date", date);
       setValue("time", "");
-      loadAvailableSlots(date);
+      loadAvailableSlots(date, selectedStaffId || undefined);
     }
   };
 
@@ -378,9 +338,18 @@ export function BookingForm({
     
     const { date, startTime, endTime, service, business, staff } = appointmentData;
     
-    // Convert date and times to Google Calendar format (YYYYMMDDTHHmmss)
-    const startDateTime = `${date.replace(/-/g, "")}T${startTime.replace(":", "")}00`;
-    const endDateTime = `${date.replace(/-/g, "")}T${endTime.replace(":", "")}00`;
+    // Convertir horas Argentina (UTC-3) a UTC para que Google Calendar
+    // muestre el evento correctamente sin importar la zona del usuario.
+    const toUTCDateTime = (dateStr: string, timeStr: string): string => {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      const [hour, minute] = timeStr.split(":").map(Number);
+      // Argentina es UTC-3 → sumar 3h para obtener UTC
+      const utcDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
+      return utcDate.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    };
+
+    const startDateTime = toUTCDateTime(date, startTime);
+    const endDateTime = toUTCDateTime(date, endTime);
     
     const title = encodeURIComponent(`${service.name} - ${business.name}`);
     const details = encodeURIComponent(
@@ -682,6 +651,30 @@ export function BookingForm({
             )}
           </CardHeader>
           <CardContent className="space-y-4">
+            {availableStaff.length > 0 && (
+              <div>
+                <Label>Profesional (opcional)</Label>
+                <Select onValueChange={handleStaffChange} value={selectedStaffId || ""}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Sin preferencia">
+                      {selectedStaff ? selectedStaff.name : "Sin preferencia"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Sin preferencia</SelectItem>
+                    {availableStaff.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Seleccioná un profesional para ver sus horarios disponibles
+                </p>
+              </div>
+            )}
+
             <div>
               <Label className="flex items-center gap-2 mb-2">
                 Fecha
@@ -722,6 +715,20 @@ export function BookingForm({
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
+                ) : slotsError ? (
+                  <div className="py-4 text-center space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      No se pudieron cargar los horarios. Verificá tu conexión.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => loadAvailableSlots(selectedDate)}
+                    >
+                      Reintentar
+                    </Button>
+                  </div>
                 ) : availableSlots.length === 0 ? (
                   <p className="py-4 text-center text-muted-foreground">
                     No hay horarios disponibles para esta fecha
@@ -750,30 +757,6 @@ export function BookingForm({
                     {errors.time.message}
                   </p>
                 )}
-              </div>
-            )}
-
-            {availableStaff.length > 0 && (
-              <div>
-                <Label>Profesional (opcional)</Label>
-                <Select onValueChange={handleStaffChange} value={selectedStaffId || ""}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sin preferencia">
-                      {selectedStaff ? selectedStaff.name : "Sin preferencia"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Sin preferencia</SelectItem>
-                    {availableStaff.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Selecciona un profesional para ver sus horarios disponibles
-                </p>
               </div>
             )}
           </CardContent>

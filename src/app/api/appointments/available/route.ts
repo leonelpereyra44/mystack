@@ -201,11 +201,18 @@ export async function GET(request: Request) {
     // Get existing appointments for that day
     // Si hay staffId, filtrar solo por ese staff
     // Si no hay staffId (cualquiera), necesitamos verificar disponibilidad de ALGÚN staff
+    // Excluir turnos PENDING con token expirado (el slot se libera automáticamente)
     const existingAppointments = await prisma.appointment.findMany({
       where: {
         businessId,
         date: dateObj,
         status: { notIn: ["CANCELLED"] },
+        NOT: {
+          AND: [
+            { status: "PENDING" },
+            { tokenExpiresAt: { lt: new Date() } },
+          ],
+        },
         ...(staffId && { staffId }),
         ...(excludeAppointmentId && { id: { not: excludeAppointmentId } }),
       },
@@ -262,13 +269,17 @@ export async function GET(request: Request) {
 
     if (selectedDateStr === todayArgStr) {
       const currentMinutes = nowArg.getUTCHours() * 60 + nowArg.getUTCMinutes();
-      const marginMinutes = Math.max(30, minBookingNotice * 60);
+      // Si el dueño configuró minBookingNotice > 0, respetarlo.
+      // Si es 0 (sin aviso mínimo), usar solo 0 min de margen para que los
+      // slots del momento actual sean reservables (walk-in digital).
+      const marginMinutes = minBookingNotice > 0 ? minBookingNotice * 60 : 0;
       finalSlots = availableSlots.filter((slot) => {
         const [h, m] = slot.split(":").map(Number);
         return h * 60 + m > currentMinutes + marginMinutes;
       });
     } else if (minBookingNotice > 0) {
-      // For future dates, filter slots that are within minBookingNotice hours from now
+      // Para fechas futuras: filtrar slots dentro del periodo de aviso mínimo
+      // (escenario cross-day: ej. aviso de 12h a las 8 PM, mañana por la mañana queda bloqueada)
       const limitMs = nowArg.getTime() + minBookingNotice * 60 * 60 * 1000;
       const limitArg = new Date(limitMs);
       const limitDateStr = `${limitArg.getUTCFullYear()}-${String(limitArg.getUTCMonth() + 1).padStart(2, "0")}-${String(limitArg.getUTCDate()).padStart(2, "0")}`;

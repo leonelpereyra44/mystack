@@ -129,73 +129,94 @@ export async function POST(request: Request) {
     // Parse date correctly to avoid timezone issues
     const appointmentDate = parseDateString(date);
 
-    // Check for conflicting appointments (respecting slotCapacity)
-    const overlappingCount = await prisma.appointment.count({
-      where: {
-        businessId,
-        date: appointmentDate,
-        status: { notIn: ["CANCELLED"] },
-        OR: [
-          {
-            AND: [
-              { startTime: { lte: startTime } },
-              { endTime: { gt: startTime } },
-            ],
-          },
-          {
-            AND: [
-              { startTime: { lt: endTime } },
-              { endTime: { gte: endTime } },
-            ],
-          },
-          {
-            AND: [
-              { startTime: { gte: startTime } },
-              { endTime: { lte: endTime } },
-            ],
-          },
-        ],
-        ...(staffId && { staffId }),
-      },
-    });
-
-    if (overlappingCount >= business.slotCapacity) {
-      return NextResponse.json(
-        { error: "Este horario ya no está disponible" },
-        { status: 409 }
-      );
-    }
-
-    // Create appointment with PENDING status + confirmation token
+    // Generar token antes de la transacción
     const confirmationToken = crypto.randomBytes(32).toString("hex");
     const isSameDay = isToday(appointmentDate);
     const expiresInMinutes = isSameDay ? 15 : 60;
     const tokenExpiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
-    // Create appointment
-    const appointment = await prisma.appointment.create({
-      data: {
-        businessId,
-        serviceId,
-        staffId: staffId || null,
-        date: appointmentDate,
-        startTime,
-        endTime,
-        customerName,
-        customerEmail,
-        customerPhone: customerPhone || null,
-        notes: notes || null,
-        extraData: extraData || null,
-        status: "PENDING",
-        confirmationToken,
-        tokenExpiresAt,
-      },
-      include: {
-        service: true,
-        staff: true,
-        business: true,
-      },
-    });
+    // Crear el turno dentro de una transacción que re-valida la disponibilidad
+    // de forma atómica para evitar double-booking por condición de carrera.
+    let appointment;
+    try {
+      appointment = await prisma.$transaction(async (tx) => {
+        // Re-verificar solapamientos dentro de la transacción
+        // (excluye PENDING expirados igual que el endpoint de slots)
+        const conflictingCount = await tx.appointment.count({
+          where: {
+            businessId,
+            date: appointmentDate,
+            status: { notIn: ["CANCELLED"] },
+            NOT: {
+              AND: [
+                { status: "PENDING" },
+                { tokenExpiresAt: { lt: new Date() } },
+              ],
+            },
+            OR: [
+              {
+                AND: [
+                  { startTime: { lte: startTime } },
+                  { endTime: { gt: startTime } },
+                ],
+              },
+              {
+                AND: [
+                  { startTime: { lt: endTime } },
+                  { endTime: { gte: endTime } },
+                ],
+              },
+              {
+                AND: [
+                  { startTime: { gte: startTime } },
+                  { endTime: { lte: endTime } },
+                ],
+              },
+            ],
+            ...(staffId && { staffId }),
+          },
+        });
+
+        if (conflictingCount >= business.slotCapacity) {
+          throw Object.assign(new Error("SLOT_TAKEN"), { code: "SLOT_TAKEN" });
+        }
+
+        return tx.appointment.create({
+          data: {
+            businessId,
+            serviceId,
+            staffId: staffId || null,
+            date: appointmentDate,
+            startTime,
+            endTime,
+            customerName,
+            customerEmail,
+            customerPhone: customerPhone || null,
+            notes: notes || null,
+            extraData: extraData || null,
+            status: "PENDING",
+            confirmationToken,
+            tokenExpiresAt,
+          },
+          include: {
+            service: true,
+            staff: true,
+            business: true,
+          },
+        });
+      });
+    } catch (txError) {
+      if (
+        txError instanceof Error &&
+        (txError as Error & { code?: string }).code === "SLOT_TAKEN"
+      ) {
+        return NextResponse.json(
+          { error: "Este horario ya no está disponible" },
+          { status: 409 }
+        );
+      }
+      throw txError;
+    }
 
     // Send pending confirmation email (non-blocking)
     sendAppointmentPendingConfirmation({

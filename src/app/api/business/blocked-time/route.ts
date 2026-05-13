@@ -114,31 +114,34 @@ export async function POST(request: Request) {
       // Generar un groupId único para este rango
       const groupId = `group_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-      // Crear un bloqueo por cada día en el rango
-      const blockedTimes = [];
+      // Acumular todas las fechas del rango en un array
+      const blockedDates: Date[] = [];
       const currentDate = new Date(startDate);
-      
       while (currentDate <= endDate) {
-        const blocked = await prisma.blockedTime.create({
-          data: {
-            businessId: business.id,
-            staffId: staffId || null,
-            groupId,
-            date: new Date(currentDate),
-            startTime: isAllDay ? null : startTime,
-            endTime: isAllDay ? null : endTime,
-            reason: reason || null,
-            isAllDay: isAllDay || false,
-          },
-          include: {
-            staff: {
-              select: { id: true, name: true },
-            },
-          },
-        });
-        blockedTimes.push(blocked);
+        blockedDates.push(new Date(currentDate));
         currentDate.setDate(currentDate.getDate() + 1);
       }
+
+      // Crear todos los registros de una sola vez (evita N queries secuenciales)
+      await prisma.blockedTime.createMany({
+        data: blockedDates.map((d) => ({
+          businessId: business.id,
+          staffId: staffId || null,
+          groupId,
+          date: d,
+          startTime: isAllDay ? null : startTime,
+          endTime: isAllDay ? null : endTime,
+          reason: reason || null,
+          isAllDay: isAllDay || false,
+        })),
+      });
+
+      // Leer los registros creados para incluirlos en la respuesta
+      const blockedTimes = await prisma.blockedTime.findMany({
+        where: { groupId },
+        include: { staff: { select: { id: true, name: true } } },
+        orderBy: { date: "asc" },
+      });
 
       // Devolver un objeto agrupado para mostrar en UI
       return NextResponse.json({

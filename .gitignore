@@ -6,6 +6,7 @@ ROADMAP.md
 to-do.txt
 REVIEW-2025-05-04.md
 design.md
+mejorasdashboard.md
 
 # dependencies
 /node_modules
@@ -55,7 +56,8 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
-
+prisma_output.log
+migrate_output.log
 
 
 
