@@ -7,7 +7,6 @@ process.env.MERCADOPAGO_ACCESS_TOKEN = "TEST_ACCESS_TOKEN";
 process.env.MERCADOPAGO_WEBHOOK_SECRET = "TEST_WEBHOOK_SECRET";
 process.env.NEXTAUTH_URL = "http://localhost:3000";
 process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
-process.env.NODE_ENV = "test";
 process.env.CRON_SECRET = "TEST_CRON_SECRET";
 
 // MSW server para interceptar fetch() al API de MercadoPago
