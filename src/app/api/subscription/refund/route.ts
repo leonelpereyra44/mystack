@@ -67,10 +67,34 @@ export async function POST() {
       );
     }
 
+    // Idempotencia: marcar refundedAt atómicamente ANTES de llamar a MP.
+    // Si dos requests llegan simultáneamente, solo uno podrá hacer el updateMany (count > 0).
+    // El que llegue segundo encontrará refundedAt ya seteado y devolverá count = 0.
+    const locked = await prisma.subscription.updateMany({
+      where: {
+        businessId: business.id,
+        refundedAt: null,
+        status: "ACTIVE",
+      },
+      data: { refundedAt: new Date() },
+    });
+
+    if (locked.count === 0) {
+      return NextResponse.json(
+        { error: "Ya has solicitado un reembolso anteriormente" },
+        { status: 400 }
+      );
+    }
+
     // Procesar el reembolso en Mercado Pago
     const refundResult = await refundPayment(subscription.lastPaymentId);
 
     if (!refundResult.success) {
+      // Revertir el lock optimista para que el usuario pueda reintentar
+      await prisma.subscription.update({
+        where: { businessId: business.id },
+        data: { refundedAt: null },
+      });
       console.error("Refund failed:", refundResult.error);
       return NextResponse.json(
         { error: refundResult.error || "Error al procesar el reembolso. Por favor, contacta a soporte." },
@@ -79,23 +103,30 @@ export async function POST() {
     }
 
     // Cancelar la suscripción en Mercado Pago
+    let mpCancelFailed = false;
     if (subscription.mpSubscriptionId) {
       const cancelResult = await cancelSubscription(subscription.mpSubscriptionId);
       if (!cancelResult.success) {
-        console.error("Cancel subscription failed after refund:", cancelResult.error);
-        // Continuamos aunque falle la cancelación, ya que el reembolso fue exitoso
+        mpCancelFailed = true;
+        // CRÍTICO: el reembolso fue exitoso pero la suscripción en MP sigue activa.
+        // Conservamos mpSubscriptionId en la DB para que el admin pueda cancelarla manualmente.
+        console.error(
+          "CRÍTICO: Reembolso exitoso pero fallo al cancelar suscripción en MP. " +
+          `businessId=${business.id} mpSubscriptionId=${subscription.mpSubscriptionId} error=${cancelResult.error}`
+        );
       }
     }
 
-    // Actualizar el registro de suscripción
+    // Actualizar el registro de suscripción.
+    // Si la cancelación en MP falló, conservamos mpSubscriptionId para poder reintentarla.
     await prisma.subscription.update({
       where: { businessId: business.id },
       data: {
         status: "CANCELLED",
         plan: "FREE",
-        refundedAt: new Date(),
         cancelledAt: new Date(),
-        mpSubscriptionId: null,
+        // refundedAt ya fue seteado por el lock optimista arriba
+        ...(mpCancelFailed ? {} : { mpSubscriptionId: null }),
       },
     });
 

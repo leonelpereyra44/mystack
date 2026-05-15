@@ -167,7 +167,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Manejar pagos de suscripción
-    if (type === "payment" && action === "payment.created") {
+    // MP envía type="payment" y action="created" (no "payment.created")
+    if (type === "payment" && action === "created") {
       const paymentId = data.id;
 
       // Obtener detalles del pago desde MP
@@ -186,20 +187,42 @@ export async function POST(request: NextRequest) {
         
         // Si el pago está aprobado y tiene external_reference
         if (payment.status === "approved" && payment.external_reference) {
-          // Obtener el plan real desde la DB en vez de hardcodear "PRO"
-          const sub = await prisma.subscription.findFirst({
-            where: { businessId: payment.external_reference },
-            select: { plan: true },
-          });
+          // external_reference tiene formato "businessId:planKey" (nuevo) o solo "businessId" (legacy)
+          let businessId: string;
+          let planKeyFromRef: string | null = null;
+          const ref = payment.external_reference as string;
+          if (ref.includes(":")) {
+            [businessId, planKeyFromRef] = ref.split(":", 2);
+          } else {
+            businessId = ref;
+          }
+
+          // Obtener el plan real: del externalReference o de la DB como fallback
+          let planToActivate: string;
+          if (planKeyFromRef) {
+            planToActivate = planKeyFromRef;
+          } else {
+            const sub = await prisma.subscription.findFirst({
+              where: { businessId },
+              select: { plan: true },
+            });
+            planToActivate = sub?.plan ?? "PRO";
+          }
+
           await prisma.subscription.update({
-            where: { businessId: payment.external_reference },
+            where: { businessId },
             data: {
-              plan: sub?.plan ?? "PRO",
+              plan: planToActivate as SubscriptionPlan,
               status: "ACTIVE",
               lastPaymentId: paymentId.toString(),
-              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              // Usar next_payment_date de MP si está disponible; fallback a +30 días
+              currentPeriodEnd: payment.date_last_updated
+                ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
+                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             },
           });
+
+          console.log(`Payment processed: business=${businessId}, plan=${planToActivate}, paymentId=${paymentId}`);
         }
       }
     }

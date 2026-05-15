@@ -179,7 +179,7 @@ export async function GET() {
     return NextResponse.json({
       subscription: {
         plan,
-        status: business.subscription?.status || "ACTIVE",
+        status: business.subscription?.status ?? null,
         currentPeriodEnd: business.subscription?.currentPeriodEnd,
       },
       planInfo: {
