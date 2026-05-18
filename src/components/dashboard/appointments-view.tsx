@@ -18,13 +18,8 @@ interface Appointment {
   notes: string | null;
   serviceId: string;
   staffId: string | null;
-  service: {
-    name: string;
-    duration: number;
-  };
-  staff: {
-    name: string;
-  } | null;
+  service: { name: string; duration: number };
+  staff: { name: string } | null;
 }
 
 interface AppointmentsViewProps {
@@ -34,16 +29,51 @@ interface AppointmentsViewProps {
   staff?: { id: string; name: string }[];
   businessName: string;
   businessAddress?: string | null;
+  businessTimezone?: string;
 }
 
-export function AppointmentsView({ appointments, slotCapacity, services, staff, businessName, businessAddress }: AppointmentsViewProps) {
+export function AppointmentsView({
+  appointments,
+  slotCapacity,
+  services,
+  staff,
+  businessName,
+  businessAddress,
+  businessTimezone,
+}: AppointmentsViewProps) {
   const [view, setView] = useState<"list" | "calendar">("list");
 
   return (
     <div className="space-y-4">
-      {/* Toggle de vista */}
-      <div className="flex items-center justify-end gap-2">
-        <span className="text-sm text-muted-foreground mr-2">Vista:</span>
+      {/* Mobile: segmented control full-width */}
+      <div className="grid grid-cols-2 rounded-md border bg-muted p-0.5 sm:hidden">
+        <button
+          onClick={() => setView("list")}
+          className={`flex items-center justify-center gap-1.5 rounded-sm py-1.5 text-sm font-medium transition-colors ${
+            view === "list"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <List className="h-3.5 w-3.5" />
+          Lista
+        </button>
+        <button
+          onClick={() => setView("calendar")}
+          className={`flex items-center justify-center gap-1.5 rounded-sm py-1.5 text-sm font-medium transition-colors ${
+            view === "calendar"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <CalendarDays className="h-3.5 w-3.5" />
+          Calendario
+        </button>
+      </div>
+
+      {/* Desktop: toggle alineado a la derecha */}
+      <div className="hidden sm:flex items-center justify-end gap-2">
+        <span className="text-sm text-muted-foreground">Vista:</span>
         <div className="flex border rounded-lg overflow-hidden">
           <Button
             variant={view === "list" ? "default" : "ghost"}
@@ -52,7 +82,7 @@ export function AppointmentsView({ appointments, slotCapacity, services, staff, 
             onClick={() => setView("list")}
           >
             <List className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">Lista</span>
+            Lista
           </Button>
           <Button
             variant={view === "calendar" ? "default" : "ghost"}
@@ -61,14 +91,21 @@ export function AppointmentsView({ appointments, slotCapacity, services, staff, 
             onClick={() => setView("calendar")}
           >
             <CalendarDays className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">Calendario</span>
+            Calendario
           </Button>
         </div>
       </div>
 
-      {/* Contenido según vista */}
       {view === "list" ? (
-        <AppointmentsList appointments={appointments} slotCapacity={slotCapacity} services={services} staff={staff} businessName={businessName} businessAddress={businessAddress} />
+        <AppointmentsList
+          appointments={appointments}
+          slotCapacity={slotCapacity}
+          services={services}
+          staff={staff}
+          businessName={businessName}
+          businessAddress={businessAddress}
+          businessTimezone={businessTimezone}
+        />
       ) : (
         <AppointmentsCalendar appointments={appointments} />
       )}

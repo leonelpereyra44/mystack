@@ -8,7 +8,7 @@ import { z } from "zod";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { getBusinessTerminology, getBusinessType } from "@/lib/business-types";
+import { getBusinessTerminology } from "@/lib/business-types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,13 +21,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const serviceSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -43,45 +36,21 @@ export default function NewServicePage() {
   const searchParams = useSearchParams();
   const businessType = searchParams.get("type") ?? "salon";
   const terminology = getBusinessTerminology(businessType);
-  const { suggestedDurations } = getBusinessType(businessType);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors },
   } = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
-      duration: suggestedDurations[0] ?? 30,
+      duration: 30,
       price: 0,
     },
   });
 
-  const selectedDuration = watch("duration");
-
-  const ALL_DURATION_OPTIONS: Record<number, string> = {
-    15: "15 minutos",
-    20: "20 minutos",
-    30: "30 minutos",
-    45: "45 minutos",
-    60: "1 hora",
-    90: "1 hora 30 min",
-    120: "2 horas",
-    180: "3 horas",
-    240: "4 horas",
-  };
-
-  // Show suggested durations for this business type first, then the rest
-  const orderedDurations = [
-    ...suggestedDurations,
-    ...[15, 20, 30, 45, 60, 90, 120, 180, 240].filter(
-      (d) => !suggestedDurations.includes(d)
-    ),
-  ];
 
   const onSubmit = async (data: ServiceFormData) => {
     setIsLoading(true);
@@ -167,24 +136,20 @@ export default function NewServicePage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="duration">Duración *</Label>
-                <Select
-                  defaultValue={String(suggestedDurations[0] ?? 30)}
-                  onValueChange={(value) => setValue("duration", parseInt(value || "30"))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona duración">
-                      {ALL_DURATION_OPTIONS[selectedDuration] || "Selecciona duración"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {orderedDurations.map((d) => (
-                      <SelectItem key={d} value={String(d)}>
-                        {ALL_DURATION_OPTIONS[d]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="duration">Duración (minutos) *</Label>
+                <Input
+                  id="duration"
+                  type="number"
+                  min="5"
+                  max="480"
+                  step="5"
+                  placeholder="30"
+                  {...register("duration", { valueAsNumber: true })}
+                  disabled={isLoading}
+                />
+                {errors.duration && (
+                  <p className="text-sm text-destructive">{errors.duration.message}</p>
+                )}
               </div>
 
               <div className="space-y-2">

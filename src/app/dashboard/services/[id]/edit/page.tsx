@@ -20,13 +20,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const serviceSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -84,16 +77,7 @@ export default function EditServicePage({ params }: EditServicePageProps) {
     },
   });
 
-  const selectedDuration = watch("duration");
 
-  const durationOptions: { [key: number]: string } = {
-    15: "15 minutos",
-    30: "30 minutos",
-    45: "45 minutos",
-    60: "1 hora",
-    90: "1 hora 30 min",
-    120: "2 horas",
-  };
 
   useEffect(() => {
     async function fetchService() {
@@ -277,25 +261,16 @@ export default function EditServicePage({ params }: EditServicePageProps) {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="duration">Duración *</Label>
-                <Select
-                  value={selectedDuration?.toString()}
-                  onValueChange={(value) => value && setValue("duration", parseInt(value))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona duración">
-                      {durationOptions[selectedDuration] || "Selecciona duración"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 minutos</SelectItem>
-                    <SelectItem value="30">30 minutos</SelectItem>
-                    <SelectItem value="45">45 minutos</SelectItem>
-                    <SelectItem value="60">1 hora</SelectItem>
-                    <SelectItem value="90">1 hora 30 min</SelectItem>
-                    <SelectItem value="120">2 horas</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="duration">Duración (minutos) *</Label>
+                <Input
+                  id="duration"
+                  type="number"
+                  min="5"
+                  max="480"
+                  step="5"
+                  placeholder="30"
+                  {...register("duration", { valueAsNumber: true })}
+                />
                 {errors.duration && (
                   <p className="text-sm text-destructive">
                     {errors.duration.message}

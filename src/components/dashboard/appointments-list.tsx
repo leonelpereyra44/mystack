@@ -9,9 +9,9 @@ import { toast } from "sonner";
 // Helper para parsear fecha UTC correctamente
 function parseUTCDate(dateString: string | Date): Date {
   const d = new Date(dateString);
-  // Ajustar para usar UTC
   return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
 }
+
 import {
   Calendar,
   Mail,
@@ -24,6 +24,9 @@ import {
   ChevronRight,
   Download,
   CalendarPlus,
+  Search,
+  X,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -54,6 +57,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 interface Appointment {
   id: string;
@@ -76,7 +88,7 @@ interface Appointment {
   } | null;
 }
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 25;
 
 function isAppointmentUpcoming(appointmentDate: Date, startTime: string): boolean {
   const now = new Date();
@@ -101,6 +113,7 @@ interface AppointmentsListProps {
   staff?: { id: string; name: string }[];
   businessName: string;
   businessAddress?: string | null;
+  businessTimezone?: string;
 }
 
 const statusConfig = {
@@ -111,9 +124,296 @@ const statusConfig = {
   NO_SHOW: { label: "No asistió", variant: "destructive" as const, icon: XCircle },
 };
 
-export function AppointmentsList({ appointments, slotCapacity, services, staff, businessName, businessAddress }: AppointmentsListProps) {
+// ─── Avatar helpers ───────────────────────────────────────────────────────────
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  "bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-amber-500",
+  "bg-rose-500", "bg-sky-500", "bg-pink-500", "bg-teal-500",
+];
+
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+// ─── Filter Bar subcomponent ─────────────────────────────────────────────────
+
+interface FilterBarProps {
+  filter: "upcoming" | "past" | "all";
+  onFilterChange: (f: "upcoming" | "past" | "all") => void;
+  search: string;
+  onSearchChange: (v: string) => void;
+  filterServiceId: string;
+  onFilterServiceChange: (v: string) => void;
+  filterStaffId: string;
+  onFilterStaffChange: (v: string) => void;
+  services?: { id: string; name: string }[];
+  staff?: { id: string; name: string }[];
+  onExportCSV: () => void;
+  onExportICS: () => void;
+  hasResults: boolean;
+}
+
+function FilterBar({
+  filter,
+  onFilterChange,
+  search,
+  onSearchChange,
+  filterServiceId,
+  onFilterServiceChange,
+  filterStaffId,
+  onFilterStaffChange,
+  services,
+  staff,
+  onExportCSV,
+  onExportICS,
+  hasResults,
+}: FilterBarProps) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const hasServices = services && services.length > 1;
+  const hasStaff = staff && staff.length > 0;
+  const activeSecondaryFilters =
+    (filterServiceId !== "all" ? 1 : 0) + (filterStaffId !== "all" ? 1 : 0);
+
+  return (
+    <div className="space-y-2 mb-4">
+      {/* Mobile Row 1: full-width segmented tabs */}
+      <div className="grid grid-cols-3 rounded-md border bg-muted p-0.5 md:hidden">
+        {(["upcoming", "past", "all"] as const).map((f, i) => {
+          const labels = ["Próximos", "Pasados", "Todos"];
+          return (
+            <button
+              key={f}
+              onClick={() => onFilterChange(f)}
+              className={`rounded-sm py-1.5 text-sm font-medium transition-colors ${
+                filter === f
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {labels[i]}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Desktop Row 1: tabs + selects + exports */}
+      <div className="hidden md:flex items-center gap-2 flex-wrap">
+        <div className="flex gap-1.5">
+          <Button variant={filter === "upcoming" ? "default" : "outline"} size="sm" onClick={() => onFilterChange("upcoming")}>
+            Próximos
+          </Button>
+          <Button variant={filter === "past" ? "default" : "outline"} size="sm" onClick={() => onFilterChange("past")}>
+            Pasados
+          </Button>
+          <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => onFilterChange("all")}>
+            Todos
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          {hasServices && (
+            <Select value={filterServiceId} onValueChange={(v) => { if (v) onFilterServiceChange(v); }}>
+              <SelectTrigger className="h-8 w-[160px]">
+                <SelectValue placeholder="Servicio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los servicios</SelectItem>
+                {services!.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {hasStaff && (
+            <Select value={filterStaffId} onValueChange={(v) => { if (v) onFilterStaffChange(v); }}>
+              <SelectTrigger className="h-8 w-[160px]">
+                <SelectValue placeholder="Personal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todo el personal</SelectItem>
+                {staff!.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <Button variant="outline" size="sm" className="h-8 gap-1" onClick={onExportCSV} disabled={!hasResults}>
+            <Download className="h-3.5 w-3.5" />CSV
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 gap-1" onClick={onExportICS} disabled={!hasResults}>
+            <CalendarPlus className="h-3.5 w-3.5" />Calendario
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile Row 2: search + Filtros button */}
+      <div className="flex gap-2 md:hidden">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Buscar por nombre o email..."
+            className="h-8 pl-8 pr-8 text-sm"
+          />
+          {search && (
+            <button
+              onClick={() => onSearchChange("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0 gap-1.5"
+          onClick={() => setSheetOpen(true)}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Filtros
+          {activeSecondaryFilters > 0 && (
+            <span className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+              {activeSecondaryFilters}
+            </span>
+          )}
+        </Button>
+      </div>
+
+      {/* Desktop Row 2: search */}
+      <div className="relative hidden md:block">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Buscar por nombre o email..."
+          className="h-8 pl-8 pr-8 text-sm"
+        />
+        {search && (
+          <button
+            onClick={() => onSearchChange("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Limpiar búsqueda"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Mobile filter sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl px-4 pb-8">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Filtros y exportar</SheetTitle>
+          </SheetHeader>
+
+          <div className="space-y-4">
+            {hasServices && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Servicio</Label>
+                <Select
+                  value={filterServiceId}
+                  onValueChange={(v) => { if (v) { onFilterServiceChange(v); } }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Servicio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los servicios</SelectItem>
+                    {services!.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {hasStaff && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Personal</Label>
+                <Select
+                  value={filterStaffId}
+                  onValueChange={(v) => { if (v) { onFilterStaffChange(v); } }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Personal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todo el personal</SelectItem>
+                    {staff!.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {activeSecondaryFilters > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+                onClick={() => {
+                  onFilterServiceChange("all");
+                  onFilterStaffChange("all");
+                }}
+              >
+                <X className="mr-2 h-3.5 w-3.5" />
+                Limpiar filtros
+              </Button>
+            )}
+
+            <Separator />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => { onExportCSV(); setSheetOpen(false); }}
+                disabled={!hasResults}
+              >
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => { onExportICS(); setSheetOpen(false); }}
+                disabled={!hasResults}
+              >
+                <CalendarPlus className="h-4 w-4" />
+                Calendario
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function AppointmentsList({
+  appointments,
+  slotCapacity,
+  services,
+  staff,
+  businessName,
+  businessAddress,
+  businessTimezone,
+}: AppointmentsListProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
+  const [search, setSearch] = useState("");
   const [filterServiceId, setFilterServiceId] = useState<string>("all");
   const [filterStaffId, setFilterStaffId] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,17 +421,22 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
   const [isUpdating, setIsUpdating] = useState(false);
   const [exportModal, setExportModal] = useState<null | "csv" | "ics">(null);
 
+  // Optimistic local state — starts as null (use server data), becomes array after first mutation
+  const [localAppointments, setLocalAppointments] = useState<Appointment[] | null>(null);
+  const activeAppointments = localAppointments ?? appointments;
+
   const handleFilterChange = (newFilter: "upcoming" | "past" | "all") => {
     setFilter(newFilter);
     setCurrentPage(1);
   };
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
   };
 
   // Compute occupancy per slot (date+startTime) across ALL appointments (not just page)
-  const slotOccupancy = appointments.reduce((acc, apt) => {
+  const slotOccupancy = activeAppointments.reduce((acc, apt) => {
     if (apt.status === "CANCELLED") return acc;
     const key = `${format(parseUTCDate(apt.date), "yyyy-MM-dd")}_${apt.startTime}`;
     acc[key] = (acc[key] || 0) + 1;
@@ -139,7 +444,7 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
   }, {} as Record<string, number>);
 
   // Filter, sort, and paginate in memory
-  const filteredAppointments = appointments.filter((apt) => {
+  const filteredAppointments = activeAppointments.filter((apt) => {
     if (filter !== "all") {
       const upcoming = isAppointmentUpcoming(apt.date, apt.startTime);
       if (filter === "upcoming" && !upcoming) return false;
@@ -147,6 +452,12 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
     }
     if (filterServiceId !== "all" && apt.serviceId !== filterServiceId) return false;
     if (filterStaffId !== "all" && apt.staffId !== filterStaffId) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const matchName = apt.customerName.toLowerCase().includes(q);
+      const matchEmail = apt.customerEmail.toLowerCase().includes(q);
+      if (!matchName && !matchEmail) return false;
+    }
     return true;
   });
 
@@ -166,6 +477,42 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
+  // ── Timezone-aware UTC stamp ──────────────────────────────────────────────
+  // Uses the business timezone if provided, otherwise falls back to the
+  // runtime's local offset. Avoids the previous hardcoded UTC-3 Argentina offset.
+  const toUTCStamp = (date: Date, timeStr: string): string => {
+    const d = parseUTCDate(date);
+    const [hour, minute] = timeStr.split(":").map(Number);
+
+    if (businessTimezone) {
+      // Build an ISO string in the business timezone and let the JS engine convert to UTC
+      const isoLocal = `${format(d, "yyyy-MM-dd")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
+      // Use Intl to get the UTC offset for the given timezone at the given date
+      const dtf = new Intl.DateTimeFormat("en-US", {
+        timeZone: businessTimezone,
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+        hour12: false,
+      });
+      // Get UTC equivalent by creating a Date from the local ISO and computing the tz offset
+      const localDate = new Date(isoLocal); // treated as local browser time
+      const utcMs = localDate.getTime() - getTimezoneOffsetMs(businessTimezone, localDate);
+      const utc = new Date(utcMs);
+      return utc.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    }
+
+    // Fallback: treat the stored time as UTC (safest assumption when tz is unknown)
+    const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), hour, minute, 0));
+    return utc.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  };
+
+  /** Returns the offset in milliseconds between a timezone and UTC for a given Date. */
+  function getTimezoneOffsetMs(timezone: string, date: Date): number {
+    const utcStr = date.toLocaleString("en-US", { timeZone: "UTC" });
+    const tzStr = date.toLocaleString("en-US", { timeZone: timezone });
+    return new Date(tzStr).getTime() - new Date(utcStr).getTime();
+  }
 
   const downloadCSV = () => {
     const headers = ["Fecha", "Hora", "Cliente", "Email", "Teléfono", "Servicio", "Personal", "Estado"];
@@ -196,15 +543,6 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
     a.download = `turnos-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  // Convierte fecha Argentina (UTC-3) a formato ICS/GCal UTC: 20260515T130000Z
-  const toUTCStamp = (date: Date, timeStr: string): string => {
-    const d = parseUTCDate(date);
-    const [hour, minute] = timeStr.split(":").map(Number);
-    // Argentina = UTC-3 → sumar 3h para obtener UTC
-    const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), hour + 3, minute, 0));
-    return utc.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
   };
 
   const downloadICS = () => {
@@ -291,13 +629,22 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
 
   const updateStatus = async (id: string, status: string) => {
     setIsUpdating(true);
+
+    // Optimistic update: change status locally before the API responds
+    const previous = localAppointments ?? appointments;
+    setLocalAppointments(
+      previous.map((apt) => (apt.id === id ? { ...apt, status } : apt))
+    );
+
     try {
-      await fetch(`/api/appointments/${id}`, {
+      const res = await fetch(`/api/appointments/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      
+
+      if (!res.ok) throw new Error("API error");
+
       const statusMessages: Record<string, string> = {
         CONFIRMED: "Turno confirmado",
         COMPLETED: "Turno completado",
@@ -305,9 +652,12 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
         NO_SHOW: "Turno marcado como no asistió",
       };
       toast.success(statusMessages[status] || "Estado actualizado");
+
+      // Background refresh to sync server state without blocking UI
       router.refresh();
-    } catch (error) {
-      console.error("Error updating appointment:", error);
+    } catch {
+      // Rollback on error
+      setLocalAppointments(previous);
       toast.error("Error al actualizar el turno");
     } finally {
       setIsUpdating(false);
@@ -324,78 +674,46 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
     return groups;
   }, {} as Record<string, Record<string, Appointment[]>>);
 
+  const filterBarProps: FilterBarProps = {
+    filter,
+    onFilterChange: handleFilterChange,
+    search,
+    onSearchChange: handleSearchChange,
+    filterServiceId,
+    onFilterServiceChange: (v) => { setFilterServiceId(v); setCurrentPage(1); },
+    filterStaffId,
+    onFilterStaffChange: (v) => { setFilterStaffId(v); setCurrentPage(1); },
+    services,
+    staff,
+    onExportCSV: () => setExportModal("csv"),
+    onExportICS: () => setExportModal("ics"),
+    hasResults: sortedAppointments.length > 0,
+  };
+
   if (paginatedAppointments.length === 0) {
     return (
       <>
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <div className="flex gap-2">
-            <Button 
-              variant={filter === "upcoming" ? "default" : "outline"} 
-              size="sm"
-              onClick={() => handleFilterChange("upcoming")}
-            >
-              Próximos
-            </Button>
-            <Button 
-              variant={filter === "past" ? "default" : "outline"} 
-              size="sm"
-              onClick={() => handleFilterChange("past")}
-            >
-              Pasados
-            </Button>
-            <Button 
-              variant={filter === "all" ? "default" : "outline"} 
-              size="sm"
-              onClick={() => handleFilterChange("all")}
-            >
-              Todos
-            </Button>
-          </div>
-          {services && services.length > 1 && (
-            <Select value={filterServiceId} onValueChange={(v) => { if (v) { setFilterServiceId(v); setCurrentPage(1); } }}>
-              <SelectTrigger className="h-8 w-[160px]">
-                <SelectValue placeholder="Servicio" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los servicios</SelectItem>
-                {services.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {staff && staff.length > 0 && (
-            <Select value={filterStaffId} onValueChange={(v) => { if (v) { setFilterStaffId(v); setCurrentPage(1); } }}>
-              <SelectTrigger className="h-8 w-[160px]">
-                <SelectValue placeholder="Personal" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todo el personal</SelectItem>
-                {staff.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button variant="outline" size="sm" className="ml-auto h-8 gap-1" onClick={downloadCSV} disabled>
-            <Download className="h-3.5 w-3.5" />
-            CSV
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 gap-1" onClick={downloadICS} disabled>
-            <CalendarPlus className="h-3.5 w-3.5" />
-            Calendario
-          </Button>
-        </div>
-
+        <FilterBar {...filterBarProps} />
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Calendar className="h-12 w-12 text-muted-foreground" />
             <p className="mt-4 text-muted-foreground">
-              {filter === "past" 
-                ? "No hay turnos pasados" 
+              {search.trim()
+                ? `No se encontraron turnos para "${search.trim()}"`
+                : filter === "past"
+                ? "No hay turnos pasados"
                 : "No hay turnos programados"}
             </p>
+            {search.trim() && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={() => handleSearchChange("")}
+              >
+                Limpiar búsqueda
+              </Button>
+            )}
           </CardContent>
         </Card>
       </>
@@ -404,78 +722,7 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
 
   return (
     <>
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <div className="flex gap-2">
-          <Button 
-            variant={filter === "upcoming" ? "default" : "outline"} 
-            size="sm"
-            onClick={() => handleFilterChange("upcoming")}
-          >
-            Próximos
-          </Button>
-          <Button 
-            variant={filter === "past" ? "default" : "outline"} 
-            size="sm"
-            onClick={() => handleFilterChange("past")}
-          >
-            Pasados
-          </Button>
-          <Button 
-            variant={filter === "all" ? "default" : "outline"} 
-            size="sm"
-            onClick={() => handleFilterChange("all")}
-          >
-            Todos
-          </Button>
-        </div>
-        {services && services.length > 1 && (
-          <Select value={filterServiceId} onValueChange={(v) => { if (v) { setFilterServiceId(v); setCurrentPage(1); } }}>
-            <SelectTrigger className="h-8 w-[160px]">
-              <SelectValue placeholder="Servicio" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los servicios</SelectItem>
-              {services.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        {staff && staff.length > 0 && (
-          <Select value={filterStaffId} onValueChange={(v) => { if (v) { setFilterStaffId(v); setCurrentPage(1); } }}>
-            <SelectTrigger className="h-8 w-[160px]">
-              <SelectValue placeholder="Personal" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todo el personal</SelectItem>
-              {staff.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-auto h-8 gap-1"
-          onClick={() => setExportModal("csv")}
-          disabled={sortedAppointments.length === 0}
-        >
-          <Download className="h-3.5 w-3.5" />
-          CSV
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1"
-          onClick={() => setExportModal("ics")}
-          disabled={sortedAppointments.length === 0}
-        >
-          <CalendarPlus className="h-3.5 w-3.5" />
-          Calendario
-        </Button>
-      </div>
+      <FilterBar {...filterBarProps} />
 
       <div className="space-y-6">
         {Object.entries(groupedAppointments).map(([dateKey, timeGroups]) => (
@@ -519,54 +766,66 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
                         return (
                           <Card key={`${apt.id}-${index}`}>
                             <CardContent className="p-3 md:p-4">
-                              {/* Mobile: Stack layout */}
-                              <div className="flex flex-col gap-2 md:hidden">
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <p className="font-medium text-sm">{apt.customerName}</p>
-                                    <p className="text-xs text-muted-foreground">{apt.service.name}</p>
-                                    {apt.staff && (
-                                      <p className="text-xs text-muted-foreground">{apt.staff.name}</p>
-                                    )}
-                                  </div>
+                              {/* Mobile: flat layout with avatar */}
+                              <div className="flex items-center gap-3 md:hidden">
+                                {/* Avatar */}
+                                <div className={`flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-white text-xs font-semibold ${getAvatarColor(apt.customerName)}`}>
+                                  {getInitials(apt.customerName)}
+                                </div>
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{apt.customerName}</p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {apt.service.name}{apt.staff && ` · ${apt.staff.name}`}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground truncate">{apt.customerEmail}</p>
+                                </div>
+                                {/* Badge + menu */}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <Badge variant={status.variant} className="text-xs hidden sm:flex">
+                                    <StatusIcon className="mr-1 h-3 w-3" />
+                                    {status.label}
+                                  </Badge>
                                   <DropdownMenu>
                                     <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm"><MoreHorizontal className="h-4 w-4" /></Button>} />
-                                     <DropdownMenuContent align="end">
-                                       {apt.status === "PENDING" && (
-                                         <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
-                                           <CheckCircle className="mr-2 h-4 w-4" />
-                                           Confirmar
-                                         </DropdownMenuItem>
-                                       )}
-                                       {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
-                                         <>
-                                           <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
-                                             <CheckCircle className="mr-2 h-4 w-4" />
-                                             Completado
-                                           </DropdownMenuItem>
-                                           <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
-                                             <XCircle className="mr-2 h-4 w-4" />
-                                             No asistió
-                                           </DropdownMenuItem>
-                                           <DropdownMenuSeparator />
-                                           <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
-                                             <XCircle className="mr-2 h-4 w-4" />
-                                             Cancelar
-                                           </DropdownMenuItem>
-                                         </>
-                                       )}
-                                       <DropdownMenuSeparator />
-                                       <DropdownMenuItem onClick={() => window.open(getGoogleCalendarUrl(apt), "_blank", "noopener,noreferrer")}>
-                                         <CalendarPlus className="mr-2 h-4 w-4" />
-                                         Agregar a Google Calendar
-                                       </DropdownMenuItem>
-                                     </DropdownMenuContent>
+                                    <DropdownMenuContent align="end">
+                                      <div className="px-2 py-1.5 flex items-center gap-1.5 sm:hidden">
+                                        <Badge variant={status.variant} className="text-xs">
+                                          <StatusIcon className="mr-1 h-3 w-3" />
+                                          {status.label}
+                                        </Badge>
+                                      </div>
+                                      {apt.status === "PENDING" && (
+                                        <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
+                                          <CheckCircle className="mr-2 h-4 w-4" />
+                                          Confirmar
+                                        </DropdownMenuItem>
+                                      )}
+                                      {(apt.status === "PENDING" || apt.status === "CONFIRMED") && (
+                                        <>
+                                          <DropdownMenuItem onClick={() => updateStatus(apt.id, "COMPLETED")}>
+                                            <CheckCircle className="mr-2 h-4 w-4" />
+                                            Completado
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => updateStatus(apt.id, "NO_SHOW")}>
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            No asistió
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem className="text-destructive" onClick={() => setCancelId(apt.id)}>
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            Cancelar
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => window.open(getGoogleCalendarUrl(apt), "_blank", "noopener,noreferrer")}>
+                                        <CalendarPlus className="mr-2 h-4 w-4" />
+                                        Agregar a Google Calendar
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
                                   </DropdownMenu>
                                 </div>
-                                <Badge variant={status.variant} className="text-xs w-fit">
-                                  <StatusIcon className="mr-1 h-3 w-3" />
-                                  {status.label}
-                                </Badge>
                               </div>
 
                               {/* Desktop: Row layout */}
@@ -649,7 +908,7 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
+            onClick={() => setCurrentPage((p) => p - 1)}
             disabled={currentPage <= 1}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -661,7 +920,7 @@ export function AppointmentsList({ appointments, slotCapacity, services, staff, 
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
+            onClick={() => setCurrentPage((p) => p + 1)}
             disabled={currentPage >= totalPages}
           >
             Siguiente

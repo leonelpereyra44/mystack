@@ -276,6 +276,7 @@ export async function POST(request: Request) {
             slug: appointment.business.slug,
             address: appointment.business.address || null,
             phone: appointment.business.phone || null,
+            timezone: appointment.business.timezone || null,
           },
           customer: {
             name: customerName,

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { format, addDays, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon, Loader2, CheckCircle, Clock, MapPin, User, Mail, CalendarPlus, Phone } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +95,7 @@ interface AppointmentData {
     slug: string;
     address: string | null;
     phone: string | null;
+    timezone?: string | null;
   };
   customer: {
     name: string;
@@ -322,11 +324,11 @@ export function BookingForm({
         if (errorData.code === "EXISTING_APPOINTMENT" && errorData.existingAppointment) {
           setExistingAppointment(errorData.existingAppointment);
         } else {
-          alert(errorData.error || "Error al crear la reserva");
+          toast.error(errorData.error || "Error al crear la reserva");
         }
       }
     } catch {
-      alert("Error al crear la reserva");
+      toast.error("Error al crear la reserva");
     } finally {
       setIsLoading(false);
     }
@@ -338,13 +340,24 @@ export function BookingForm({
     
     const { date, startTime, endTime, service, business, staff } = appointmentData;
     
-    // Convertir horas Argentina (UTC-3) a UTC para que Google Calendar
-    // muestre el evento correctamente sin importar la zona del usuario.
+    // Convierte fecha+hora local del negocio a UTC para Google Calendar.
+    // Usa la timezone del negocio si está disponible; sin ella trata el tiempo como UTC.
     const toUTCDateTime = (dateStr: string, timeStr: string): string => {
       const [year, month, day] = dateStr.split("-").map(Number);
       const [hour, minute] = timeStr.split(":").map(Number);
-      // Argentina es UTC-3 → sumar 3h para obtener UTC
-      const utcDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
+
+      if (business.timezone) {
+        const isoLocal = `${dateStr}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
+        const localDate = new Date(isoLocal);
+        const utcStr = localDate.toLocaleString("en-US", { timeZone: "UTC" });
+        const tzStr = localDate.toLocaleString("en-US", { timeZone: business.timezone });
+        const offsetMs = new Date(tzStr).getTime() - new Date(utcStr).getTime();
+        const utcMs = localDate.getTime() - offsetMs;
+        return new Date(utcMs).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+      }
+
+      // Fallback: sin timezone del negocio, tratar como UTC
+      const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
       return utcDate.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
     };
 

@@ -44,14 +44,10 @@ export default async function AppointmentsPage() {
   const terminology = getBusinessTerminology(business.businessType);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">{terminology.appointments}</h1>
-          <p className="text-muted-foreground">
-            Gestioná las {terminology.appointments.toLowerCase()} de tus {terminology.clients.toLowerCase()}
-          </p>
-        </div>
+    <div className="space-y-4">
+      {/* Header: título + botón en la misma fila */}
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">{terminology.appointments}</h1>
         <NewAppointmentModal
           businessId={business.id}
           services={services}
