@@ -7,7 +7,6 @@ import { signOut } from "next-auth/react";
 import {
   Calendar,
   LayoutDashboard,
-  Settings,
   Users,
   Clock,
   Briefcase,
@@ -17,6 +16,9 @@ import {
   BarChart3,
   HelpCircle,
   Mail,
+  Store,
+  CalendarCog,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -57,7 +59,9 @@ export function MobileNav({ business, user }: MobileNavProps) {
     { href: "/dashboard/staff", icon: Users, label: "Equipo" },
     { href: "/dashboard/schedule", icon: Clock, label: "Horarios" },
     { href: "/dashboard/analytics", icon: BarChart3, label: "Reportes" },
-    { href: "/dashboard/settings", icon: Settings, label: "Configuración" },
+    { href: "/dashboard/business", icon: Store, label: "Mi Negocio" },
+    { href: "/dashboard/booking", icon: CalendarCog, label: "Reservas" },
+    { href: "/dashboard/account", icon: UserCog, label: "Cuenta" },
   ];
 
   return (

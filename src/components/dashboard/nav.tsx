@@ -7,7 +7,6 @@ import { signOut } from "next-auth/react";
 import {
   Calendar,
   LayoutDashboard,
-  Settings,
   Users,
   Clock,
   Briefcase,
@@ -16,6 +15,10 @@ import {
   BarChart3,
   HelpCircle,
   Mail,
+  Store,
+  CalendarCog,
+  UserCog,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -57,7 +60,9 @@ export function DashboardNav({ business, user }: DashboardNavProps) {
     { href: "/dashboard/staff", icon: Users, label: "Equipo" },
     { href: "/dashboard/schedule", icon: Clock, label: "Horarios" },
     { href: "/dashboard/analytics", icon: BarChart3, label: "Reportes" },
-    { href: "/dashboard/settings", icon: Settings, label: "Configuración" },
+    { href: "/dashboard/business", icon: Store, label: "Mi Negocio" },
+    { href: "/dashboard/booking", icon: CalendarCog, label: "Reservas" },
+    { href: "/dashboard/account", icon: UserCog, label: "Cuenta" },
   ];
 
   return (
@@ -152,9 +157,9 @@ export function DashboardNav({ business, user }: DashboardNavProps) {
             }
           />
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => window.location.href = "/dashboard/settings"}>
+            <DropdownMenuItem onClick={() => window.location.href = "/dashboard/account"}>
               <Settings className="mr-2 h-4 w-4" />
-              Configuración
+              Cuenta
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

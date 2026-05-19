@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
-import { BookingForm } from "@/components/booking/booking-form";
+import { BookingSection } from "@/components/booking/booking-section";
 import { getBusinessType, getBusinessTerminology } from "@/lib/business-types";
 import { MapPin, Phone, Clock, Users, Instagram, Facebook, Twitter, Globe } from "lucide-react";
 import type { Metadata } from "next";
@@ -392,42 +392,32 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
 
               </aside>
 
-              {/* Main - Booking Form */}
-              <div className="lg:col-span-2 order-1 lg:order-2">
+              {/* Main - Service Cards + Booking Modal */}
+              <div className="lg:col-span-2 order-1 lg:order-2" id="booking">
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                   <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 bg-gradient-to-r from-primary/5 to-transparent">
                     <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
                       Reservá tu {terminology.appointment.toLowerCase()}
                     </h2>
                     <p className="text-sm text-slate-500 mt-1">
-                      Selecioná {terminology.service === "Clase" ? "una" : "un"} {terminology.service.toLowerCase()} y elegí el horario que más te convenga
+                      Elegí fecha y horario en segundos
                     </p>
                   </div>
-                  
+
                   <div className="p-5 sm:p-6">
-                    {services.length === 0 ? (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
-                          <Clock className="h-8 w-8 text-slate-400" />
-                        </div>
-                        <p className="text-slate-600 font-medium">Este negocio aún no tiene servicios disponibles</p>
-                        <p className="text-sm text-slate-400 mt-1">Volvé a intentar más tarde</p>
-                      </div>
-                    ) : (
-                    <BookingForm
-                        businessId={business.id}
-                        businessSlug={business.slug}
-                        services={services}
-                        staff={business.staff}
-                        schedules={business.schedules}
-                        timezone={business.timezone}
-                        businessType={business.businessType}
-                        bookingInterval={business.bookingInterval}
-                        showPrices={business.showPrices}
-                        showDurations={business.showDurations}
-                        welcomeMessage={business.welcomeMessage}
-                      />
-                    )}
+                    <BookingSection
+                      businessId={business.id}
+                      businessSlug={business.slug}
+                      services={services}
+                      staff={business.staff}
+                      schedules={business.schedules}
+                      timezone={business.timezone}
+                      businessType={business.businessType ?? undefined}
+                      bookingInterval={business.bookingInterval ?? undefined}
+                      showPrices={business.showPrices}
+                      showDurations={business.showDurations}
+                      welcomeMessage={business.welcomeMessage}
+                    />
                   </div>
                 </div>
               </div>
