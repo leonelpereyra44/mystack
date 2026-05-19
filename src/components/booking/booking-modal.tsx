@@ -620,7 +620,7 @@ export function BookingModal({
               {wizardStep === 1 && (
                 <div className="space-y-3">
                   {welcomeMessage && (
-                    <div className="rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground">
+                    <div className="rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground break-words">
                       {welcomeMessage}
                     </div>
                   )}
@@ -646,16 +646,16 @@ export function BookingModal({
                             setWizardStep(2);
                           }}
                           className={cn(
-                            "flex items-center justify-between rounded-xl border p-4 text-left transition-all hover:shadow-sm",
+                            "w-full flex items-start justify-between rounded-xl border p-4 text-left transition-all hover:shadow-sm overflow-hidden",
                             isSelected
                               ? "border-primary bg-primary/5 shadow-sm"
                               : "border-border hover:border-primary/50 hover:bg-muted/50",
                           )}
                         >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
                             <div
                               className={cn(
-                                "h-4 w-4 rounded-full border-2 flex-shrink-0 transition-colors",
+                                "h-4 w-4 rounded-full border-2 flex-shrink-0 mt-0.5 transition-colors",
                                 isSelected ? "border-primary bg-primary" : "border-muted-foreground/40",
                               )}
                             >
@@ -665,10 +665,10 @@ export function BookingModal({
                                 </div>
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-medium truncate">{service.name}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium line-clamp-2 break-words">{service.name}</p>
                               {service.description && (
-                                <p className="text-xs text-muted-foreground truncate">{service.description}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-2 break-words mt-0.5">{service.description}</p>
                               )}
                               {showDurations && (
                                 <p className="text-sm text-muted-foreground mt-0.5">
@@ -678,7 +678,7 @@ export function BookingModal({
                             </div>
                           </div>
                           {showPrices && (
-                            <p className="font-semibold text-sm ml-3 flex-shrink-0">
+                            <p className="font-semibold text-sm ml-3 flex-shrink-0 whitespace-nowrap">
                               ${price.toLocaleString("es-AR")}
                             </p>
                           )}
