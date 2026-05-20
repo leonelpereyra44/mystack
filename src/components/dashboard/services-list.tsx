@@ -59,6 +59,7 @@ interface Service {
   id: string;
   name: string;
   description: string | null;
+  category: string | null;
   duration: number;
   price: number | { toNumber: () => number };
   isActive: boolean;
@@ -123,12 +124,17 @@ function SortableServiceCard({
               <GripVertical className="h-5 w-5" />
             </button>
             <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 flex-wrap">
                 {service.name}
                 {!service.isActive && <Badge variant="secondary">Inactivo</Badge>}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="flex items-center gap-2 flex-wrap">
                 {service.duration} min · ${price.toFixed(2)}
+                {service.category && (
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {service.category}
+                  </Badge>
+                )}
               </CardDescription>
             </div>
           </div>
@@ -176,7 +182,16 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"custom" | "name" | "price" | "duration">("custom");
+
+  // Unique categories derived from services
+  const availableCategories = useMemo(() => {
+    const cats = services
+      .map((s) => s.category)
+      .filter((c): c is string => !!c);
+    return [...new Set(cats)].sort();
+  }, [services]);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   const sensors = useSensors(
@@ -202,7 +217,11 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
         (statusFilter === "active" && service.isActive) ||
         (statusFilter === "inactive" && !service.isActive);
 
-      return matchesSearch && matchesStatus;
+      const matchesCategory =
+        categoryFilter === "all" ||
+        (categoryFilter === "__none__" ? !service.category : service.category === categoryFilter);
+
+      return matchesSearch && matchesStatus && matchesCategory;
     });
 
     if (sortBy !== "custom") {
@@ -318,6 +337,7 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
         body: JSON.stringify({
           name: `Copia de ${service.name}`,
           description: service.description,
+          category: service.category,
           duration: service.duration,
           price,
           isActive: service.isActive,
@@ -352,7 +372,7 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
     );
   }
 
-  const canDragAndDrop = sortBy === "custom" && !searchTerm && statusFilter === "all";
+  const canDragAndDrop = sortBy === "custom" && !searchTerm && statusFilter === "all" && categoryFilter === "all";
 
   return (
     <>
@@ -384,6 +404,23 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
               <SelectItem value="inactive">Inactivos</SelectItem>
             </SelectContent>
           </Select>
+          {availableCategories.length > 0 && (
+            <Select
+              value={categoryFilter}
+              onValueChange={(value) => value && setCategoryFilter(value)}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {availableCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+                <SelectItem value="__none__">Sin categoría</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Select
             value={sortBy}
             onValueChange={(value) =>
@@ -425,8 +462,7 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
               className="mt-4"
               onClick={() => {
                 setSearchTerm("");
-                setStatusFilter("all");
-              }}
+                setStatusFilter("all");                setCategoryFilter("all");              }}
             >
               Limpiar filtros
             </Button>
@@ -468,12 +504,17 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
               <Card key={service.id}>
                 <CardHeader className="flex flex-row items-start justify-between">
                   <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 flex-wrap">
                       {service.name}
                       {!service.isActive && <Badge variant="secondary">Inactivo</Badge>}
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="flex items-center gap-2 flex-wrap">
                       {service.duration} min · ${price.toFixed(2)}
+                      {service.category && (
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {service.category}
+                        </Badge>
+                      )}
                     </CardDescription>
                   </div>
                   <DropdownMenu>
