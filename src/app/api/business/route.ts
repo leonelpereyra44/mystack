@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { isReservedSlug, RESERVED_SLUG_ERROR } from "@/lib/reserved-slugs";
@@ -115,6 +116,13 @@ export async function PATCH(request: Request) {
         whatsapp: whatsapp !== undefined ? (whatsapp || null) : business.whatsapp,
       },
     });
+
+    // Invalidate cached server components so nav and public page reflect the new name/slug immediately
+    revalidatePath("/dashboard", "layout");
+    revalidatePath(`/${business.slug}`);
+    if (updatedBusiness.slug !== business.slug) {
+      revalidatePath(`/${updatedBusiness.slug}`);
+    }
 
     return NextResponse.json(updatedBusiness);
   } catch (error) {
