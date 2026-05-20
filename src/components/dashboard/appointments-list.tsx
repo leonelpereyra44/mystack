@@ -222,7 +222,7 @@ function FilterBar({
         </div>
         <div className="flex items-center gap-2 ml-auto">
           {hasServices && (
-            <Select value={filterServiceId} onValueChange={(v) => { if (v) onFilterServiceChange(v); }}>
+            <Select value={filterServiceId} onValueChange={(v) => { if (v) onFilterServiceChange(v); }} items={{ all: "Todos los servicios", ...Object.fromEntries(services!.map(s => [s.id, s.name])) }}>
               <SelectTrigger className="h-8 w-[160px]">
                 <SelectValue placeholder="Servicio" />
               </SelectTrigger>
@@ -233,7 +233,7 @@ function FilterBar({
             </Select>
           )}
           {hasStaff && (
-            <Select value={filterStaffId} onValueChange={(v) => { if (v) onFilterStaffChange(v); }}>
+            <Select value={filterStaffId} onValueChange={(v) => { if (v) onFilterStaffChange(v); }} items={{ all: "Todo el personal", ...Object.fromEntries(staff!.map(s => [s.id, s.name])) }}>
               <SelectTrigger className="h-8 w-[160px]">
                 <SelectValue placeholder="Personal" />
               </SelectTrigger>
@@ -322,6 +322,7 @@ function FilterBar({
                 <Select
                   value={filterServiceId}
                   onValueChange={(v) => { if (v) { onFilterServiceChange(v); } }}
+                  items={{ all: "Todos los servicios", ...Object.fromEntries(services!.map(s => [s.id, s.name])) }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Servicio" />
@@ -342,6 +343,7 @@ function FilterBar({
                 <Select
                   value={filterStaffId}
                   onValueChange={(v) => { if (v) { onFilterStaffChange(v); } }}
+                  items={{ all: "Todo el personal", ...Object.fromEntries(staff!.map(s => [s.id, s.name])) }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Personal" />

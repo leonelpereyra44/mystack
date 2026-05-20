@@ -436,6 +436,7 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
             onValueChange={(value) =>
               value && setStatusFilter(value as "all" | "active" | "inactive")
             }
+            items={{ all: "Todos", active: "Activos", inactive: "Inactivos" }}
           >
             <SelectTrigger className="w-[130px]">
               <Filter className="mr-2 h-4 w-4" />
@@ -451,6 +452,7 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
             <Select
               value={categoryFilter}
               onValueChange={(value) => value && setCategoryFilter(value)}
+              items={{ all: "Todas las categorías", ...Object.fromEntries(availableCategories.map(cat => [cat, cat])), __none__: "Sin categoría" }}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Categoría" />
@@ -471,6 +473,7 @@ export function ServicesList({ services: initialServices }: ServicesListProps) {
             onValueChange={(value) =>
               value && setSortBy(value as "custom" | "name" | "price" | "duration")
             }
+            items={{ custom: "Personalizado", name: "Nombre", price: "Precio", duration: "Duración" }}
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Ordenar" />
