@@ -51,6 +51,7 @@ interface Service {
   duration: number;
   price: number | { toNumber: () => number };
   description?: string | null;
+  category?: string | null;
   staff?: { id: string }[];
 }
 
@@ -143,6 +144,68 @@ const EXTRA_FIELDS_BY_TYPE: Record<
     { key: "sessionTheme", label: "Temática de la sesión", placeholder: "Ej: Embarazo, graduación, familia..." },
   ],
 };
+
+// ─── ServiceCard ─────────────────────────────────────────────────────────────
+
+function ServiceCard({
+  service,
+  price,
+  isSelected,
+  showPrices,
+  showDurations,
+  onSelect,
+}: {
+  service: Service;
+  price: number;
+  isSelected: boolean;
+  showPrices: boolean;
+  showDurations: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "w-full flex items-start justify-between rounded-xl border p-4 text-left transition-all hover:shadow-sm overflow-hidden",
+        isSelected
+          ? "border-primary bg-primary/5 shadow-sm"
+          : "border-border hover:border-primary/50 hover:bg-muted/50",
+      )}
+    >
+      <div className="flex items-start gap-3 flex-1 min-w-0">
+        <div
+          className={cn(
+            "h-4 w-4 rounded-full border-2 flex-shrink-0 mt-0.5 transition-colors",
+            isSelected ? "border-primary bg-primary" : "border-muted-foreground/40",
+          )}
+        >
+          {isSelected && (
+            <div className="h-full w-full flex items-center justify-center">
+              <div className="h-1.5 w-1.5 rounded-full bg-white" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium line-clamp-2 break-words">{service.name}</p>
+          {service.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 break-words mt-0.5">{service.description}</p>
+          )}
+          {showDurations && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {service.duration} min
+            </p>
+          )}
+        </div>
+      </div>
+      {showPrices && (
+        <p className="font-semibold text-sm ml-3 flex-shrink-0 whitespace-nowrap">
+          ${price.toLocaleString("es-AR")}
+        </p>
+      )}
+    </button>
+  );
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -629,63 +692,82 @@ export function BookingModal({
                     {terminology.service === "Clase" ? "una" : "un"}{" "}
                     {terminology.service.toLowerCase()} para continuar
                   </p>
-                  <div className="grid gap-3">
-                    {services.map((service) => {
-                      const price =
-                        typeof service.price === "object"
-                          ? service.price.toNumber()
-                          : Number(service.price);
-                      const isSelected = selectedServiceId === service.id;
+                  {(() => {
+                    const hasCategories = services.some((s) => s.category);
 
+                    if (!hasCategories) {
                       return (
-                        <button
-                          key={service.id}
-                          type="button"
-                          onClick={() => {
-                            setValue("serviceId", service.id);
-                            setWizardStep(2);
-                          }}
-                          className={cn(
-                            "w-full flex items-start justify-between rounded-xl border p-4 text-left transition-all hover:shadow-sm overflow-hidden",
-                            isSelected
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : "border-border hover:border-primary/50 hover:bg-muted/50",
-                          )}
-                        >
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div
-                              className={cn(
-                                "h-4 w-4 rounded-full border-2 flex-shrink-0 mt-0.5 transition-colors",
-                                isSelected ? "border-primary bg-primary" : "border-muted-foreground/40",
-                              )}
-                            >
-                              {isSelected && (
-                                <div className="h-full w-full flex items-center justify-center">
-                                  <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium line-clamp-2 break-words">{service.name}</p>
-                              {service.description && (
-                                <p className="text-xs text-muted-foreground line-clamp-2 break-words mt-0.5">{service.description}</p>
-                              )}
-                              {showDurations && (
-                                <p className="text-sm text-muted-foreground mt-0.5">
-                                  {service.duration} min
-                                </p>
-                              )}
+                        <div className="grid gap-3">
+                          {services.map((service) => {
+                            const price =
+                              typeof service.price === "object"
+                                ? service.price.toNumber()
+                                : Number(service.price);
+                            return (
+                              <ServiceCard
+                                key={service.id}
+                                service={service}
+                                price={price}
+                                isSelected={selectedServiceId === service.id}
+                                showPrices={showPrices}
+                                showDurations={showDurations}
+                                onSelect={() => {
+                                  setValue("serviceId", service.id);
+                                  setWizardStep(2);
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+
+                    // Build ordered groups: named categories first, uncategorized last
+                    const grouped: Record<string, typeof services> = {};
+                    for (const s of services) {
+                      const key = s.category || "__uncategorized__";
+                      if (!grouped[key]) grouped[key] = [];
+                      grouped[key].push(s);
+                    }
+                    const categoryKeys = Object.keys(grouped).filter(
+                      (k) => k !== "__uncategorized__"
+                    );
+                    if (grouped["__uncategorized__"]) categoryKeys.push("__uncategorized__");
+
+                    return (
+                      <div className="space-y-5">
+                        {categoryKeys.map((cat) => (
+                          <div key={cat}>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                              {cat === "__uncategorized__" ? "Otros" : cat}
+                            </p>
+                            <div className="grid gap-2">
+                              {grouped[cat].map((service) => {
+                                const price =
+                                  typeof service.price === "object"
+                                    ? service.price.toNumber()
+                                    : Number(service.price);
+                                return (
+                                  <ServiceCard
+                                    key={service.id}
+                                    service={service}
+                                    price={price}
+                                    isSelected={selectedServiceId === service.id}
+                                    showPrices={showPrices}
+                                    showDurations={showDurations}
+                                    onSelect={() => {
+                                      setValue("serviceId", service.id);
+                                      setWizardStep(2);
+                                    }}
+                                  />
+                                );
+                              })}
                             </div>
                           </div>
-                          {showPrices && (
-                            <p className="font-semibold text-sm ml-3 flex-shrink-0 whitespace-nowrap">
-                              ${price.toLocaleString("es-AR")}
-                            </p>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {errors.serviceId && (
                     <p className="text-sm text-destructive">{errors.serviceId.message}</p>
                   )}

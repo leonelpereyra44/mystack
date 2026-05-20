@@ -41,8 +41,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...RUBRO_SLUGS.map((slug) => ({
       url: `${baseUrl}/para/${slug}`,
       lastModified: new Date(),
-      changeFrequency: "monthly" as const,
-      priority: 0.7,
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
     })),
   ];
 

@@ -88,6 +88,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       duration?: number;
       price?: number;
       isActive?: boolean;
+      category?: string | null;
     } = {};
     
     if ("name" in body) data.name = body.name;
@@ -95,6 +96,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     if ("duration" in body) data.duration = body.duration;
     if ("price" in body) data.price = body.price;
     if ("isActive" in body) data.isActive = body.isActive;
+    if ("category" in body) data.category = body.category || null;
 
     const service = await prisma.service.update({
       where: { id },

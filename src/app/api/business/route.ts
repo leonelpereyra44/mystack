@@ -41,6 +41,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { 
       name, 
+      slug: rawSlug,
       description, 
       phone, 
       email, 
@@ -59,26 +60,29 @@ export async function PATCH(request: Request) {
       twitter,
       tiktok,
       website,
+      whatsapp,
     } = body;
 
-    // If name is changing, check slug availability
-    if (name !== undefined) {
-      const newSlug = generateSlug(name);
+    // Determine the new slug: explicit slug overrides auto-generation from name
+    const explicitSlug = rawSlug ? generateSlug(rawSlug) : undefined;
+    const derivedSlug = name !== undefined ? generateSlug(name) : undefined;
+    const newSlugCandidate = explicitSlug ?? derivedSlug;
 
-      // Check reserved slugs first
-      if (isReservedSlug(newSlug)) {
+    // If slug is changing, check availability
+    if (newSlugCandidate && newSlugCandidate !== business.slug) {
+      if (isReservedSlug(newSlugCandidate)) {
         return NextResponse.json(
           { error: "slug_reserved", message: RESERVED_SLUG_ERROR },
           { status: 409 }
         );
       }
 
-      const taken = await isSlugTaken(newSlug, business.id);
+      const taken = await isSlugTaken(newSlugCandidate, business.id);
       if (taken) {
         return NextResponse.json(
           {
             error: "slug_taken",
-            slug: newSlug,
+            slug: newSlugCandidate,
           },
           { status: 409 }
         );
@@ -89,7 +93,7 @@ export async function PATCH(request: Request) {
       where: { id: business.id },
       data: {
         name: name !== undefined ? name : business.name,
-        slug: name !== undefined ? generateSlug(name) : business.slug,
+        slug: newSlugCandidate ?? business.slug,
         description: description !== undefined ? description : business.description,
         phone: phone !== undefined ? phone : business.phone,
         email: email !== undefined ? email : business.email,
@@ -108,6 +112,7 @@ export async function PATCH(request: Request) {
         twitter: twitter !== undefined ? (twitter || null) : business.twitter,
         tiktok: tiktok !== undefined ? (tiktok || null) : business.tiktok,
         website: website !== undefined ? (website || null) : business.website,
+        whatsapp: whatsapp !== undefined ? (whatsapp || null) : business.whatsapp,
       },
     });
 

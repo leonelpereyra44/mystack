@@ -33,11 +33,25 @@ export async function generateMetadata({
   if (!rubro) return {};
 
   const canonicalUrl = `https://mystack.com.ar/para/${slug}`;
+  const ogImage = `https://images.unsplash.com/photo-${rubro.unsplashId}?auto=format&fit=crop&w=1200&q=80`;
 
   return {
     title: rubro.metaTitle,
     description: rubro.metaDescription,
+    keywords: rubro.keywords,
+    applicationName: "MyStack",
     alternates: { canonical: canonicalUrl },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
+    },
     openGraph: {
       title: rubro.metaTitle,
       description: rubro.metaDescription,
@@ -47,7 +61,7 @@ export async function generateMetadata({
       type: "website",
       images: [
         {
-          url: `https://images.unsplash.com/photo-${rubro.unsplashId}?auto=format&fit=crop&w=1200&q=80`,
+          url: ogImage,
           width: 1200,
           height: 630,
           alt: rubro.unsplashAlt,
@@ -58,6 +72,9 @@ export async function generateMetadata({
       card: "summary_large_image",
       title: rubro.metaTitle,
       description: rubro.metaDescription,
+      images: [ogImage],
+      site: "@mystackar",
+      creator: "@mystackar",
     },
   };
 }
@@ -75,19 +92,115 @@ export default async function RubroPage({
   if (!rubro) notFound();
 
   /* JSON-LD */
+  const baseUrl = "https://mystack.com.ar";
+  const pageUrl = `${baseUrl}/para/${slug}`;
+  const ogImage = `https://images.unsplash.com/photo-${rubro.unsplashId}?auto=format&fit=crop&w=1200&q=80`;
+  const businessNoun = rubro.businessNoun ?? rubro.breadcrumbLabel.toLowerCase();
+
   const webPageJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    "@id": `https://mystack.com.ar/para/${slug}`,
+    "@id": pageUrl,
     name: rubro.metaTitle,
     description: rubro.metaDescription,
-    url: `https://mystack.com.ar/para/${slug}`,
-    isPartOf: { "@id": "https://mystack.com.ar/#website" },
+    url: pageUrl,
+    inLanguage: "es-AR",
+    isPartOf: { "@id": `${baseUrl}/#website` },
     about: {
       "@type": "SoftwareApplication",
       name: "MyStack",
       applicationCategory: "BusinessApplication",
     },
+  };
+
+  const softwareJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "MyStack",
+    url: baseUrl,
+    applicationCategory: "BusinessApplication",
+    applicationSubCategory: "Appointment Scheduling Software",
+    operatingSystem: "Web",
+    inLanguage: "es-AR",
+    description: rubro.metaDescription,
+    screenshot: ogImage,
+    featureList: rubro.features.map((f) => f.title),
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "ARS",
+      description: "Plan gratuito con hasta 150 reservas mensuales",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "MyStack",
+      url: baseUrl,
+      logo: {
+        "@type": "ImageObject",
+        url: `${baseUrl}/mystacklogosinfondo.png`,
+      },
+    },
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Inicio",
+        item: baseUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Para tu negocio",
+        item: `${baseUrl}/para`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: rubro.breadcrumbLabel,
+        item: pageUrl,
+      },
+    ],
+  };
+
+  const howToJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: `Cómo digitalizar los turnos de tu ${businessNoun} con MyStack`,
+    description: `Guía paso a paso para automatizar la agenda de tu ${businessNoun} con el sistema de turnos online MyStack.`,
+    totalTime: "PT5M",
+    estimatedCost: {
+      "@type": "MonetaryAmount",
+      currency: "ARS",
+      value: "0",
+    },
+    step: [
+      {
+        "@type": "HowToStep",
+        position: 1,
+        name: "Creá tu cuenta gratis",
+        text: `Registrate en MyStack en menos de 2 minutos. Sin tarjeta de crédito requerida. Ingresá los datos básicos de tu ${businessNoun}.`,
+        url: `${baseUrl}/register`,
+      },
+      {
+        "@type": "HowToStep",
+        position: 2,
+        name: "Configurá tus servicios y horarios",
+        text: `Agregá los servicios que ofrecés con duración y precio. Configurá la disponibilidad de cada profesional de tu ${businessNoun}.`,
+        url: `${baseUrl}/register`,
+      },
+      {
+        "@type": "HowToStep",
+        position: 3,
+        name: "Compartí tu página y recibí turnos",
+        text: `Enviá tu enlace de reservas único a tus clientes por WhatsApp, Instagram o Google Maps y empezá a recibir turnos de forma automática.`,
+        url: `${baseUrl}/register`,
+      },
+    ],
   };
 
   const faqJsonLd = {
@@ -105,6 +218,18 @@ export default async function RubroPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }}
       />
       <script
         type="application/ld+json"
@@ -282,11 +407,11 @@ export default async function RubroPage({
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-                Todo lo que necesita tu negocio
+                Todo lo que necesita tu {businessNoun}
               </h2>
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                Herramientas pensadas para simplificar tu gestión y darle a tus clientes
-                la mejor experiencia de reserva.
+                Herramientas pensadas para simplificar la gestión de tu {businessNoun} y
+                darle a tus clientes la mejor experiencia de reserva online.
               </p>
             </div>
 
@@ -314,10 +439,10 @@ export default async function RubroPage({
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-                Comienza en 3 simples pasos
+                Cómo digitalizar los turnos de tu {businessNoun} en 3 pasos
               </h2>
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                Configurá tu cuenta en minutos y empezá a recibir reservas hoy mismo.
+                Configurá tu cuenta en minutos y empezá a recibir reservas hoy mismo. Sin conocimientos técnicos.
               </p>
             </div>
             <div className="grid md:grid-cols-3 gap-8">
@@ -361,10 +486,10 @@ export default async function RubroPage({
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-bold text-slate-900 mb-3">
-                Preguntas frecuentes
+                Preguntas frecuentes sobre turnos en {rubro.breadcrumbLabel.toLowerCase()}
               </h2>
               <p className="text-slate-600">
-                Todo lo que necesitás saber antes de empezar.
+                Todo lo que necesitás saber sobre el sistema de turnos para tu {businessNoun}.
               </p>
             </div>
 
@@ -389,10 +514,10 @@ export default async function RubroPage({
         <section className="py-20 bg-gradient-to-r from-[oklch(0.65_0.14_175)] to-[oklch(0.62_0.18_250)]">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              ¿Listo para digitalizar tu negocio?
+              ¿Listo para digitalizar los turnos de tu {businessNoun}?
             </h2>
             <p className="text-lg text-white/80 mb-8 max-w-xl mx-auto">
-              Más de 200 negocios ya usan MyStack. Empezá gratis hoy, sin tarjeta de crédito.
+              Más de 200 negocios ya usan MyStack para gestionar sus turnos. Empezá gratis hoy, sin tarjeta de crédito.
             </p>
             <Link href="/register">
               <Button

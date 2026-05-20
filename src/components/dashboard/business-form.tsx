@@ -15,6 +15,7 @@ import {
   Globe,
   Twitter,
   ChevronDown,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,6 +57,7 @@ interface Business {
   twitter: string | null;
   tiktok: string | null;
   website: string | null;
+  whatsapp: string | null;
 }
 
 interface BusinessFormProps {
@@ -64,6 +66,11 @@ interface BusinessFormProps {
 
 const businessSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+  slug: z.string()
+    .min(2, "La URL debe tener al menos 2 caracteres")
+    .regex(/^[a-z0-9-]+$/, "Solo letras minúsculas, números y guiones")
+    .optional()
+    .or(z.literal("")),
   description: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
@@ -73,6 +80,7 @@ const businessSchema = z.object({
   twitter: z.string().optional(),
   tiktok: z.string().optional(),
   website: z.string().url("URL inválida").optional().or(z.literal("")),
+  whatsapp: z.string().optional(),
 });
 
 type BusinessFormData = z.infer<typeof businessSchema>;
@@ -121,6 +129,7 @@ export function BusinessForm({ business }: BusinessFormProps) {
     resolver: zodResolver(businessSchema),
     defaultValues: {
       name: business.name,
+      slug: business.slug,
       description: business.description || "",
       phone: business.phone || "",
       email: business.email || "",
@@ -130,22 +139,27 @@ export function BusinessForm({ business }: BusinessFormProps) {
       twitter: business.twitter || "",
       tiktok: business.tiktok || "",
       website: business.website || "",
+      whatsapp: business.whatsapp || "",
     },
   });
 
   const publicUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/${business.slug}`;
 
   const watchedName = watch("name");
-  const previewSlug = watchedName
-    ? watchedName
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .trim()
-    : business.slug;
+  const watchedSlug = watch("slug");
+
+  const previewSlug = watchedSlug
+    ? watchedSlug
+    : watchedName
+      ? watchedName
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-")
+          .trim()
+      : business.slug;
   const slugChanged = previewSlug !== business.slug;
 
   const copyUrl = () => {
@@ -238,7 +252,11 @@ export function BusinessForm({ business }: BusinessFormProps) {
       const response = await fetch("/api/business", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          // Send the manually-set slug (or let the API derive it from name if empty)
+          slug: data.slug && data.slug !== business.slug ? data.slug : undefined,
+        }),
       });
 
       if (response.ok) {
@@ -446,13 +464,26 @@ export function BusinessForm({ business }: BusinessFormProps) {
                 {errors.name && (
                   <p className="text-sm text-destructive">{errors.name.message}</p>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="slug">URL pública personalizada</Label>
+                <div className="flex items-center gap-0">
+                  <span className="inline-flex h-10 items-center rounded-l-md border border-r-0 bg-muted px-3 text-sm text-muted-foreground select-none">/</span>
+                  <Input
+                    id="slug"
+                    {...register("slug")}
+                    className="rounded-l-none font-mono"
+                    placeholder={previewSlug}
+                  />
+                </div>
+                {errors.slug && (
+                  <p className="text-sm text-destructive">{errors.slug.message}</p>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  URL pública:{" "}
-                  <span className={slugChanged ? "font-medium text-foreground" : ""}>
-                    /{previewSlug}
-                  </span>
+                  Dejá en blanco para que se genere automáticamente desde el nombre.
                   {slugChanged && (
-                    <span className="ml-1 text-amber-600">
+                    <span className="ml-1 text-amber-600 font-medium">
                       (se actualizará al guardar)
                     </span>
                   )}
@@ -570,6 +601,21 @@ export function BusinessForm({ business }: BusinessFormProps) {
                   {errors.website && (
                     <p className="text-sm text-destructive">{errors.website.message}</p>
                   )}
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="whatsapp" className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp
+                  </Label>
+                  <Input
+                    id="whatsapp"
+                    {...register("whatsapp")}
+                    placeholder="+54 9 11 1234-5678"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Aparecerá como botón de contacto en tu página pública
+                  </p>
                 </div>
               </div>
 

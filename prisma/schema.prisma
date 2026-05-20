@@ -109,6 +109,7 @@ model Business {
   twitter     String?
   tiktok      String?
   website     String?
+  whatsapp    String?
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -153,6 +154,7 @@ model Service {
   price       Decimal  @db.Decimal(10, 2)
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
+  category    String?           // Categoría opcional (ej: "Cortes", "Coloración")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

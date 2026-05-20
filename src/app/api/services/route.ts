@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, description, duration, price } = body;
+    const { name, description, duration, price, category } = body;
 
     if (!name || !duration || price === undefined) {
       return NextResponse.json(
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
         description: description || null,
         duration,
         price,
+        category: category || null,
         isActive: true,
       },
     });

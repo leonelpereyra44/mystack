@@ -4,7 +4,7 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { BookingSection } from "@/components/booking/booking-section";
 import { getBusinessType, getBusinessTerminology } from "@/lib/business-types";
-import { MapPin, Phone, Clock, Users, Instagram, Facebook, Twitter, Globe } from "lucide-react";
+import { MapPin, Phone, Clock, Users, Instagram, Facebook, Twitter, Globe, MessageCircle } from "lucide-react";
 import type { Metadata } from "next";
 
 interface BusinessPageProps {
@@ -236,6 +236,17 @@ export default async function BusinessPage({ params }: BusinessPageProps) {
                     >
                       <Phone className="h-3.5 w-3.5" />
                       {business.phone}
+                    </a>
+                  )}
+                  {business.whatsapp && (
+                    <a
+                      href={`https://wa.me/${business.whatsapp.replace(/[\s+\-()]/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#25D366]/20 hover:bg-[#25D366]/30 text-sm text-slate-200 transition-colors"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5 text-[#25D366]" />
+                      WhatsApp
                     </a>
                   )}
                 </div>

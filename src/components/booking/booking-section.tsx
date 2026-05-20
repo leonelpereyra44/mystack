@@ -12,6 +12,7 @@ interface Service {
   duration: number;
   price: number;
   description?: string | null;
+  category?: string | null;
   staff?: { id: string }[];
 }
 

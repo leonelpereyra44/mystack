@@ -25,6 +25,7 @@ import {
 const serviceSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   description: z.string().optional(),
+  category: z.string().optional(),
   duration: z.number().min(5, "La duración mínima es 5 minutos"),
   price: z.number().min(0, "El precio no puede ser negativo"),
 });
@@ -132,6 +133,19 @@ export default function NewServicePage() {
                 disabled={isLoading}
                 rows={3}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Categoría <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+              <Input
+                id="category"
+                placeholder="Ej: Cortes, Coloración, Tratamientos..."
+                {...register("category")}
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                Agrupa tus servicios por categoría en la página de reservas
+              </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
