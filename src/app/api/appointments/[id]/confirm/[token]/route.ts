@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -78,8 +79,8 @@ export async function GET(_request: Request, { params }: Params) {
       { locale: es }
     );
 
-    // Send final confirmation email (non-blocking)
-    sendAppointmentConfirmation({
+    // Send final confirmation email (background, kept alive via waitUntil)
+    waitUntil(sendAppointmentConfirmation({
       customerName: appointment.customerName,
       customerEmail: appointment.customerEmail,
       businessName: appointment.business.name,
@@ -91,9 +92,9 @@ export async function GET(_request: Request, { params }: Params) {
       appointmentId: appointment.id,
       businessAddress: appointment.business.address || undefined,
       businessPhone: appointment.business.phone || undefined,
-    }).catch(console.error);
+    }).catch(console.error));
 
-    // Notify business owner of confirmation (non-blocking)
+    // Notify business owner of confirmation (background, kept alive via waitUntil)
     const shortDate = format(
       new Date(
         appointmentDate.getUTCFullYear(),
@@ -104,13 +105,13 @@ export async function GET(_request: Request, { params }: Params) {
       "d 'de' MMMM",
       { locale: es }
     );
-    notifyNewAppointment(
+    waitUntil(notifyNewAppointment(
       appointment.business.ownerId,
       appointment.customerName,
       appointment.service.name,
       shortDate,
       appointment.startTime
-    ).catch(console.error);
+    ).catch(console.error));
 
     return NextResponse.json({
       message: "¡Turno confirmado exitosamente!",

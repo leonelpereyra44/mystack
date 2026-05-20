@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -62,7 +63,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
 
     // Send cancellation email (non-blocking)
-    sendAppointmentCancellation({
+    waitUntil(sendAppointmentCancellation({
       customerName: appointment.customerName,
       customerEmail: appointment.customerEmail,
       businessName: appointment.business.name,
@@ -72,15 +73,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       startTime: appointment.startTime,
       endTime: appointment.endTime,
       appointmentId: appointment.id,
-    }).catch(console.error);
+    }).catch(console.error));
 
-    // Send push notification to business owner (non-blocking)
-    notifyAppointmentCancelled(
+    // Send push notification to business owner (background, kept alive via waitUntil)
+    waitUntil(notifyAppointmentCancelled(
       appointment.business.ownerId,
       appointment.customerName,
       appointment.service.name,
       format(appointmentDate, "d 'de' MMMM", { locale: es })
-    ).catch(console.error);
+    ).catch(console.error));
 
     return NextResponse.json({ message: "Turno cancelado exitosamente" });
   } catch (error) {

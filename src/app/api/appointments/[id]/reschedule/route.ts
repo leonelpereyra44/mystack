@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import prisma from "@/lib/prisma";
 import { addMinutes, format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -288,7 +289,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Enviar email de confirmación con los nuevos datos
-    sendAppointmentConfirmation({
+    waitUntil(sendAppointmentConfirmation({
       customerName: updatedAppointment.customerName,
       customerEmail: updatedAppointment.customerEmail,
       businessName: updatedAppointment.business.name,
@@ -300,7 +301,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       appointmentId: updatedAppointment.id,
       businessAddress: updatedAppointment.business.address || undefined,
       businessPhone: updatedAppointment.business.phone || undefined,
-    }).catch(console.error);
+    }).catch(console.error));
 
     return NextResponse.json({
       message: "Turno reprogramado exitosamente",

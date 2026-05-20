@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import prisma from "@/lib/prisma";
 import { addMinutes, format, isToday } from "date-fns";
 import { es } from "date-fns/locale";
@@ -218,8 +219,8 @@ export async function POST(request: Request) {
       throw txError;
     }
 
-    // Send pending confirmation email (non-blocking)
-    sendAppointmentPendingConfirmation({
+    // Send pending confirmation email (background, kept alive via waitUntil)
+    waitUntil(sendAppointmentPendingConfirmation({
       customerName,
       customerEmail,
       businessName: appointment.business.name,
@@ -233,25 +234,25 @@ export async function POST(request: Request) {
       businessPhone: appointment.business.phone || undefined,
       confirmationToken,
       expiresInMinutes,
-    }).catch(console.error);
+    }).catch(console.error));
 
-    // Notify business owner of pending reservation (non-blocking)
-    notifyNewAppointmentPending(
+    // Notify business owner of pending reservation (background, kept alive via waitUntil)
+    waitUntil(notifyNewAppointmentPending(
       appointment.business.ownerId,
       customerName,
       appointment.service.name,
       format(appointmentDate, "d 'de' MMMM", { locale: es }),
       startTime
-    ).catch(console.error);
+    ).catch(console.error));
 
-    // Check and notify if approaching reservation limit (non-blocking)
+    // Check and notify if approaching reservation limit (background, kept alive via waitUntil)
     if (reservationCheck.usage) {
-      checkAndNotifyReservationLimit(
+      waitUntil(checkAndNotifyReservationLimit(
         appointment.business.ownerId,
         businessId,
         reservationCheck.usage.current + 1, // +1 porque acabamos de crear una
         reservationCheck.usage.limit
-      ).catch(console.error);
+      ).catch(console.error));
     }
 
     return NextResponse.json(
