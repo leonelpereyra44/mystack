@@ -316,3 +316,68 @@ export async function sendContactEmail(data: ContactEmailData) {
     return { success: false, error };
   }
 }
+
+export async function sendEmailVerification(data: {
+  email: string;
+  name: string;
+  token: string;
+}) {
+  const baseUrl =
+    process.env.NEXTAUTH_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${data.token}&email=${encodeURIComponent(data.email)}`;
+
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
+      to: data.email,
+      subject: "Verificá tu email - MyStack",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #12b5a2 0%, #0ea5e9 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">¡Bienvenido a MyStack!</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 15px;">Solo falta verificar tu email</p>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 30px 20px; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px;">Hola <strong>${data.name}</strong>,</p>
+
+              <p>Gracias por registrarte en MyStack. Para activar tu cuenta, hacé clic en el botón de abajo.</p>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #12b5a2 0%, #0ea5e9 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 18px;">
+                  ✅ Verificar mi email
+                </a>
+              </div>
+
+              <div style="background: #e8f4fd; border: 1px solid #bee3f8; border-radius: 8px; padding: 12px 16px; margin: 20px 0;">
+                <p style="margin: 0; font-size: 13px; color: #2c5282;">
+                  ⏰ Este enlace expira en <strong>24 horas</strong>.
+                </p>
+              </div>
+
+              <p style="font-size: 13px; color: #999; margin-top: 20px;">
+                Si no creaste una cuenta en MyStack, podés ignorar este email.
+              </p>
+            </div>
+
+            <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+              <p>MyStack - Sistema de Reservas Online</p>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error sending verification email:", error);
+    return { success: false, error };
+  }
+}

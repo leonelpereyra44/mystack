@@ -159,7 +159,7 @@ export default function RegisterPage() {
         trackSignupConversion(result.user.id);
       }
 
-      router.push("/login?registered=true");
+      router.push("/verify-email");
     } catch {
       setError("Ocurrió un error. Intenta de nuevo.");
     } finally {

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { isReservedSlug, RESERVED_SLUG_ERROR } from "@/lib/reserved-slugs";
+import { sendEmailVerification } from "@/lib/email";
 
 function generateSlug(name: string): string {
   return name
@@ -106,9 +108,31 @@ export async function POST(request: Request) {
       },
     });
 
+    // Send verification email (non-blocking — don't fail registration if email fails)
+    try {
+      const verificationToken = randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      await prisma.verificationToken.create({
+        data: {
+          identifier: `verify:${user.email}`,
+          token: verificationToken,
+          expires,
+        },
+      });
+
+      await sendEmailVerification({
+        email: user.email,
+        name: user.name || "",
+        token: verificationToken,
+      });
+    } catch (emailError) {
+      console.error("Error sending verification email:", emailError);
+    }
+
     return NextResponse.json(
       {
-        message: "Usuario creado exitosamente",
+        message: "Usuario creado exitosamente. Revisá tu email para verificar tu cuenta.",
         user: {
           id: user.id,
           name: user.name,

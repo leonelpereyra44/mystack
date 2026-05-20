@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { LimitWarningBanner } from "@/components/dashboard/limit-warning-banner";
+import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { GettingStartedCards } from "@/components/dashboard/getting-started-cards";
 import { DashboardInteractive } from "@/components/dashboard/dashboard-interactive";
@@ -17,24 +18,30 @@ function parseUTCDate(dateValue: Date | string): Date {
 export default async function DashboardPage() {
   const session = await auth();
 
-  const business = await prisma.business.findFirst({
-    where: { ownerId: session?.user?.id },
-    include: {
-      services: true,
-      staff: true,
-      subscription: true,
-      schedules: true,
-      appointments: {
-        where: {
-          date: {
-            gte: startOfMonth(new Date()),
-            lte: endOfMonth(new Date()),
+  const [business, user] = await Promise.all([
+    prisma.business.findFirst({
+      where: { ownerId: session?.user?.id },
+      include: {
+        services: true,
+        staff: true,
+        subscription: true,
+        schedules: true,
+        appointments: {
+          where: {
+            date: {
+              gte: startOfMonth(new Date()),
+              lte: endOfMonth(new Date()),
+            },
           },
+          include: { service: true, staff: true },
         },
-        include: { service: true, staff: true },
       },
-    },
-  });
+    }),
+    prisma.user.findUnique({
+      where: { id: session?.user?.id },
+      select: { emailVerified: true },
+    }),
+  ]);
 
   if (!business) {
     return null;
@@ -98,6 +105,9 @@ export default async function DashboardPage() {
           Bienvenido de vuelta, {session?.user?.name}
         </p>
       </div>
+
+      {/* Email Verification Banner */}
+      {!user?.emailVerified && <EmailVerificationBanner />}
 
       {/* Limit Warning Banner */}
       <LimitWarningBanner
