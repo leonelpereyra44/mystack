@@ -36,6 +36,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   (mockPrisma.subscription.upsert as never as ReturnType<typeof vi.fn>).mockResolvedValue({});
   (mockPrisma.subscription.update as never as ReturnType<typeof vi.fn>).mockResolvedValue({});
+  (mockPrisma.subscription.updateMany as never as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 1 });
   (mockPrisma.subscription.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 });
 
@@ -293,6 +294,37 @@ describe("subscription_preapproval events", () => {
     expect(res.status).toBe(200);
     expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
   });
+
+  it("status 'paused' → upsert con status PAUSED y plan SIN revertir a FREE", async () => {
+    mswServer.use(
+      http.get("https://api.mercadopago.com/preapproval/pa_paused", () =>
+        HttpResponse.json({
+          id: "pa_paused",
+          status: "paused",
+          external_reference: "business-1:PRO",
+          payer_id: 999,
+          date_created: new Date().toISOString(),
+          next_payment_date: null,
+        })
+      )
+    );
+
+    const req = makeWebhookRequest({
+      type: "subscription_preapproval",
+      data: { id: "pa_paused" },
+      action: "updated",
+    });
+    await POST(req);
+
+    expect(mockPrisma.subscription.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          status: "PAUSED",
+          plan: "PRO", // plan NO revierte a FREE (a diferencia de CANCELLED)
+        }),
+      })
+    );
+  });
 });
 
 // ─── payment events ───────────────────────────────────────────────────────────
@@ -403,6 +435,58 @@ describe("payment events (type=payment, action=created)", () => {
 
     expect(res.status).toBe(200);
     expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+  });
+
+  it("pago rechazado → updateMany con status PAST_DUE", async () => {
+    mswServer.use(
+      http.get("https://api.mercadopago.com/v1/payments/pay_rejected", () =>
+        HttpResponse.json({
+          id: "pay_rejected",
+          status: "rejected",
+          transaction_amount: 15000,
+          external_reference: "business-1:PRO",
+        })
+      )
+    );
+
+    const req = makeWebhookRequest({
+      type: "payment",
+      action: "created",
+      data: { id: "pay_rejected" },
+    });
+    await POST(req);
+
+    expect(mockPrisma.subscription.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ businessId: "business-1" }),
+        data: expect.objectContaining({ status: "PAST_DUE" }),
+      })
+    );
+    // NO activa la suscripción
+    expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+  });
+
+  it("pago rechazado sin external_reference → no toca la DB", async () => {
+    mswServer.use(
+      http.get("https://api.mercadopago.com/v1/payments/pay_rej_noref", () =>
+        HttpResponse.json({
+          id: "pay_rej_noref",
+          status: "rejected",
+          transaction_amount: 15000,
+          external_reference: null,
+        })
+      )
+    );
+
+    const req = makeWebhookRequest({
+      type: "payment",
+      action: "created",
+      data: { id: "pay_rej_noref" },
+    });
+    await POST(req);
+
+    expect(mockPrisma.subscription.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
   });
 });

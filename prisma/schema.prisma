@@ -315,6 +315,7 @@ model Subscription {
   currentPeriodStart    DateTime?
   currentPeriodEnd      DateTime?
   cancelledAt           DateTime?
+  pausedAt              DateTime?          // Fecha en que fue pausada por MP
   refundedAt            DateTime?          // Fecha de reembolso (derecho arrepentimiento)
   
   createdAt             DateTime           @default(now())
@@ -338,6 +339,7 @@ enum SubscriptionStatus {
   CANCELLED
   PAST_DUE
   TRIALING
+  PAUSED
 }
 
 // ============================================

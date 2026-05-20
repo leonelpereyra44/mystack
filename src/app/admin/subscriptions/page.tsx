@@ -81,6 +81,10 @@ export default function AdminSubscriptionsPage() {
         return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Cancelada</Badge>;
       case "PAST_DUE":
         return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">Vencida</Badge>;
+      case "PAUSED":
+        return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">Pausada</Badge>;
+      case "TRIALING":
+        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Pendiente de pago</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }

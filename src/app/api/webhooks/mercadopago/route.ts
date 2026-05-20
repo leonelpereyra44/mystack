@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Mapear estados de MP a nuestros estados
-      let subscriptionStatus: "ACTIVE" | "CANCELLED" | "PAST_DUE" | "TRIALING" = "TRIALING";
+      let subscriptionStatus: "ACTIVE" | "CANCELLED" | "PAST_DUE" | "TRIALING" | "PAUSED" = "TRIALING";
 
       // Obtener el plan: primero del externalReference, luego de la DB como fallback
       let actualPlan: string;
@@ -131,6 +131,8 @@ export async function POST(request: NextRequest) {
           subscriptionStatus = "TRIALING";
           break;
         case "paused":
+          subscriptionStatus = "PAUSED";
+          break;
         case "cancelled":
           subscriptionStatus = "CANCELLED";
           break;
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest) {
       // Actualizar la suscripción en la base de datos
       // Si se cancela sin haber pagado nunca, volver el plan a FREE
       const planToSet = subscriptionStatus === "CANCELLED" ? "FREE" : (actualPlan as SubscriptionPlan);
+      const pausedAt = subscriptionStatus === "PAUSED" ? new Date() : null;
 
       await prisma.subscription.upsert({
         where: { businessId },
@@ -160,6 +163,7 @@ export async function POST(request: NextRequest) {
           currentPeriodStart: preapproval.date_created ? new Date(preapproval.date_created) : undefined,
           currentPeriodEnd: preapproval.next_payment_date ? new Date(preapproval.next_payment_date) : undefined,
           cancelledAt: subscriptionStatus === "CANCELLED" ? new Date() : null,
+          pausedAt,
         },
       });
 
@@ -223,6 +227,24 @@ export async function POST(request: NextRequest) {
           });
 
           console.log(`Payment processed: business=${businessId}, plan=${planToActivate}, paymentId=${paymentId}`);
+        }
+
+        // Pago rechazado → marcar como PAST_DUE
+        if (payment.status === "rejected" && payment.external_reference) {
+          let businessId: string;
+          const ref = payment.external_reference as string;
+          if (ref.includes(":")) {
+            [businessId] = ref.split(":", 2);
+          } else {
+            businessId = ref;
+          }
+
+          await prisma.subscription.updateMany({
+            where: { businessId, status: { in: ["ACTIVE", "PAUSED"] } },
+            data: { status: "PAST_DUE" },
+          });
+
+          console.log(`Payment rejected: business=${businessId}, paymentId=${paymentId}`);
         }
       }
     }
