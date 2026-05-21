@@ -545,6 +545,7 @@ export function ServicesList({
 
   const handleRenameCategory = async (oldName: string, newName: string) => {
     try {
+      const inCategory = services.filter((s) => s.category === oldName);
       for (const s of inCategory) {
         await fetch(`/api/services/${s.id}`, {
           method: "PATCH",
