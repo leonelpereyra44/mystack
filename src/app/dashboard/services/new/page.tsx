@@ -36,6 +36,7 @@ export default function NewServicePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const businessType = searchParams.get("type") ?? "salon";
+  const categoryParam = searchParams.get("category") ?? "";
   const terminology = getBusinessTerminology(businessType);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export default function NewServicePage() {
     defaultValues: {
       duration: 30,
       price: 0,
+      category: categoryParam,
     },
   });
 

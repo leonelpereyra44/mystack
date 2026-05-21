@@ -273,6 +273,9 @@ model Appointment {
   notes        String?           @db.Text
   extraData    Json?             // Campos adicionales según tipo de negocio (personas, vehículo, etc.)
 
+  // Reprogramación: si este turno fue creado como reemplazo de otro
+  rescheduledFromId String?
+
   // Double opt-in confirmation
   confirmationToken String?   @unique
   tokenExpiresAt    DateTime?
@@ -294,6 +297,7 @@ enum AppointmentStatus {
   CANCELLED
   COMPLETED
   NO_SHOW
+  RESCHEDULED
 }
 
 // ============================================

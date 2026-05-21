@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     // Obtener servicio para saber la duración + sus franjas horarias
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
-      include: { schedules: true },
+      include: { schedules: true, staff: { select: { id: true } } },
     });
 
     if (!service) {
@@ -52,6 +52,10 @@ export async function GET(request: Request) {
     const minBookingNotice = businessData?.minBookingNotice ?? 0;
     const bufferTime = businessData?.bufferTime ?? 0;
 
+    // Elegibility: staff assigned to the service (for auto-assign mode)
+    const serviceStaffIds = service.staff.map((s) => s.id);
+    const isAutoAssignMode = serviceStaffIds.length > 0 && !staffId;
+
     // Si hay staff seleccionado, obtener sus horarios
     let staffSchedules: {
       dayOfWeek: number;
@@ -64,6 +68,22 @@ export async function GET(request: Request) {
         where: { staffId },
       });
       staffSchedules = staffScheduleData;
+    }
+
+    // En modo auto-asignación, cargar horarios de todos los miembros elegibles
+    const eligibleStaffScheds: Record<string, Record<number, { startTime: string; endTime: string; isWorking: boolean }>> = {};
+    if (isAutoAssignMode) {
+      const allScheds = await prisma.staffSchedule.findMany({
+        where: { staffId: { in: serviceStaffIds } },
+      });
+      for (const s of allScheds) {
+        if (!eligibleStaffScheds[s.staffId]) eligibleStaffScheds[s.staffId] = {};
+        eligibleStaffScheds[s.staffId][s.dayOfWeek] = {
+          startTime: s.startTime,
+          endTime: s.endTime,
+          isWorking: s.isWorking,
+        };
+      }
     }
 
     // =============================================
@@ -139,14 +159,18 @@ export async function GET(request: Request) {
       where: {
         businessId,
         date: { gte: start, lte: endDate },
-        status: { notIn: ["CANCELLED"] },
+        status: { notIn: ["CANCELLED", "RESCHEDULED"] },
         NOT: {
           AND: [
             { status: "PENDING" },
             { tokenExpiresAt: { lt: new Date() } },
           ],
         },
-        ...(staffId && { staffId }),
+        ...(staffId
+          ? { staffId }
+          : isAutoAssignMode
+          ? { staffId: { in: serviceStaffIds } }
+          : {}),
       },
       select: {
         date: true,
@@ -212,6 +236,7 @@ export async function GET(request: Request) {
       // 3. Determinar horario efectivo (negocio ∩ staff)
       let effectiveOpenTime = businessSchedule.openTime;
       let effectiveCloseTime = businessSchedule.closeTime;
+      let workingStaffCount = 0;
 
       if (staffId && staffSchedules.length > 0) {
         const staffSchedule = staffSchedules.find(
@@ -237,6 +262,15 @@ export async function GET(request: Request) {
 
         effectiveOpenTime = minutesToTime(effStart);
         effectiveCloseTime = minutesToTime(effEnd);
+      } else if (isAutoAssignMode) {
+        // Contar miembros elegibles que trabajan este día
+        workingStaffCount = serviceStaffIds.filter(
+          (id) => eligibleStaffScheds[id]?.[dayOfWeek]?.isWorking === true
+        ).length;
+        if (workingStaffCount === 0) {
+          availability[dateKey] = { hasSlots: false, slotsCount: 0 };
+          continue;
+        }
       }
 
       // 4. Aplicar ServiceSchedule (intersección)
@@ -318,7 +352,10 @@ export async function GET(request: Request) {
           return slotStart < aptEnd + bufferTime && slotEnd > aptStart;
         }).length;
 
-        return overlappingCount < slotCapacity;
+        const effectiveCapacity = isAutoAssignMode
+          ? workingStaffCount * slotCapacity
+          : slotCapacity;
+        return overlappingCount < effectiveCapacity;
       });
 
       // 8. Filtrar horarios pasados / minBookingNotice

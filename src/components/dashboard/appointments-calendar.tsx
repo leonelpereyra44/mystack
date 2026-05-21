@@ -27,6 +27,9 @@ import {
   AlertCircle,
   Clock,
   User,
+  RotateCcw,
+  Trash2,
+  CalendarClock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -64,6 +67,9 @@ interface Appointment {
   customerPhone: string | null;
   status: string;
   notes: string | null;
+  rescheduledFromId: string | null;
+  serviceId: string;
+  staffId: string | null;
   service: {
     name: string;
     duration: number;
@@ -75,6 +81,7 @@ interface Appointment {
 
 interface AppointmentsCalendarProps {
   appointments: Appointment[];
+  onDuplicate?: (apt: Appointment) => void;
 }
 
 const statusConfig = {
@@ -83,11 +90,22 @@ const statusConfig = {
   CANCELLED: { label: "Cancelado", color: "bg-red-500", textColor: "text-red-700", icon: XCircle },
   COMPLETED: { label: "Completado", color: "bg-blue-500", textColor: "text-blue-700", icon: CheckCircle },
   NO_SHOW: { label: "No asistió", color: "bg-gray-500", textColor: "text-gray-700", icon: XCircle },
+  RESCHEDULED: { label: "Reprogramado", color: "bg-purple-500", textColor: "text-purple-700", icon: CalendarClock },
+  RESCHEDULED_PENDING:  { label: "Reprogramado · Pendiente",  color: "bg-purple-400", textColor: "text-purple-600", icon: CalendarClock },
+  RESCHEDULED_CONFIRMED: { label: "Reprogramado · Confirmado", color: "bg-purple-600", textColor: "text-purple-800", icon: CalendarClock },
 };
+
+function getStatusConfig(apt: Appointment) {
+  if (apt.rescheduledFromId) {
+    if (apt.status === "PENDING")   return statusConfig.RESCHEDULED_PENDING;
+    if (apt.status === "CONFIRMED") return statusConfig.RESCHEDULED_CONFIRMED;
+  }
+  return statusConfig[apt.status as keyof typeof statusConfig] ?? statusConfig.PENDING;
+}
 
 type ViewMode = "week" | "month" | "day";
 
-export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps) {
+export function AppointmentsCalendar({ appointments, onDuplicate }: AppointmentsCalendarProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
@@ -95,6 +113,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedDayModal, setSelectedDayModal] = useState<Date | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Calcular días a mostrar según la vista
@@ -185,6 +204,22 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
     } finally {
       setIsUpdating(false);
       setCancelId(null);
+    }
+  };
+
+  const deleteAppointment = async (id: string) => {
+    setIsUpdating(true);
+    setDeleteId(null);
+    try {
+      const res = await fetch(`/api/appointments/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("API error");
+      toast.success("Turno eliminado");
+      router.refresh();
+      setSelectedAppointment(null);
+    } catch {
+      toast.error("Error al eliminar el turno");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -310,7 +345,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
               return (
                 <div className="space-y-2">
                   {dayAppointments.map((apt) => {
-                    const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
+                    const status = getStatusConfig(apt);
                     return (
                       <button
                         key={apt.id}
@@ -370,7 +405,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
                 )}
               >
                 {dayAppointments.map((apt) => {
-                  const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
+                  const status = getStatusConfig(apt);
                   return (
                     <button
                       key={apt.id}
@@ -432,7 +467,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
                 </div>
                 <div className="space-y-0.5">
                   {dayAppointments.slice(0, 3).map((apt) => {
-                    const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
+                    const status = getStatusConfig(apt);
                     return (
                       <button
                         key={apt.id}
@@ -554,7 +589,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
                 {dayAppointments.length > 0 && (
                   <div className="flex gap-1">
                     {dayAppointments.slice(0, 3).map((apt) => {
-                      const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
+                      const status = getStatusConfig(apt);
                       return <div key={apt.id} className={cn("w-2 h-2 rounded-full", status.color)} />;
                     })}
                     {dayAppointments.length > 3 && (
@@ -585,7 +620,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
             }
 
             return dayAppointments.map((apt) => {
-              const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
+              const status = getStatusConfig(apt);
               return (
                 <button
                   key={apt.id}
@@ -653,7 +688,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
                   }
 
                   return dayAppointments.map((apt) => {
-                    const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
+                    const status = getStatusConfig(apt);
                     return (
                       <button
                         key={apt.id}
@@ -748,7 +783,7 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
 
                 {/* Estado */}
                 {(() => {
-                  const status = statusConfig[selectedAppointment.status as keyof typeof statusConfig] || statusConfig.PENDING;
+                  const status = getStatusConfig(selectedAppointment);
                   const StatusIcon = status.icon;
                   return (
                     <div className="flex items-center justify-between">
@@ -770,41 +805,73 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
               </div>
 
               {/* Acciones */}
-              {(selectedAppointment.status === "PENDING" || selectedAppointment.status === "CONFIRMED") && (
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                  {selectedAppointment.status === "PENDING" && (
+              <DialogFooter className="flex-col sm:flex-row gap-2 flex-wrap">
+                {selectedAppointment.status === "PENDING" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => updateStatus(selectedAppointment.id, "CONFIRMED")}
+                    disabled={isUpdating}
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Confirmar
+                  </Button>
+                )}
+                {(selectedAppointment.status === "PENDING" || selectedAppointment.status === "CONFIRMED") && (
+                  <>
                     <Button
                       variant="outline"
-                      onClick={() => updateStatus(selectedAppointment.id, "CONFIRMED")}
+                      onClick={() => updateStatus(selectedAppointment.id, "COMPLETED")}
                       disabled={isUpdating}
                     >
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Confirmar
+                      Completado
                     </Button>
-                  )}
+                    <Button
+                      variant="outline"
+                      onClick={() => updateStatus(selectedAppointment.id, "NO_SHOW")}
+                      disabled={isUpdating}
+                    >
+                      No asistió
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setCancelId(selectedAppointment.id)}
+                      disabled={isUpdating}
+                    >
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+                {selectedAppointment.status === "COMPLETED" && (
                   <Button
                     variant="outline"
-                    onClick={() => updateStatus(selectedAppointment.id, "COMPLETED")}
+                    onClick={() => updateStatus(selectedAppointment.id, "CONFIRMED")}
                     disabled={isUpdating}
                   >
-                    Completado
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reabrir turno
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => updateStatus(selectedAppointment.id, "NO_SHOW")}
-                    disabled={isUpdating}
-                  >
-                    No asistió
-                  </Button>
+                )}
+                {(selectedAppointment.status === "CANCELLED" || selectedAppointment.status === "NO_SHOW" || selectedAppointment.status === "RESCHEDULED") && (
                   <Button
                     variant="destructive"
-                    onClick={() => setCancelId(selectedAppointment.id)}
+                    onClick={() => setDeleteId(selectedAppointment.id)}
                     disabled={isUpdating}
                   >
-                    Cancelar
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar turno
                   </Button>
-                </DialogFooter>
-              )}
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onDuplicate?.(selectedAppointment);
+                    setSelectedAppointment(null);
+                  }}
+                >
+                  <CalendarClock className="mr-2 h-4 w-4" />
+                  Reprogramar
+                </Button>
+              </DialogFooter>
             </>
           )}
         </DialogContent>
@@ -829,6 +896,30 @@ export function AppointmentsCalendar({ appointments }: AppointmentsCalendarProps
               disabled={isUpdating}
             >
               {isUpdating ? "Cancelando..." : "Sí, cancelar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de confirmación de eliminación */}
+      <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Eliminar turno?</DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer. El turno será eliminado permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              Volver
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteId && deleteAppointment(deleteId)}
+              disabled={isUpdating}
+            >
+              {isUpdating ? "Eliminando..." : "Eliminar turno"}
             </Button>
           </DialogFooter>
         </DialogContent>

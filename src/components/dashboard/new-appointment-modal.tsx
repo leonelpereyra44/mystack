@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,6 +50,19 @@ interface NewAppointmentModalProps {
   services: Service[];
   staff: Staff[];
   terminology?: BusinessTerminology;
+  /** Pre-fill the form (used for "Duplicate" flow). Triggers the modal to open. */
+  initialValues?: {
+    serviceId?: string;
+    staffId?: string;
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    notes?: string;
+  };
+  /** Called immediately after consuming initialValues so the parent can clear them. */
+  onInitialValuesConsumed?: () => void;
+  /** If set, this appointment will be cancelled after the new one is successfully created. */
+  rescheduleSourceId?: string;
 }
 
 const appointmentSchema = z.object({
@@ -70,11 +83,49 @@ export function NewAppointmentModal({
   services,
   staff,
   terminology: terminologyProp,
+  initialValues,
+  onInitialValuesConsumed,
+  rescheduleSourceId,
 }: NewAppointmentModalProps) {
   const router = useRouter();
   const terminology = terminologyProp ?? getBusinessTerminology("salon");
   const [open, setOpen] = useState(false);
+
+  // ── Duplicate / pre-fill support ───────────────────────────────────────────
+  const prevInitialValuesRef = useRef<typeof initialValues | undefined>(undefined);
+  const onConsumedRef = useRef(onInitialValuesConsumed);
+  useEffect(() => { onConsumedRef.current = onInitialValuesConsumed; });
+
+  // Captured at effect time so the ID survives after onConsumed clears the parent state
+  const capturedRescheduleIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!initialValues) return;
+    if (initialValues === prevInitialValuesRef.current) return;
+    prevInitialValuesRef.current = initialValues;
+    capturedRescheduleIdRef.current = rescheduleSourceId;
+    reset({
+      serviceId: initialValues.serviceId ?? "",
+      staffId: initialValues.staffId,
+      customerName: initialValues.customerName ?? "",
+      customerEmail: initialValues.customerEmail ?? "",
+      customerPhone: initialValues.customerPhone ?? "",
+      notes: initialValues.notes ?? "",
+      date: new Date(),
+      startTime: "",
+    });
+    setOpen(true);
+    onConsumedRef.current?.();
+  // reset is stable; initialValues identity change is the real trigger
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValues]);
+  // ──────────────────────────────────────────────────────────────────────────
   const [isLoading, setIsLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState<{
+    title: string;
+    description: string;
+    detail?: string;
+  } | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [slotCounts, setSlotCounts] = useState<Record<string, number>>({});
@@ -220,21 +271,74 @@ export function NewAppointmentModal({
           customerEmail: data.customerEmail,
           customerPhone: data.customerPhone || null,
           notes: data.notes || null,
+          rescheduleSourceId: capturedRescheduleIdRef.current || null,
         }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Error al crear el turno");
+        const errorData = await response.json();
+        const code = errorData.code as string | undefined;
+
+        if (code === "EXISTING_APPOINTMENT" && errorData.existingAppointment) {
+          const apt = errorData.existingAppointment as { date: string; startTime: string; serviceName: string };
+          throw Object.assign(new Error("EXISTING_APPOINTMENT"), {
+            modalTitle: "Ya tiene un turno activo",
+            modalDesc: `El cliente ya tiene un ${terminology.appointment.toLowerCase()} para el ${apt.date} a las ${apt.startTime} (${apt.serviceName}).`,
+            modalDetail: `No se pueden crear dos ${terminology.appointment.toLowerCase()}s activos para el mismo cliente cuando la configuración del negocio no lo permite.`,
+          });
+        }
+
+        if (code === "SLOT_TAKEN" || errorData.error === "Este horario ya no está disponible") {
+          throw Object.assign(new Error("SLOT_TAKEN"), {
+            modalTitle: "Horario no disponible",
+            modalDesc: "El horario seleccionado ya fue ocupado mientras completabas el formulario.",
+            modalDetail: "Por favor, volvé a verificar los horarios disponibles y elegí otro.",
+          });
+        }
+
+        if (code === "PLAN_LIMIT_REACHED") {
+          throw Object.assign(new Error("PLAN_LIMIT_REACHED"), {
+            modalTitle: "Límite del plan alcanzado",
+            modalDesc: errorData.error || "Alcanzaste el límite de reservas de tu plan actual.",
+            modalDetail: "Para seguir aceptando reservas, actualizá tu plan desde la configuración.",
+          });
+        }
+
+        throw Object.assign(new Error(errorData.error || "Error al crear el turno"), {
+          modalTitle: "No se pudo crear el turno",
+          modalDesc: errorData.error || "Ocurrió un error inesperado al intentar crear el turno.",
+          modalDetail: "Por favor, intentá nuevamente. Si el problema persiste, contactá al soporte.",
+        });
       }
 
       toast.success(`${terminology.appointment} creado correctamente`);
       setOpen(false);
       reset();
+
+      // Cancel the original appointment if this was a reschedule
+      const sourceId = capturedRescheduleIdRef.current;
+      capturedRescheduleIdRef.current = undefined;
+      if (sourceId) {
+        await fetch(`/api/appointments/${sourceId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "RESCHEDULED" }),
+        });
+      }
+
       router.refresh();
     } catch (error) {
       console.error("Error creating appointment:", error);
-      toast.error(error instanceof Error ? error.message : `Error al crear el ${terminology.appointment.toLowerCase()}`);
+      const typedError = error as Error & { modalTitle?: string; modalDesc?: string; modalDetail?: string };
+      if (typedError.modalTitle) {
+        setErrorModal({
+          title: typedError.modalTitle,
+          description: typedError.modalDesc ?? "",
+          detail: typedError.modalDetail,
+        });
+      } else {
+        toast.error(error instanceof Error ? error.message : `Error al crear el ${terminology.appointment.toLowerCase()}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -245,10 +349,12 @@ export function NewAppointmentModal({
     if (!open) {
       reset();
       setShowCalendar(false);
+      capturedRescheduleIdRef.current = undefined;
     }
   }, [open, reset]);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
@@ -480,5 +586,22 @@ export function NewAppointmentModal({
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* ── Error explanation modal ───────────────────────────────── */}
+    <Dialog open={!!errorModal} onOpenChange={() => setErrorModal(null)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{errorModal?.title}</DialogTitle>
+          <DialogDescription>{errorModal?.description}</DialogDescription>
+        </DialogHeader>
+        {errorModal?.detail && (
+          <p className="text-sm text-muted-foreground border-t pt-3 mt-1">{errorModal.detail}</p>
+        )}
+        <DialogFooter>
+          <Button onClick={() => setErrorModal(null)}>Entendido</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

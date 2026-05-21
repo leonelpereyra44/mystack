@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { AppointmentsView } from "@/components/dashboard/appointments-view";
-import { NewAppointmentModal } from "@/components/dashboard/new-appointment-modal";
 import { getBusinessTerminology } from "@/lib/business-types";
 
 export default async function AppointmentsPage() {
@@ -18,6 +17,7 @@ export default async function AppointmentsPage() {
         where: { isActive: true },
         orderBy: { name: "asc" },
       },
+      schedules: true,
     },
   });
 
@@ -44,26 +44,16 @@ export default async function AppointmentsPage() {
   const terminology = getBusinessTerminology(business.businessType);
 
   return (
-    <div className="space-y-4">
-      {/* Header: título + botón en la misma fila */}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">{terminology.appointments}</h1>
-        <NewAppointmentModal
-          businessId={business.id}
-          services={services}
-          staff={business.staff}
-          terminology={terminology}
-        />
-      </div>
-
-      <AppointmentsView
-        appointments={appointments}
-        slotCapacity={business.slotCapacity}
-        services={services}
-        staff={business.staff}
-        businessName={business.name}
-        businessAddress={business.address ?? null}
-      />
-    </div>
+    <AppointmentsView
+      appointments={appointments}
+      slotCapacity={business.slotCapacity}
+      services={services}
+      staff={business.staff}
+      businessName={business.name}
+      businessAddress={business.address ?? null}
+      businessId={business.id}
+      terminology={terminology}
+      schedules={business.schedules}
+    />
   );
 }

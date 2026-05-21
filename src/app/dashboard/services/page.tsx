@@ -53,7 +53,7 @@ export default async function ServicesPage() {
         defaultOpen={services.length === 0}
       />
 
-      <ServicesList services={services} />
+      <ServicesList services={services} businessType={business.businessType} />
     </div>
   );
 }

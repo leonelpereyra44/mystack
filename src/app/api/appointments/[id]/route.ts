@@ -42,10 +42,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const body = await request.json();
 
     // Whitelist: solo permitir campos seguros
-    const data: { status?: AppointmentStatus; notes?: string } = {};
+    const data: { status?: AppointmentStatus; notes?: string; staffId?: string | null } = {};
     
     if ("status" in body) data.status = body.status as AppointmentStatus;
     if ("notes" in body) data.notes = body.notes;
+    if ("staffId" in body) data.staffId = body.staffId ?? null;
 
     const appointment = await prisma.appointment.update({
       where: { id },

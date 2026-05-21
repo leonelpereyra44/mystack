@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       customerPhone,
       notes,
       extraData,
+      rescheduleSourceId,
     } = body;
 
     // Validate required fields
@@ -69,6 +70,8 @@ export async function POST(request: Request) {
           businessId,
           customerEmail: customerEmail.toLowerCase(),
           status: { in: ["PENDING", "CONFIRMED"] },
+          // Exclude the appointment being rescheduled
+          ...(rescheduleSourceId ? { NOT: { id: rescheduleSourceId } } : {}),
           // Only future appointments
           OR: [
             { date: { gt: new Date() } },
@@ -111,6 +114,7 @@ export async function POST(request: Request) {
     // Get service to calculate end time
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
+      include: { staff: { select: { id: true } } },
     });
 
     if (!service) {
@@ -130,6 +134,96 @@ export async function POST(request: Request) {
     // Parse date correctly to avoid timezone issues
     const appointmentDate = parseDateString(date);
 
+    // ── Auto-asignación de staff ────────────────────────────────────────────
+    // Si el servicio tiene miembros asignados pero el turno llega sin staffId,
+    // elegir automáticamente al miembro disponible con menos carga ese día,
+    // respetando sus horarios, días laborables y bloqueos individuales.
+    let effectiveStaffId: string | null = staffId || null;
+
+    if (!effectiveStaffId && service.staff.length > 0) {
+      const eligibleIds = service.staff.map((s) => s.id);
+      const dayOfWeek = appointmentDate.getUTCDay();
+
+      const [memberScheds, memberBlocks, slotConflicts, dayCounts] = await Promise.all([
+        prisma.staffSchedule.findMany({
+          where: { staffId: { in: eligibleIds }, dayOfWeek },
+        }),
+        prisma.blockedTime.findMany({
+          where: {
+            businessId,
+            date: appointmentDate,
+            OR: [{ staffId: { in: eligibleIds } }, { staffId: null }],
+          },
+        }),
+        prisma.appointment.findMany({
+          where: {
+            businessId,
+            date: appointmentDate,
+            staffId: { in: eligibleIds },
+            status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+            NOT: [
+              { AND: [{ status: "PENDING" }, { tokenExpiresAt: { lt: new Date() } }] },
+              ...(rescheduleSourceId ? [{ id: rescheduleSourceId }] : []),
+            ],
+            OR: [
+              { AND: [{ startTime: { lte: startTime } }, { endTime: { gt: startTime } }] },
+              { AND: [{ startTime: { lt: endTime } }, { endTime: { gte: endTime } }] },
+              { AND: [{ startTime: { gte: startTime } }, { endTime: { lte: endTime } }] },
+            ],
+          },
+          select: { staffId: true },
+        }),
+        prisma.appointment.groupBy({
+          by: ["staffId"],
+          where: {
+            businessId,
+            date: appointmentDate,
+            staffId: { in: eligibleIds },
+            status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+          },
+          _count: { id: true },
+        }),
+      ]);
+
+      const conflictSet = new Set(slotConflicts.map((c) => c.staffId));
+      const countMap: Record<string, number> = {};
+      for (const row of dayCounts) {
+        if (row.staffId) countMap[row.staffId] = row._count.id;
+      }
+
+      const slotStartMin = timeToMinutes(startTime);
+      const slotEndMin = timeToMinutes(endTime);
+
+      const freeStaff = eligibleIds.filter((id) => {
+        const sched = memberScheds.find((s) => s.staffId === id);
+        if (!sched || !sched.isWorking) return false;
+        if (
+          slotStartMin < timeToMinutes(sched.startTime) ||
+          slotEndMin > timeToMinutes(sched.endTime)
+        ) return false;
+        const isBlocked = memberBlocks.some((b) => {
+          if (b.staffId !== id && b.staffId !== null) return false;
+          if (b.isAllDay) return true;
+          if (!b.startTime || !b.endTime) return false;
+          return slotStartMin < timeToMinutes(b.endTime) && slotEndMin > timeToMinutes(b.startTime);
+        });
+        if (isBlocked) return false;
+        return !conflictSet.has(id);
+      });
+
+      if (freeStaff.length === 0) {
+        return NextResponse.json(
+          { error: "Este horario ya no está disponible", code: "SLOT_TAKEN" },
+          { status: 409 }
+        );
+      }
+
+      // Asignar al miembro con menos turnos ese día (least-busy)
+      freeStaff.sort((a, b) => (countMap[a] ?? 0) - (countMap[b] ?? 0));
+      effectiveStaffId = freeStaff[0];
+    }
+    // ── Fin auto-asignación ─────────────────────────────────────────────────
+
     // Generar token antes de la transacción
     const confirmationToken = crypto.randomBytes(32).toString("hex");
     const isSameDay = isToday(appointmentDate);
@@ -147,13 +241,13 @@ export async function POST(request: Request) {
           where: {
             businessId,
             date: appointmentDate,
-            status: { notIn: ["CANCELLED"] },
-            NOT: {
-              AND: [
-                { status: "PENDING" },
-                { tokenExpiresAt: { lt: new Date() } },
-              ],
-            },
+            status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+            NOT: [
+              // Exclude expired PENDING appointments
+              { AND: [{ status: "PENDING" }, { tokenExpiresAt: { lt: new Date() } }] },
+              // Exclude the appointment being rescheduled
+              ...(rescheduleSourceId ? [{ id: rescheduleSourceId }] : []),
+            ],
             OR: [
               {
                 AND: [
@@ -174,7 +268,7 @@ export async function POST(request: Request) {
                 ],
               },
             ],
-            ...(staffId && { staffId }),
+            ...(effectiveStaffId ? { staffId: effectiveStaffId } : {}),
           },
         });
 
@@ -186,7 +280,7 @@ export async function POST(request: Request) {
           data: {
             businessId,
             serviceId,
-            staffId: staffId || null,
+            staffId: effectiveStaffId,
             date: appointmentDate,
             startTime,
             endTime,
@@ -195,6 +289,7 @@ export async function POST(request: Request) {
             customerPhone: customerPhone || null,
             notes: notes || null,
             extraData: extraData || null,
+            rescheduledFromId: rescheduleSourceId || null,
             status: "PENDING",
             confirmationToken,
             tokenExpiresAt,
@@ -294,6 +389,11 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
 }
 
 export async function GET(request: Request) {

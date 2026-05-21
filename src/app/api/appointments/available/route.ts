@@ -95,12 +95,145 @@ export async function GET(request: Request) {
       );
     }
 
-    // If the service has staff assigned and no specific staffId was requested,
-    // return the list of eligible staff IDs so the booking form can prompt selection
     const serviceStaffIds = service.staff.map((s) => s.id);
+
+    // ── MODO AUTO-ASIGNACIÓN ────────────────────────────────────────────────
+    // El servicio tiene staff asignado pero no se especificó uno:
+    // calcular la unión de slots disponibles para CUALQUIER miembro elegible,
+    // respetando sus horarios y días laborables individuales.
     if (serviceStaffIds.length > 0 && !staffId) {
-      return NextResponse.json({ slots: [], requiresStaffSelection: true, serviceStaffIds });
+      const [allMemberScheds, memberBlockedTimes, memberAppointments, serviceSchedules] =
+        await Promise.all([
+          prisma.staffSchedule.findMany({
+            where: { staffId: { in: serviceStaffIds }, dayOfWeek },
+          }),
+          prisma.blockedTime.findMany({
+            where: {
+              businessId,
+              date: dateObj,
+              OR: [{ staffId: { in: serviceStaffIds } }, { staffId: null }],
+            },
+          }),
+          prisma.appointment.findMany({
+            where: {
+              businessId,
+              date: dateObj,
+              staffId: { in: serviceStaffIds },
+              status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+              NOT: {
+                AND: [{ status: "PENDING" }, { tokenExpiresAt: { lt: new Date() } }],
+              },
+              ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
+            },
+            select: { staffId: true, startTime: true, endTime: true },
+          }),
+          prisma.serviceSchedule.findMany({ where: { serviceId } }),
+        ]);
+
+      const serviceDaySched = serviceSchedules.find((s) => s.dayOfWeek === dayOfWeek);
+      if (serviceSchedules.length > 0 && !serviceDaySched) {
+        return NextResponse.json({ slots: [], slotCounts: {}, slotCapacity });
+      }
+
+      // Acumular slots disponibles: slot → cantidad de cupos libres entre todos los miembros
+      const slotStaffCount: Record<string, number> = {};
+
+      for (const memberId of serviceStaffIds) {
+        const memberSched = allMemberScheds.find((s) => s.staffId === memberId);
+        if (!memberSched || !memberSched.isWorking) continue;
+
+        // Ventana efectiva: business ∩ horario del miembro
+        const bizStart = timeToMinutes(businessSchedule.openTime);
+        const bizEnd = timeToMinutes(businessSchedule.closeTime);
+        const memStart = timeToMinutes(memberSched.startTime);
+        const memEnd = timeToMinutes(memberSched.endTime);
+        let winStart = Math.max(bizStart, memStart);
+        let winEnd = Math.min(bizEnd, memEnd);
+        if (winStart >= winEnd) continue;
+
+        // Intersección con franja del servicio (si la tiene)
+        if (serviceDaySched) {
+          winStart = Math.max(winStart, timeToMinutes(serviceDaySched.startTime));
+          winEnd = Math.min(winEnd, timeToMinutes(serviceDaySched.endTime));
+          if (winStart >= winEnd) continue;
+        }
+
+        // Generar slots posibles para este miembro
+        const memberSlots: string[] = [];
+        let cur = winStart;
+        while (cur + service.duration <= winEnd) {
+          memberSlots.push(minutesToTime(cur));
+          cur += bookingInterval;
+        }
+
+        // Bloqueos propios del miembro + bloqueos de todo el negocio
+        const myBlocks = memberBlockedTimes.filter(
+          (bt) => bt.staffId === memberId || bt.staffId === null
+        );
+        if (myBlocks.some((bt) => bt.isAllDay)) continue;
+
+        const myApts = memberAppointments.filter((a) => a.staffId === memberId);
+
+        for (const slot of memberSlots) {
+          const [sh, sm] = slot.split(":").map(Number);
+          const slotStart = sh * 60 + sm;
+          const slotEnd = slotStart + service.duration;
+
+          // Verificar bloqueos parciales
+          const partialBlocked = myBlocks.some((bt) => {
+            if (bt.isAllDay || !bt.startTime || !bt.endTime) return false;
+            const bs = timeToMinutes(bt.startTime);
+            const be = timeToMinutes(bt.endTime);
+            return slotStart < be && slotEnd > bs;
+          });
+          if (partialBlocked) continue;
+
+          // Verificar conflictos de turnos (con bufferTime)
+          const conflictCount = myApts.filter((apt) => {
+            const [ah, am] = apt.startTime.split(":").map(Number);
+            const [eh, em] = apt.endTime.split(":").map(Number);
+            const aptStart = ah * 60 + am;
+            const aptEnd = eh * 60 + em;
+            return slotStart < aptEnd + bufferTime && slotEnd > aptStart;
+          }).length;
+
+          if (conflictCount < slotCapacity) {
+            slotStaffCount[slot] = (slotStaffCount[slot] ?? 0) + (slotCapacity - conflictCount);
+          }
+        }
+      }
+
+      let availableSlots = Object.keys(slotStaffCount).sort();
+      const slotCounts: Record<string, number> = { ...slotStaffCount };
+
+      // Filtrar horarios pasados + minBookingNotice
+      const nowArg = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      const todayArgStr = `${nowArg.getUTCFullYear()}-${String(nowArg.getUTCMonth() + 1).padStart(2, "0")}-${String(nowArg.getUTCDate()).padStart(2, "0")}`;
+      const selectedDateStr = `${dateObj.getUTCFullYear()}-${String(dateObj.getUTCMonth() + 1).padStart(2, "0")}-${String(dateObj.getUTCDate()).padStart(2, "0")}`;
+
+      if (selectedDateStr === todayArgStr) {
+        const currentMinutes = nowArg.getUTCHours() * 60 + nowArg.getUTCMinutes();
+        const marginMinutes = minBookingNotice > 0 ? minBookingNotice * 60 : 0;
+        availableSlots = availableSlots.filter((slot) => {
+          const [h, m] = slot.split(":").map(Number);
+          return h * 60 + m > currentMinutes + marginMinutes;
+        });
+      } else if (minBookingNotice > 0) {
+        const limitMs = nowArg.getTime() + minBookingNotice * 60 * 60 * 1000;
+        const limitArg = new Date(limitMs);
+        const limitDateStr = `${limitArg.getUTCFullYear()}-${String(limitArg.getUTCMonth() + 1).padStart(2, "0")}-${String(limitArg.getUTCDate()).padStart(2, "0")}`;
+        if (selectedDateStr === limitDateStr) {
+          const limitMinutes = limitArg.getUTCHours() * 60 + limitArg.getUTCMinutes();
+          availableSlots = availableSlots.filter((slot) => {
+            const [h, m] = slot.split(":").map(Number);
+            return h * 60 + m > limitMinutes;
+          });
+        }
+      }
+
+      return NextResponse.json({ slots: availableSlots, slotCounts, slotCapacity });
     }
+    // ── FIN MODO AUTO-ASIGNACIÓN ────────────────────────────────────────────
 
     // Determinar el horario efectivo a usar
     let effectiveOpenTime = businessSchedule.openTime;

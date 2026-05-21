@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ChevronDown, Loader2 } from "lucide-react";
+import { Sparkles, ChevronDown, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -38,8 +38,21 @@ export function SuggestedServicesPanel({
   const config = getBusinessType(businessType);
   const terminology = getBusinessTerminology(businessType);
 
+  const [dismissed, setDismissed] = useState(false);
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem(`suggested-services-dismissed-${businessType}`) === "true") {
+      setDismissed(true);
+    }
+  }, [businessType]);
+
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    localStorage.setItem(`suggested-services-dismissed-${businessType}`, "true");
+    setDismissed(true);
+  };
   const [services, setServices] = useState(
     config.suggestedServices.map((s) => ({
       ...s,
@@ -49,7 +62,7 @@ export function SuggestedServicesPanel({
     }))
   );
 
-  if (config.suggestedServices.length === 0) return null;
+  if (config.suggestedServices.length === 0 || dismissed) return null;
 
   const selectedCount = services.filter((s) => s.selected).length;
 
@@ -89,10 +102,12 @@ export function SuggestedServicesPanel({
 
   return (
     <Card className="border-primary/20">
-      <button
-        type="button"
-        className="w-full text-left"
+      <div
+        role="button"
+        tabIndex={0}
+        className="w-full text-left cursor-pointer"
         onClick={() => setIsOpen((v) => !v)}
+        onKeyDown={(e) => e.key === "Enter" && setIsOpen((v) => !v)}
       >
         <CardHeader className="pb-3 hover:bg-muted/30 transition-colors rounded-t-xl">
           <div className="flex items-center justify-between">
@@ -102,18 +117,28 @@ export function SuggestedServicesPanel({
                 {terminology.services} sugeridos
               </CardTitle>
             </div>
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform",
-                isOpen && "rotate-180"
-              )}
-            />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                title="No mostrar más"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-muted-foreground transition-transform",
+                  isOpen && "rotate-180"
+                )}
+              />
+            </div>
           </div>
           <CardDescription>
             Importá {terminology.services.toLowerCase()} típicos para un negocio de este tipo. Podés editar los nombres y precios antes de importar.
           </CardDescription>
         </CardHeader>
-      </button>
+      </div>
 
       {isOpen && (
         <CardContent className="pt-0 space-y-3">

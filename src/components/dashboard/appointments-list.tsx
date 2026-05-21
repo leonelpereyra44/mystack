@@ -27,6 +27,9 @@ import {
   Search,
   X,
   SlidersHorizontal,
+  RotateCcw,
+  Trash2,
+  CalendarClock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -77,6 +80,7 @@ interface Appointment {
   customerPhone: string | null;
   status: string;
   notes: string | null;
+  rescheduledFromId: string | null;
   serviceId: string;
   staffId: string | null;
   service: {
@@ -114,6 +118,7 @@ interface AppointmentsListProps {
   businessName: string;
   businessAddress?: string | null;
   businessTimezone?: string;
+  onDuplicate?: (apt: Appointment) => void;
 }
 
 const statusConfig = {
@@ -122,7 +127,18 @@ const statusConfig = {
   CANCELLED: { label: "Cancelado", variant: "destructive" as const, icon: XCircle },
   COMPLETED: { label: "Completado", variant: "outline" as const, icon: CheckCircle },
   NO_SHOW: { label: "No asistió", variant: "destructive" as const, icon: XCircle },
+  RESCHEDULED: { label: "Reprogramado", variant: "secondary" as const, icon: CalendarClock },
+  RESCHEDULED_PENDING:  { label: "Reprogramado · Pendiente",  variant: "secondary" as const, icon: CalendarClock },
+  RESCHEDULED_CONFIRMED: { label: "Reprogramado · Confirmado", variant: "default"   as const, icon: CalendarClock },
 };
+
+function getStatusConfig(apt: Appointment) {
+  if (apt.rescheduledFromId) {
+    if (apt.status === "PENDING")   return statusConfig.RESCHEDULED_PENDING;
+    if (apt.status === "CONFIRMED") return statusConfig.RESCHEDULED_CONFIRMED;
+  }
+  return statusConfig[apt.status as keyof typeof statusConfig] ?? statusConfig.PENDING;
+}
 
 // ─── Avatar helpers ───────────────────────────────────────────────────────────
 
@@ -412,6 +428,7 @@ export function AppointmentsList({
   businessName,
   businessAddress,
   businessTimezone,
+  onDuplicate,
 }: AppointmentsListProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
@@ -420,6 +437,7 @@ export function AppointmentsList({
   const [filterStaffId, setFilterStaffId] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [exportModal, setExportModal] = useState<null | "csv" | "ics">(null);
 
@@ -667,6 +685,25 @@ export function AppointmentsList({
     }
   };
 
+  const deleteAppointment = async (id: string) => {
+    setIsUpdating(true);
+    const previous = localAppointments ?? appointments;
+    // Optimistic removal
+    setLocalAppointments(previous.filter((apt) => apt.id !== id));
+    setDeleteId(null);
+    try {
+      const res = await fetch(`/api/appointments/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("API error");
+      toast.success("Turno eliminado");
+      router.refresh();
+    } catch {
+      setLocalAppointments(previous);
+      toast.error("Error al eliminar el turno");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   // Group appointments by date, then by startTime
   const groupedAppointments = paginatedAppointments.reduce((groups, apt) => {
     const dateKey = format(parseUTCDate(apt.date), "yyyy-MM-dd");
@@ -762,7 +799,7 @@ export function AppointmentsList({
                     {/* Cards for this time slot */}
                     <div className="space-y-2 pl-0 md:pl-4">
                       {slotAppointments.map((apt, index) => {
-                        const status = statusConfig[apt.status as keyof typeof statusConfig] || statusConfig.PENDING;
+                        const status = getStatusConfig(apt);
                         const StatusIcon = status.icon;
 
                         return (
@@ -820,6 +857,23 @@ export function AppointmentsList({
                                           </DropdownMenuItem>
                                         </>
                                       )}
+                                      {apt.status === "COMPLETED" && (
+                                        <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
+                                          <RotateCcw className="mr-2 h-4 w-4" />
+                                          Reabrir turno
+                                        </DropdownMenuItem>
+                                      )}
+                                      {(apt.status === "CANCELLED" || apt.status === "NO_SHOW" || apt.status === "RESCHEDULED") && (
+                                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(apt.id)}>
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          Eliminar turno
+                                        </DropdownMenuItem>
+                                      )}
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => onDuplicate?.(apt)}>
+                                        <CalendarClock className="mr-2 h-4 w-4" />
+                                        Reprogramar
+                                      </DropdownMenuItem>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem onClick={() => window.open(getGoogleCalendarUrl(apt), "_blank", "noopener,noreferrer")}>
                                         <CalendarPlus className="mr-2 h-4 w-4" />
@@ -883,6 +937,23 @@ export function AppointmentsList({
                                          </DropdownMenuItem>
                                        </>
                                      )}
+                                     {apt.status === "COMPLETED" && (
+                                       <DropdownMenuItem onClick={() => updateStatus(apt.id, "CONFIRMED")}>
+                                         <RotateCcw className="mr-2 h-4 w-4" />
+                                         Reabrir turno
+                                       </DropdownMenuItem>
+                                     )}
+                                     {(apt.status === "CANCELLED" || apt.status === "NO_SHOW" || apt.status === "RESCHEDULED") && (
+                                       <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(apt.id)}>
+                                         <Trash2 className="mr-2 h-4 w-4" />
+                                         Eliminar turno
+                                       </DropdownMenuItem>
+                                     )}
+                                     <DropdownMenuSeparator />
+                                     <DropdownMenuItem onClick={() => onDuplicate?.(apt)}>
+                                       <CalendarClock className="mr-2 h-4 w-4" />
+                                       Reprogramar
+                                     </DropdownMenuItem>
                                      <DropdownMenuSeparator />
                                      <DropdownMenuItem onClick={() => window.open(getGoogleCalendarUrl(apt), "_blank", "noopener,noreferrer")}>
                                        <CalendarPlus className="mr-2 h-4 w-4" />
@@ -1007,6 +1078,29 @@ export function AppointmentsList({
               disabled={isUpdating}
             >
               {isUpdating ? "Cancelando..." : "Cancelar turno"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Eliminar turno?</DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer. El turno será eliminado permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              Volver
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteId && deleteAppointment(deleteId)}
+              disabled={isUpdating}
+            >
+              {isUpdating ? "Eliminando..." : "Eliminar turno"}
             </Button>
           </DialogFooter>
         </DialogContent>
