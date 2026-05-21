@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ContactModal } from "@/components/dashboard/contact-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -127,13 +128,15 @@ export function DashboardNav({ business, user }: DashboardNavProps) {
           <p className="text-xs text-muted-foreground mb-3">
             Contacta con nuestro equipo de soporte
           </p>
-          <Link
-            href="/contacto"
-            className="inline-flex items-center gap-2 text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors"
-          >
-            <Mail className="h-3 w-3" />
-            Formulario de contacto
-          </Link>
+          <ContactModal
+            user={user}
+            trigger={
+              <button className="inline-flex items-center gap-2 text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors">
+                <Mail className="h-3 w-3" />
+                Formulario de contacto
+              </button>
+            }
+          />
         </div>
       </div>
 
