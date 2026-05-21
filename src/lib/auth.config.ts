@@ -12,17 +12,27 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const userRole = (auth?.user as { role?: string })?.role;
+      const needsOnboarding = (auth?.user as { needsOnboarding?: boolean })?.needsOnboarding;
       const isAdmin = userRole === "ADMIN";
-      
+
       const isOnDashboard = nextUrl.pathname.startsWith("/dashboard");
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
       const isOnRegister = nextUrl.pathname.startsWith("/register");
+      const isOnOnboarding = nextUrl.pathname.startsWith("/register/business");
       const isOnInvalidSession = nextUrl.pathname.startsWith("/invalid-session");
       const isOnAuth = isOnLogin || isOnRegister;
 
       // Permitir /invalid-session siempre (necesario para limpiar sesiones corruptas)
       if (isOnInvalidSession) return true;
+
+      // Permitir /register/business siempre que esté logueado (paso de onboarding OAuth)
+      if (isLoggedIn && isOnOnboarding) return true;
+
+      // Si el usuario de Google no tiene negocio aún, redirigir al onboarding
+      if (isLoggedIn && needsOnboarding && !isOnOnboarding) {
+        return Response.redirect(new URL("/register/business", nextUrl));
+      }
 
       // Si está logueado y va a login/register, redirigir según rol
       // Si viene con callbackUrl=/admin, dejar pasar para que pueda
