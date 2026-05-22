@@ -15,12 +15,13 @@ import {
   Menu,
   BarChart3,
   HelpCircle,
-  Mail,
   Store,
   CalendarCog,
   UserCog,
   CreditCard,
+  ChevronDown,
 } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ContactModal } from "@/components/dashboard/contact-modal";
 
 interface Business {
   id: string;
@@ -52,6 +54,7 @@ interface MobileNavProps {
 
 export function MobileNav({ business, user }: MobileNavProps) {
   const pathname = usePathname();
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Inicio" },
@@ -76,9 +79,9 @@ export function MobileNav({ business, user }: MobileNavProps) {
           </Button>
         }
       />
-      <SheetContent side="left" className="w-72 p-0" showCloseButton={false}>
+      <SheetContent side="left" className="w-72 p-0 flex flex-col" showCloseButton={false}>
         {/* Logo */}
-        <div className="flex h-16 items-center gap-2 border-b px-6">
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b px-6">
           <Image 
             src="/mystacklogosinfondo.png" 
             alt="MyStack Logo" 
@@ -90,7 +93,7 @@ export function MobileNav({ business, user }: MobileNavProps) {
         </div>
 
         {/* Business Info */}
-        <div className="border-b p-4">
+        <div className="shrink-0 border-b p-4">
           <p className="font-medium">{business.name}</p>
           <Link
             href={`/${business.slug}`}
@@ -103,7 +106,7 @@ export function MobileNav({ business, user }: MobileNavProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-4">
+        <nav className="flex-1 overflow-y-auto space-y-1 p-4">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -133,32 +136,44 @@ export function MobileNav({ business, user }: MobileNavProps) {
         </nav>
 
         {/* Help Section */}
-        <div className="border-t p-4">
-          <div className="rounded-lg bg-muted/50 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <HelpCircle className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">¿Necesitas ayuda?</span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Contacta con nuestro equipo de soporte
-            </p>
-            <SheetClose
-              nativeButton={false}
-              render={
-                <Link
-                  href="/contacto"
-                  className="inline-flex items-center gap-2 text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors"
-                >
-                  <Mail className="h-3 w-3" />
-                  Formulario de contacto
-                </Link>
-              }
+        <div className="shrink-0 border-t">
+          <button
+            onClick={() => setHelpOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-4 py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <HelpCircle className="h-4 w-4" />
+              ¿Necesitas ayuda?
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform duration-200",
+                helpOpen && "rotate-180"
+              )}
             />
-          </div>
+          </button>
+          {helpOpen && (
+            <div className="px-4 pb-4">
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Contacta con nuestro equipo de soporte
+                </p>
+                <ContactModal
+                  user={user}
+                  trigger={
+                    <button className="inline-flex items-center gap-2 text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors">
+                      <HelpCircle className="h-3 w-3" />
+                      Formulario de contacto
+                    </button>
+                  }
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* User Info */}
-        <div className="border-t p-4 mt-auto">
+        <div className="shrink-0 border-t p-4">
           <div className="flex items-center gap-3 mb-4">
             <Avatar className="h-10 w-10">
               <AvatarImage src={user.image || undefined} />
