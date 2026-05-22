@@ -18,6 +18,11 @@ vi.mock("@/lib/mercadopago", () => ({
   },
   REFUND_PERIOD_DAYS: 10,
 }));
+vi.mock("@/lib/email", () => ({
+  sendSubscriptionCancelled: vi.fn().mockResolvedValue(undefined),
+  sendSubscriptionActivated: vi.fn().mockResolvedValue(undefined),
+  sendSubscriptionPaymentFailed: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -52,6 +57,14 @@ beforeEach(() => {
   (mockPrisma.business.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue(ACTIVE_BUSINESS);
   (mockPrisma.subscription.update as never as ReturnType<typeof vi.fn>).mockResolvedValue({});
   mockCancelSubscription.mockResolvedValue({ success: true });
+  // Mocks para el email de cancelación
+  (mockPrisma.user.findUnique as never as ReturnType<typeof vi.fn>).mockResolvedValue({
+    email: "owner@test.com",
+    name: "Owner",
+  });
+  (mockPrisma.planConfig.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue({
+    name: "Profesional",
+  });
 });
 
 describe("POST /api/subscription/cancel", () => {
@@ -87,7 +100,7 @@ describe("POST /api/subscription/cancel", () => {
     expect(res.status).toBe(400);
   });
 
-  it("flujo exitoso: cancela en MP y actualiza DB a CANCELLED/FREE", async () => {
+  it("flujo exitoso: cancela en MP y actualiza DB a CANCELLED", async () => {
     const res = await POST();
     const body = await res.json();
 
@@ -96,14 +109,14 @@ describe("POST /api/subscription/cancel", () => {
 
     expect(mockCancelSubscription).toHaveBeenCalledWith("mp_sub_123");
 
+    // C5: solo marca CANCELLED — no baja el plan a FREE ni nula mpSubscriptionId.
+    // El acceso se mantiene hasta currentPeriodEnd; plan-limits evalúa en cada request.
     expect(mockPrisma.subscription.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { businessId: "business-1" },
         data: expect.objectContaining({
           status: "CANCELLED",
-          plan: "FREE",
           cancelledAt: expect.any(Date),
-          mpSubscriptionId: null,
         }),
       })
     );

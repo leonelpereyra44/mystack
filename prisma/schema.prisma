@@ -313,7 +313,6 @@ model Subscription {
   // Mercado Pago
   mpCustomerId          String?            // ID del cliente en MP
   mpSubscriptionId      String?            // ID de la suscripción en MP
-  mpPreapprovalId       String?            // ID del preapproval plan
   lastPaymentId         String?            // ID del último pago (para reembolsos)
   
   currentPeriodStart    DateTime?

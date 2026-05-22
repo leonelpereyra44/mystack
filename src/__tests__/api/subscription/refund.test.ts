@@ -1,6 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
-
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 vi.mock("@/lib/prisma", async () => {
   const { prismaMock } = await import("@/test-utils/prisma-mock");
@@ -25,8 +23,6 @@ import {
   refundPayment,
   cancelSubscription,
   isEligibleForRefund,
-  PLANS,
-  REFUND_PERIOD_DAYS,
 } from "@/lib/mercadopago";
 
 import { POST, GET } from "@/app/api/subscription/refund/route";
@@ -37,12 +33,6 @@ const mockPrisma = vi.mocked(prisma);
 const mockRefundPayment = vi.mocked(refundPayment);
 const mockCancelSubscription = vi.mocked(cancelSubscription);
 const mockIsEligibleForRefund = vi.mocked(isEligibleForRefund);
-
-function makeRequest() {
-  return new NextRequest("http://localhost/api/subscription/refund", {
-    method: "POST",
-  });
-}
 
 const ACTIVE_SUBSCRIPTION = {
   id: "sub-1",
@@ -56,7 +46,6 @@ const ACTIVE_SUBSCRIPTION = {
   refundedAt: null,
   cancelledAt: null,
   mpCustomerId: "customer_1",
-  mpPreapprovalId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -73,7 +62,7 @@ beforeEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (mockPrisma.business.findFirst as any).mockResolvedValue(ACTIVE_BUSINESS);
   mockIsEligibleForRefund.mockReturnValue(true);
-  mockRefundPayment.mockResolvedValue({ success: true, refundId: "refund_1", amount: 15000 });
+  mockRefundPayment.mockResolvedValue({ success: true, refundId: 1, status: "approved", amount: 15000 });
   mockCancelSubscription.mockResolvedValue({ success: true });
   // Mock updateMany para el lock optimista
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,7 +94,7 @@ describe("POST /api/subscription/refund", () => {
     const res = await POST();
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/PRO activa/i);
+    expect(body.error).toMatch(/suscripción de pago activa/i);
   });
 
   it("devuelve 400 si el status no es ACTIVE", async () => {
@@ -147,13 +136,13 @@ describe("POST /api/subscription/refund", () => {
     expect(body.error).toMatch(/información del pago/i);
   });
 
-  it("flujo exitoso: hace refund + cancel + actualiza DB", async () => {
+  it("flujo exitoso: retorna 200 con success:true y refundId, llama a refund+cancel y actualiza DB a FREE", async () => {
     const res = await POST();
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.refundId).toBe("refund_1");
+    expect(body.refundId).toBe(1);
 
     // Verificó el lock optimista antes de llamar a MP
     expect(mockPrisma.subscription.updateMany).toHaveBeenCalledWith(
@@ -192,6 +181,17 @@ describe("POST /api/subscription/refund", () => {
     expect(mockCancelSubscription).not.toHaveBeenCalled();
   });
 
+  it("devuelve 500 si updateMany lanza una excepción inesperada", async () => {
+    (mockPrisma.subscription.updateMany as never as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("DB connection lost")
+    );
+
+    const res = await POST();
+    expect(res.status).toBe(500);
+    // No se llegó a llamar a MP
+    expect(mockRefundPayment).not.toHaveBeenCalled();
+  });
+
   it("idempotencia: el segundo request concurrente recibe 400", async () => {
     // El lock falla (ya fue marcado por el primer request)
     (mockPrisma.subscription.updateMany as never as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
@@ -216,7 +216,8 @@ describe("POST /api/subscription/refund", () => {
       ([args]) => args?.data?.status === "CANCELLED"
     );
     expect(updateCall).toBeDefined();
-    expect(updateCall?.[0]?.data?.mpSubscriptionId).toBeUndefined();
+    // Verificamos que el campo no fue nullificado (no se pasó mpSubscriptionId: null)
+    expect(updateCall?.[0]?.data?.mpSubscriptionId).not.toBe(null);
   });
 });
 
@@ -247,6 +248,28 @@ describe("GET /api/subscription/refund", () => {
     const body = await res.json();
     expect(body.eligible).toBe(false);
     expect(body.reason).toMatch(/reembolso/i);
+  });
+
+  it("devuelve eligible: false si el plan no es PRO", async () => {
+    (mockPrisma.business.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...ACTIVE_BUSINESS,
+      subscription: { ...ACTIVE_SUBSCRIPTION, plan: "FREE" },
+    });
+    const res = await GET();
+    const body = await res.json();
+    expect(body.eligible).toBe(false);
+    expect(body.reason).toMatch(/PRO activa/i);
+  });
+
+  it("devuelve eligible: false si el status no es ACTIVE", async () => {
+    (mockPrisma.business.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...ACTIVE_BUSINESS,
+      subscription: { ...ACTIVE_SUBSCRIPTION, status: "CANCELLED" },
+    });
+    const res = await GET();
+    const body = await res.json();
+    expect(body.eligible).toBe(false);
+    expect(body.reason).toMatch(/PRO activa/i);
   });
 
   it("devuelve eligible: true con daysLeft > 0 cuando está dentro del período", async () => {
