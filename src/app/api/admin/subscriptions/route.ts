@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         { plan: { not: "FREE" } },
         { status: "CANCELLED" },
       ],
-    } as const;
+    };
 
     const [subscriptions, total] = await Promise.all([
       prisma.subscription.findMany({
