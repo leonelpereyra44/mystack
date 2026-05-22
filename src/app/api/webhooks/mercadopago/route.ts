@@ -208,68 +208,69 @@ export async function POST(request: NextRequest) {
             businessId = ref;
           }
 
-          // Obtener el plan real: del externalReference o de la DB como fallback
-          let planToActivate: string;
-          if (planKeyFromRef) {
-            planToActivate = planKeyFromRef;
-          } else {
-            const sub = await prisma.subscription.findFirst({
-              where: { businessId },
-              select: { plan: true },
-            });
-            planToActivate = sub?.plan ?? "PRO";
-          }
-
-          await prisma.subscription.upsert({
+          // Un solo fetch: plan fallback + idempotencia
+          const existingSub = await prisma.subscription.findFirst({
             where: { businessId },
-            create: {
-              businessId,
-              plan: planToActivate as SubscriptionPlan,
-              status: "ACTIVE",
-              lastPaymentId: paymentId.toString(),
-              currentPeriodEnd: payment.date_last_updated
-                ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            },
-            update: {
-              plan: planToActivate as SubscriptionPlan,
-              status: "ACTIVE",
-              lastPaymentId: paymentId.toString(),
-              // Usar next_payment_date de MP si está disponible; fallback a +30 días
-              currentPeriodEnd: payment.date_last_updated
-                ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            },
+            select: { lastPaymentId: true, plan: true },
           });
 
-          console.log(`Payment processed: business=${businessId}, plan=${planToActivate}, paymentId=${paymentId}`);
+          // Idempotencia: si este paymentId ya fue procesado, ignorar el webhook duplicado
+          if (existingSub?.lastPaymentId === paymentId.toString()) {
+            console.log(`Payment ${paymentId} already processed for business ${businessId}, skipping duplicate webhook`);
+          } else {
+            const planToActivate = planKeyFromRef ?? existingSub?.plan ?? "PRO";
 
-          // Email de confirmación al dueño del negocio
-          try {
-            const business = await prisma.business.findUnique({
-              where: { id: businessId },
-              select: {
-                owner: { select: { email: true, name: true } },
-                subscription: { select: { currentPeriodEnd: true } },
+            await prisma.subscription.upsert({
+              where: { businessId },
+              create: {
+                businessId,
+                plan: planToActivate as SubscriptionPlan,
+                status: "ACTIVE",
+                lastPaymentId: paymentId.toString(),
+                currentPeriodEnd: payment.date_last_updated
+                  ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
+                  : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              },
+              update: {
+                plan: planToActivate as SubscriptionPlan,
+                status: "ACTIVE",
+                lastPaymentId: paymentId.toString(),
+                // Usar next_payment_date de MP si está disponible; fallback a +30 días
+                currentPeriodEnd: payment.date_last_updated
+                  ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
+                  : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
               },
             });
-            const planConfig = await prisma.planConfig.findFirst({
-              where: { plan: planToActivate as SubscriptionPlan },
-              select: { name: true },
-            });
-            if (business?.owner.email) {
-              const nextDate = business.subscription?.currentPeriodEnd
-                ? new Date(business.subscription.currentPeriodEnd).toLocaleDateString("es-AR")
-                : "—";
-              await sendSubscriptionActivated({
-                email: business.owner.email,
-                name: business.owner.name ?? "usuario",
-                planName: planConfig?.name ?? planToActivate,
-                nextBillingDate: nextDate,
+
+            console.log(`Payment processed: business=${businessId}, plan=${planToActivate}, paymentId=${paymentId}`);
+
+            // Email de confirmación al dueño del negocio
+            try {
+              const business = await prisma.business.findUnique({
+                where: { id: businessId },
+                select: {
+                  owner: { select: { email: true, name: true } },
+                  subscription: { select: { currentPeriodEnd: true } },
+                },
               });
+              const planConfig = await prisma.planConfig.findFirst({
+                where: { plan: planToActivate as SubscriptionPlan },
+                select: { name: true },
+              });
+              if (business?.owner.email) {
+                const nextDate = business.subscription?.currentPeriodEnd
+                  ? new Date(business.subscription.currentPeriodEnd).toLocaleDateString("es-AR")
+                  : "—";
+                await sendSubscriptionActivated({
+                  email: business.owner.email,
+                  name: business.owner.name ?? "usuario",
+                  planName: planConfig?.name ?? planToActivate,
+                  nextBillingDate: nextDate,
+                });
+              }
+            } catch (emailErr) {
+              console.error("Error sending subscription activated email:", emailErr);
             }
-          } catch (emailErr) {
-            console.error("Error sending subscription activated email:", emailErr);
           }
         }
 

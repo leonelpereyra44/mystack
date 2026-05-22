@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { addDays, format } from "date-fns";
+import { getLocalDateInTz } from "@/lib/utils";
 
 // GET - Obtener disponibilidad de un rango de fechas
 export async function GET(request: Request) {
@@ -45,6 +46,7 @@ export async function GET(request: Request) {
         slotCapacity: true,
         minBookingNotice: true,
         bufferTime: true,
+        timezone: true,
       },
     });
     const bookingInterval = businessData?.bookingInterval ?? 30;
@@ -87,9 +89,9 @@ export async function GET(request: Request) {
     }
 
     // =============================================
-    // Zona horaria Argentina (UTC-3, sin DST)
+    // Timezone del negocio (con fallback a Argentina UTC-3)
     // =============================================
-    const nowArg = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    const nowArg = getLocalDateInTz(businessData?.timezone ?? "America/Argentina/Buenos_Aires");
     const start = startDate
       ? new Date(startDate + "T12:00:00Z")
       : new Date(
@@ -359,7 +361,7 @@ export async function GET(request: Request) {
       });
 
       // 8. Filtrar horarios pasados / minBookingNotice
-      const nowArgLoop = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      const nowArgLoop = getLocalDateInTz(businessData?.timezone ?? "America/Argentina/Buenos_Aires");
       const todayArgStr = `${nowArgLoop.getUTCFullYear()}-${String(
         nowArgLoop.getUTCMonth() + 1
       ).padStart(2, "0")}-${String(nowArgLoop.getUTCDate()).padStart(2, "0")}`;

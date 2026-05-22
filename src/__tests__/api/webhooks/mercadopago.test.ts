@@ -438,8 +438,10 @@ describe("payment events (type=payment, action=created)", () => {
         update: expect.objectContaining({ plan: "PRO", status: "ACTIVE" }),
       })
     );
-    // No consultó la DB para el plan
-    expect(mockPrisma.subscription.findFirst).not.toHaveBeenCalled();
+    // findFirst se llama para idempotencia, pero el plan viene del external_reference (no de la DB)
+    expect(mockPrisma.subscription.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { businessId: "biz-new" } })
+    );
   });
 
   it("tipo desconocido → devuelve 200 sin tocar la DB", async () => {
