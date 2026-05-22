@@ -78,10 +78,9 @@ export async function POST(request: Request) {
     }
 
     // Cancelar el preapproval actual en MP para evitar cobros del plan anterior
-    if (currentSub?.mpSubscriptionId) {
-      const cancelResult = await cancelSubscription(
-        currentSub.mpSubscriptionId
-      );
+    const previousMpId = currentSub?.mpSubscriptionId ?? null;
+    if (previousMpId) {
+      const cancelResult = await cancelSubscription(previousMpId);
       if (!cancelResult.success) {
         return NextResponse.json(
           {
@@ -93,16 +92,48 @@ export async function POST(request: Request) {
       }
     }
 
+    // Buscar promoción activa para el nuevo plan
+    const activePromo = await prisma.promotion.findFirst({
+      where: {
+        isActive: true,
+        appliesTo: { has: newPlanKey as SubscriptionPlan },
+        startsAt: { lte: new Date() },
+        OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }],
+      },
+    });
+
+    let finalPrice = Number(planConfig.price);
+    let promoApplied: { id: string; name: string } | null = null;
+
+    if (activePromo) {
+      const discount = Number(activePromo.discountValue);
+      const discounted = activePromo.discountType === "PERCENTAGE"
+        ? finalPrice - (finalPrice * discount) / 100
+        : Math.max(0, finalPrice - discount);
+      promoApplied = { id: activePromo.id, name: activePromo.name };
+      finalPrice = Math.round(discounted);
+    }
+
     // Crear nuevo preapproval en MP para el plan destino
     const result = await createSubscription({
       payerEmail: session.user.email!,
       externalReference: `${business.id}:${newPlanKey}`,
-      price: Number(planConfig.price),
+      price: finalPrice,
       reason: `MyStack ${planConfig.name}`,
     });
 
     if (!result.success) {
+      // Si falla la creación del nuevo preapproval, loguear y notificar al usuario
+      console.error(`change-plan: new preapproval failed after cancelling ${previousMpId ?? "none"}. Business: ${business.id}`);
       return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+
+    // Incrementar usedCount si se aplicó promo
+    if (promoApplied) {
+      await prisma.promotion.update({
+        where: { id: promoApplied.id },
+        data: { usedCount: { increment: 1 } },
+      });
     }
 
     // Actualizar DB: TRIALING hasta que el webhook confirme el pago

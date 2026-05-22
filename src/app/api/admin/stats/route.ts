@@ -58,11 +58,25 @@ export async function GET() {
       proSubscriptions,
       freeSubscriptions,
       cancelledSubscriptions,
+      activeByPlan,
+      planPrices,
     ] = await Promise.all([
       prisma.subscription.count({ where: { plan: "PRO", status: "ACTIVE" } }),
       prisma.subscription.count({ where: { plan: "FREE" } }),
       prisma.subscription.count({ where: { status: "CANCELLED" } }),
+      prisma.subscription.groupBy({
+        by: ["plan"],
+        where: { status: "ACTIVE" },
+        _count: { id: true },
+      }),
+      prisma.planConfig.findMany({ select: { plan: true, price: true } }),
     ]);
+
+    // MRR calculado con precios reales de PlanConfig
+    const priceMap = Object.fromEntries(planPrices.map((p) => [p.plan, Number(p.price)]));
+    const mrr = activeByPlan.reduce((sum, row) => {
+      return sum + (priceMap[row.plan] ?? 0) * row._count.id;
+    }, 0);
 
     // Estadísticas de reservas
     const [
@@ -78,9 +92,6 @@ export async function GET() {
       prisma.appointment.count({ where: { status: "CANCELLED" } }),
       prisma.appointment.count({ where: { status: "COMPLETED" } }),
     ]);
-
-    // MRR (Monthly Recurring Revenue) - asumiendo $15,000 por PRO
-    const mrr = proSubscriptions * 15000;
 
     // Usuarios recientes
     const recentUsers = await prisma.user.findMany({

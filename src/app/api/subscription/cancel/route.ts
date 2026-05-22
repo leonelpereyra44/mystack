@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { cancelSubscription, PLANS } from "@/lib/mercadopago";
+import { cancelSubscription } from "@/lib/mercadopago";
+import { sendSubscriptionCancelled } from "@/lib/email";
 
 // POST - Cancelar suscripción
 export async function POST() {
@@ -44,21 +45,47 @@ export async function POST() {
       );
     }
 
-    // Actualizar el registro de suscripción
+    // Actualizar el registro de suscripción:
+    // NO se baja el plan a FREE de inmediato — el acceso se mantiene hasta que
+    // currentPeriodEnd caduque. plan-limits.ts evalúa este caso en cada request.
+    const sub = business.subscription;
     await prisma.subscription.update({
       where: { businessId: business.id },
       data: {
         status: "CANCELLED",
-        plan: "FREE",
         cancelledAt: new Date(),
-        mpSubscriptionId: null,
+        // Mantener el plan actual hasta fin del período facturado
       },
     });
 
+    // Email de confirmación de cancelación
+    try {
+      const owner = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { email: true, name: true },
+      });
+      const planConfig = await prisma.planConfig.findFirst({
+        where: { plan: sub.plan },
+        select: { name: true },
+      });
+      if (owner?.email) {
+        const accessUntil = sub.currentPeriodEnd
+          ? new Date(sub.currentPeriodEnd).toLocaleDateString("es-AR")
+          : "el fin del período actual";
+        await sendSubscriptionCancelled({
+          email: owner.email,
+          name: owner.name ?? "usuario",
+          planName: planConfig?.name ?? sub.plan,
+          accessUntil,
+        });
+      }
+    } catch (emailErr) {
+      console.error("Error sending cancellation email:", emailErr);
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Suscripción cancelada correctamente. Tu plan volverá a Gratuito.",
-      newPlan: PLANS.FREE,
+      message: "Suscripción cancelada. Conservarás el acceso hasta el final del período ya abonado.",
     });
   } catch (error) {
     console.error("Error cancelling subscription:", error);

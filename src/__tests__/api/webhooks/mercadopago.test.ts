@@ -9,6 +9,11 @@ vi.mock("@/lib/prisma", async () => {
   const { prismaMock } = await import("@/test-utils/prisma-mock");
   return { prisma: prismaMock, default: prismaMock };
 });
+vi.mock("@/lib/email", () => ({
+  sendSubscriptionActivated: vi.fn().mockResolvedValue(undefined),
+  sendSubscriptionPaymentFailed: vi.fn().mockResolvedValue(undefined),
+  sendSubscriptionCancelled: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { prisma } from "@/lib/prisma";
 import { POST } from "@/app/api/webhooks/mercadopago/route";
@@ -38,6 +43,9 @@ beforeEach(() => {
   (mockPrisma.subscription.update as never as ReturnType<typeof vi.fn>).mockResolvedValue({});
   (mockPrisma.subscription.updateMany as never as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 1 });
   (mockPrisma.subscription.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+  // Mocks para los queries adicionales del handler de pago aprobado
+  (mockPrisma.business.findUnique as never as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+  (mockPrisma.planConfig.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 });
 
 // ─── Firma ────────────────────────────────────────────────────────────────────
@@ -159,7 +167,7 @@ describe("subscription_preapproval events", () => {
     );
   });
 
-  it("status 'cancelled' → upsert con status CANCELLED y plan FREE", async () => {
+  it("status 'cancelled' → upsert con status CANCELLED (sin bajar plan a FREE)", async () => {
     mswServer.use(
       http.get("https://api.mercadopago.com/preapproval/pa_cancelled", () =>
         HttpResponse.json({
@@ -180,9 +188,16 @@ describe("subscription_preapproval events", () => {
     });
     await POST(req);
 
+    // C5: el webhook NO baja el plan a FREE — solo marca CANCELLED.
+    // plan-limits evalúa el acceso según currentPeriodEnd.
     expect(mockPrisma.subscription.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({ status: "CANCELLED", plan: "FREE" }),
+        update: expect.objectContaining({ status: "CANCELLED" }),
+      })
+    );
+    expect(mockPrisma.subscription.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.not.objectContaining({ plan: "FREE" }),
       })
     );
   });
@@ -350,10 +365,11 @@ describe("payment events (type=payment, action=created)", () => {
     });
     await POST(req);
 
-    expect(mockPrisma.subscription.update).toHaveBeenCalledWith(
+    // C4: ahora usa upsert en lugar de update para evitar race condition
+    expect(mockPrisma.subscription.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { businessId: "business-1" },
-        data: expect.objectContaining({
+        update: expect.objectContaining({
           status: "ACTIVE",
           lastPaymentId: "pay_ok",
           currentPeriodEnd: expect.any(Date),
@@ -415,10 +431,11 @@ describe("payment events (type=payment, action=created)", () => {
     });
     await POST(req);
 
-    expect(mockPrisma.subscription.update).toHaveBeenCalledWith(
+    // C4: ahora usa upsert
+    expect(mockPrisma.subscription.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { businessId: "biz-new" },
-        data: expect.objectContaining({ plan: "PRO", status: "ACTIVE" }),
+        update: expect.objectContaining({ plan: "PRO", status: "ACTIVE" }),
       })
     );
     // No consultó la DB para el plan

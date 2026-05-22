@@ -51,9 +51,9 @@ const BASE_URL = process.env.NEXTAUTH_URL || "https://mystack.com.ar";
 const MP_BASE_URL = BASE_URL.includes("localhost") ? "https://mystack.com.ar" : BASE_URL;
 
 export const MP_URLS = {
-  success: `${MP_BASE_URL}/dashboard/settings?subscription=success`,
-  failure: `${MP_BASE_URL}/dashboard/settings?subscription=error`,
-  pending: `${MP_BASE_URL}/dashboard/settings?subscription=pending`,
+  success: `${MP_BASE_URL}/dashboard/subscription?subscription=success`,
+  failure: `${MP_BASE_URL}/dashboard/subscription?subscription=error`,
+  pending: `${MP_BASE_URL}/dashboard/subscription?subscription=pending`,
   webhook: `${BASE_URL}/api/webhooks/mercadopago`,
 };
 
