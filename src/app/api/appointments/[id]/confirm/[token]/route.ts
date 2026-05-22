@@ -14,52 +14,15 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id, token } = await params;
 
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      include: {
-        service: true,
-        staff: true,
-        business: true,
+    // Confirmación atómica: el UPDATE solo ocurre si el turno sigue PENDING,
+    // el token coincide y no expiró. Previene race condition por doble click.
+    const updated = await prisma.appointment.updateMany({
+      where: {
+        id,
+        status: "PENDING",
+        confirmationToken: token,
+        tokenExpiresAt: { gte: new Date() },
       },
-    });
-
-    if (!appointment) {
-      return NextResponse.json(
-        { error: "Turno no encontrado", code: "NOT_FOUND" },
-        { status: 404 }
-      );
-    }
-
-    if (appointment.status === "CONFIRMED") {
-      return NextResponse.json({ message: "El turno ya fue confirmado", code: "ALREADY_CONFIRMED" });
-    }
-
-    if (appointment.status === "CANCELLED") {
-      return NextResponse.json(
-        { error: "Este turno fue cancelado", code: "CANCELLED" },
-        { status: 410 }
-      );
-    }
-
-    // Verify token
-    if (appointment.confirmationToken !== token) {
-      return NextResponse.json(
-        { error: "Enlace de confirmación inválido", code: "INVALID_TOKEN" },
-        { status: 400 }
-      );
-    }
-
-    // Check expiry
-    if (!appointment.tokenExpiresAt || appointment.tokenExpiresAt < new Date()) {
-      return NextResponse.json(
-        { error: "El enlace de confirmación expiró. El turno fue liberado.", code: "TOKEN_EXPIRED" },
-        { status: 410 }
-      );
-    }
-
-    // Confirm the appointment
-    const confirmed = await prisma.appointment.update({
-      where: { id },
       data: {
         status: "CONFIRMED",
         confirmationToken: null,
@@ -67,7 +30,52 @@ export async function GET(_request: Request, { params }: Params) {
       },
     });
 
-    const appointmentDate = new Date(confirmed.date);
+    if (updated.count === 0) {
+      // No se actualizó nada — re-fetch para saber el motivo exacto
+      const existing = await prisma.appointment.findUnique({ where: { id } });
+
+      if (!existing) {
+        return NextResponse.json(
+          { error: "Turno no encontrado", code: "NOT_FOUND" },
+          { status: 404 }
+        );
+      }
+      if (existing.status === "CONFIRMED") {
+        return NextResponse.json({ message: "El turno ya fue confirmado", code: "ALREADY_CONFIRMED" });
+      }
+      if (existing.status === "CANCELLED") {
+        return NextResponse.json(
+          { error: "Este turno fue cancelado", code: "CANCELLED" },
+          { status: 410 }
+        );
+      }
+      if (existing.confirmationToken !== token) {
+        return NextResponse.json(
+          { error: "Enlace de confirmación inválido", code: "INVALID_TOKEN" },
+          { status: 400 }
+        );
+      }
+      // tokenExpiresAt venció
+      return NextResponse.json(
+        { error: "El enlace de confirmación expiró. El turno fue liberado.", code: "TOKEN_EXPIRED" },
+        { status: 410 }
+      );
+    }
+
+    // Re-fetch con relaciones para armar la respuesta y el email
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: { service: true, staff: true, business: true },
+    });
+
+    if (!appointment) {
+      return NextResponse.json(
+        { error: "Error al obtener el turno confirmado", code: "SERVER_ERROR" },
+        { status: 500 }
+      );
+    }
+
+    const appointmentDate = new Date(appointment.date);
     const formattedDate = format(
       new Date(
         appointmentDate.getUTCFullYear(),

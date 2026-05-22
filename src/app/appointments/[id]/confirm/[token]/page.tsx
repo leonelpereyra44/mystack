@@ -23,38 +23,53 @@ type ConfirmResult =
   | { code: "TOKEN_EXPIRED" | "INVALID_TOKEN" | "NOT_FOUND" | "CANCELLED"; error: string };
 
 async function confirmAppointment(id: string, token: string): Promise<ConfirmResult> {
+  // Confirmación atómica: el UPDATE solo ocurre si el turno sigue PENDING,
+  // el token coincide y no expiró. Previene race condition por doble click.
+  const updated = await prisma.appointment.updateMany({
+    where: {
+      id,
+      status: "PENDING",
+      confirmationToken: token,
+      tokenExpiresAt: { gte: new Date() },
+    },
+    data: { status: "CONFIRMED", confirmationToken: null, tokenExpiresAt: null },
+  });
+
+  if (updated.count === 0) {
+    // No se actualizó — re-fetch para saber el motivo exacto
+    const existing = await prisma.appointment.findUnique({
+      where: { id },
+      include: { service: true, business: true },
+    });
+
+    if (!existing) return { code: "NOT_FOUND", error: "Turno no encontrado" };
+    if (existing.status === "CONFIRMED") {
+      return {
+        code: "ALREADY_CONFIRMED",
+        appointment: {
+          businessName: existing.business.name,
+          dateFormatted: format(
+            new Date(existing.date.getUTCFullYear(), existing.date.getUTCMonth(), existing.date.getUTCDate(), 12),
+            "EEEE d 'de' MMMM 'de' yyyy",
+            { locale: es }
+          ),
+          startTime: existing.startTime,
+          serviceName: existing.service.name,
+        },
+      };
+    }
+    if (existing.status === "CANCELLED") return { code: "CANCELLED", error: "Este turno fue cancelado" };
+    if (existing.confirmationToken !== token) return { code: "INVALID_TOKEN", error: "Enlace de confirmación inválido" };
+    return { code: "TOKEN_EXPIRED", error: "El enlace de confirmación expiró. El turno fue liberado." };
+  }
+
+  // Re-fetch con relaciones para el email y la respuesta
   const appointment = await prisma.appointment.findUnique({
     where: { id },
     include: { service: true, staff: true, business: true },
   });
 
   if (!appointment) return { code: "NOT_FOUND", error: "Turno no encontrado" };
-  if (appointment.status === "CONFIRMED") {
-    return {
-      code: "ALREADY_CONFIRMED",
-      appointment: {
-        businessName: appointment.business.name,
-        dateFormatted: format(
-          new Date(appointment.date.getUTCFullYear(), appointment.date.getUTCMonth(), appointment.date.getUTCDate(), 12),
-          "EEEE d 'de' MMMM 'de' yyyy",
-          { locale: es }
-        ),
-        startTime: appointment.startTime,
-        serviceName: appointment.service.name,
-      },
-    };
-  }
-  if (appointment.status === "CANCELLED") return { code: "CANCELLED", error: "Este turno fue cancelado" };
-  if (appointment.confirmationToken !== token) return { code: "INVALID_TOKEN", error: "Enlace de confirmación inválido" };
-  if (!appointment.tokenExpiresAt || appointment.tokenExpiresAt < new Date()) {
-    return { code: "TOKEN_EXPIRED", error: "El enlace de confirmación expiró. El turno fue liberado." };
-  }
-
-  // Confirm the appointment
-  await prisma.appointment.update({
-    where: { id },
-    data: { status: "CONFIRMED", confirmationToken: null, tokenExpiresAt: null },
-  });
 
   const d = appointment.date;
   const localDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12);

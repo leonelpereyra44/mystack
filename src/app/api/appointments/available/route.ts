@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { parseDateString } from "@/lib/utils";
+import { parseDateString, getLocalDateInTz } from "@/lib/utils";
 
 export async function GET(request: Request) {
   try {
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
     // Get business booking interval and slot capacity
     const businessData = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { bookingInterval: true, slotCapacity: true, minBookingNotice: true, bufferTime: true },
+      select: { bookingInterval: true, slotCapacity: true, minBookingNotice: true, bufferTime: true, timezone: true },
     });
     const bookingInterval = businessData?.bookingInterval ?? 30;
     const slotCapacity = businessData?.slotCapacity ?? 1;
@@ -206,8 +206,8 @@ export async function GET(request: Request) {
       let availableSlots = Object.keys(slotStaffCount).sort();
       const slotCounts: Record<string, number> = { ...slotStaffCount };
 
-      // Filtrar horarios pasados + minBookingNotice
-      const nowArg = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      // Filtrar horarios pasados + minBookingNotice (usando timezone del negocio)
+      const nowArg = getLocalDateInTz(businessData?.timezone ?? "America/Argentina/Buenos_Aires");
       const todayArgStr = `${nowArg.getUTCFullYear()}-${String(nowArg.getUTCMonth() + 1).padStart(2, "0")}-${String(nowArg.getUTCDate()).padStart(2, "0")}`;
       const selectedDateStr = `${dateObj.getUTCFullYear()}-${String(dateObj.getUTCMonth() + 1).padStart(2, "0")}-${String(dateObj.getUTCDate()).padStart(2, "0")}`;
 
@@ -393,8 +393,8 @@ export async function GET(request: Request) {
       return true;
     });
 
-    // Filtrar horarios pasados si la fecha seleccionada es hoy en Argentina (UTC-3)
-    const nowArg = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    // Filtrar horarios pasados si la fecha seleccionada es hoy (timezone del negocio)
+    const nowArg = getLocalDateInTz(businessData?.timezone ?? "America/Argentina/Buenos_Aires");
     const todayArgStr = `${nowArg.getUTCFullYear()}-${String(nowArg.getUTCMonth() + 1).padStart(2, "0")}-${String(nowArg.getUTCDate()).padStart(2, "0")}`;
     const selectedDateStr = `${dateObj.getUTCFullYear()}-${String(dateObj.getUTCMonth() + 1).padStart(2, "0")}-${String(dateObj.getUTCDate()).padStart(2, "0")}`;
 
