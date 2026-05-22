@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { SubscriptionPlan, SubscriptionStatus } from "@prisma/client";
 
 const PAGE_SIZE = 20;
 
@@ -23,8 +24,8 @@ export async function GET(request: NextRequest) {
 
     const where = {
       OR: [
-        { plan: { not: "FREE" } },
-        { status: "CANCELLED" },
+        { plan: { not: SubscriptionPlan.FREE } },
+        { status: SubscriptionStatus.CANCELLED },
       ],
     };
 
