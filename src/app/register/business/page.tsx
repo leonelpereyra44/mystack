@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { Building2, Loader2, Sparkles } from "lucide-react";
 import { BUSINESS_TYPES } from "@/lib/business-types";
+import { trackSignupConversion } from "@/components/analytics/google-analytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function BusinessOnboardingPage() {
   const router = useRouter();
+  const { update: updateSession, data: session } = useSession();
   const [businessName, setBusinessName] = useState("");
   const [businessType, setBusinessType] = useState("salon");
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +44,15 @@ export default function BusinessOnboardingPage() {
         return;
       }
 
-      // Forzar refresh de la sesión para que needsOnboarding se actualice
-      await fetch("/api/auth/session");
+      // Trackear conversión de registro OAuth en Google Ads
+      if (session?.user?.id) {
+        trackSignupConversion(session.user.id);
+      }
+
+      // Forzar refresh del JWT para que needsOnboarding se actualice a false.
+      // updateSession() hace PATCH a /api/auth/session y re-ejecuta el JWT callback,
+      // donde ahora detecta que el negocio ya existe y limpia el flag.
+      await updateSession();
       router.push("/dashboard");
       router.refresh();
     } catch {

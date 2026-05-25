@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -59,6 +59,19 @@ export function LoginForm({ isMaintenance }: { isMaintenance: boolean }) {
   const [showPassword, setShowPassword] = useState(false);
 
   const registered = searchParams.get("registered");
+  const oauthError = searchParams.get("error");
+
+  // Resetear isGoogleLoading si el usuario vuelve a la página sin completar OAuth
+  // (ej: cerró la ventana de Google o presionó "Atrás" en el navegador)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setIsGoogleLoading(false);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
 
   const {
     register,
@@ -197,6 +210,27 @@ export function LoginForm({ isMaintenance }: { isMaintenance: boolean }) {
                     Solo los administradores pueden acceder en este momento.
                   </p>
                 </div>
+              </div>
+            )}
+
+            {oauthError === "OAuthAccountNotLinked" && (
+              <div className="rounded-lg bg-amber-500/15 p-4 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2 animate-in slide-in-from-top-2">
+                <div className="h-2 w-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                <span>
+                  Ya existe una cuenta con ese email. Ingresá con tu contraseña
+                  o usá{" "}
+                  <Link href="/forgot-password" className="underline font-medium">
+                    ¿Olvidaste tu contraseña?
+                  </Link>{" "}
+                  para recuperarla.
+                </span>
+              </div>
+            )}
+
+            {oauthError && oauthError !== "OAuthAccountNotLinked" && (
+              <div className="rounded-lg bg-destructive/15 p-4 text-sm text-destructive flex items-center gap-2 animate-in slide-in-from-top-2">
+                <div className="h-2 w-2 rounded-full bg-destructive" />
+                No se pudo conectar con Google. Intentá de nuevo.
               </div>
             )}
 

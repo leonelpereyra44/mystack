@@ -13,7 +13,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
+      // allowDangerousEmailAccountLinking eliminado: permitía que una cuenta
+      // Google se vincule silenciosamente a cualquier cuenta email/password
+      // existente sin confirmación. Si el usuario ya tiene cuenta con email
+      // y contraseña, debe iniciar sesión con esas credenciales.
+      // El error OAuthAccountNotLinked es manejado en el form de login.
     }),
     Credentials({
       name: "credentials",
@@ -71,8 +75,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = dbUser?.role;
       }
 
-      // Detectar si el usuario de Google necesita crear su negocio
-      if (account?.provider === "google" && token.id) {
+      // Detectar si el usuario de Google necesita crear su negocio.
+      // Se re-evalúa en cada refresco del token mientras needsOnboarding sea true,
+      // de modo que una vez creado el negocio el flag se limpia automáticamente
+      // sin necesidad de que el usuario cierre sesión.
+      if (token.id && (account?.provider === "google" || token.needsOnboarding === true)) {
         const businessCount = await prisma.business.count({
           where: { ownerId: token.id as string },
         });

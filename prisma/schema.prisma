@@ -52,6 +52,9 @@ model Account {
   @@map("accounts")
 }
 
+// Session: requerido por PrismaAdapter pero nunca escrito en producción
+// porque la estrategia de sesión es JWT (session.strategy = "jwt").
+// Se mantiene para compatibilidad con el adapter — no eliminar.
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
