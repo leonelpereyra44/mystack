@@ -1,13 +1,13 @@
 <!-- ---------------------------------------------------------- -->
 ## A corto plazo:
 
-lista de clientes
-reseñas de clientes
+- [ ] lista de clientes
+- [ ] reseñas de clientes
 
 <!-- --------------------------------- -->
 ## A largo plazo:
-integracion whatsapp business
-cobro de seña
+- [ ] integracion whatsapp business
+- [ ] cobro de seña
 
 <!-- -------------------------------------------------------------- -->
 ### Posibles a revisar Edge Cases 
@@ -28,7 +28,7 @@ Te dejo una lista bastante completa dividida por categorías.
 
 # Reservas y disponibilidad
 
-## 1. Dos personas reservan el mismo turno al mismo tiempo
+## ✅ 1. Dos personas reservan el mismo turno al mismo tiempo
 
 Caso clásico.
 
@@ -50,7 +50,7 @@ Solución:
 
 ---
 
-## 2. El usuario abre la página y deja la pestaña 2 horas
+## ✅ 2. El usuario abre la página y deja la pestaña 2 horas
 
 Ejemplo:
 
@@ -71,7 +71,7 @@ Solución:
 
 ---
 
-## 3. Cancelación mientras otro usuario reserva
+## ⚠️ 3. Cancelación mientras otro usuario reserva
 
 Ejemplo:
 
@@ -86,7 +86,7 @@ Puede generar:
 
 ---
 
-## 4. Duraciones variables
+## ✅ 4. Duraciones variables
 
 Ejemplo:
 
@@ -104,7 +104,7 @@ Ejemplo:
 
 ---
 
-## 5. Turnos consecutivos imposibles
+## ✅ 5. Turnos consecutivos imposibles
 
 Ejemplo:
 
@@ -119,7 +119,7 @@ Necesitás:
 
 ---
 
-## 6. Horarios cruzando medianoche
+## ❌ 6. Horarios cruzando medianoche
 
 Ejemplo:
 
@@ -129,7 +129,7 @@ Muchos sistemas explotan acá.
 
 ---
 
-## 7. Cambio manual del horario laboral
+## ❌ 7. Cambio manual del horario laboral
 
 Ejemplo:
 
@@ -148,7 +148,7 @@ Opciones:
 
 # Pagos
 
-## 8. Pago aprobado pero reserva no creada
+## ⚠️ 8. Pago aprobado pero reserva no creada
 
 MUY importante.
 
@@ -171,13 +171,13 @@ Necesitás:
 
 ---
 
-## 9. Reserva creada pero pago falló
+## ❌ 9. Reserva creada pero pago falló
 
 El inverso.
 
 ---
 
-## 10. Webhook duplicado
+## ✅ 10. Webhook duplicado
 
 Mercado Pago / Stripe pueden reenviar webhooks.
 
@@ -195,7 +195,7 @@ Solución:
 
 # Emails y notificaciones
 
-## 11. El mail llega tarde
+## ❌ 11. El mail llega tarde
 
 Ejemplo:
 
@@ -204,13 +204,13 @@ Ejemplo:
 
 ---
 
-## 12. Gmail bloquea o manda spam
+## ❌ 12. Gmail bloquea o manda spam
 
 Ya lo viviste con [Resend](https://resend.com?utm_source=chatgpt.com).
 
 ---
 
-## 13. Usuario escribe mal el email
+## ❌ 13. Usuario escribe mal el email
 
 Ejemplo:
 
@@ -223,7 +223,7 @@ Podrías:
 
 ---
 
-## 14. Recordatorios duplicados
+## ❌ 14. Recordatorios duplicados
 
 Cron ejecutado dos veces.
 
@@ -231,7 +231,7 @@ Cron ejecutado dos veces.
 
 # Usuarios “creativos”
 
-## 15. Reservas spam
+## ⚠️ 15. Reservas spam
 
 Ejemplo:
 
@@ -246,13 +246,13 @@ Soluciones:
 
 ---
 
-## 16. Usuarios reservando todos los horarios
+## ⚠️ 16. Usuarios reservando todos los horarios
 
 Ataque típico.
 
 ---
 
-## 17. Nombres enormes o raros
+## ⚠️ 17. Nombres enormes o raros
 
 Ejemplo:
 
@@ -280,7 +280,7 @@ Necesitás:
 
 ---
 
-## 18. Usuarios con zona horaria distinta
+## ✅ 18. Usuarios con zona horaria distinta
 
 Ejemplo:
 
@@ -300,7 +300,7 @@ MUY importante si escalás.
 
 Ya que hablaste de importar Google Calendar:
 
-## 19. Evento movido desde Google
+## ❌ 19. Evento movido desde Google
 
 ¿Qué gana prioridad?
 
@@ -309,19 +309,19 @@ Ya que hablaste de importar Google Calendar:
 
 ---
 
-## 20. Evento eliminado en Google
+## ❌ 20. Evento eliminado en Google
 
 ¿También eliminás en MyStack?
 
 ---
 
-## 21. Google API caída
+## ❌ 21. Google API caída
 
 No sincroniza.
 
 ---
 
-## 22. Token expirado
+## ❌ 22. Token expirado
 
 Usuario desconectó cuenta.
 
@@ -329,7 +329,7 @@ Usuario desconectó cuenta.
 
 # Estados inconsistentes
 
-## 23. Reserva “fantasma”
+## ❌ 23. Reserva "fantasma"
 
 Existe en:
 
@@ -341,13 +341,13 @@ Existe en:
 
 ---
 
-## 24. Reserva cancelada pero sigue apareciendo ocupada
+## ❌ 24. Reserva cancelada pero sigue apareciendo ocupada
 
 Cache desactualizado.
 
 ---
 
-## 25. Usuario paga dos veces
+## ⚠️ 25. Usuario paga dos veces
 
 Doble click.
 
@@ -360,7 +360,7 @@ Necesitás:
 
 # Mobile / internet
 
-## 26. Usuario pierde internet al reservar
+## ❌ 26. Usuario pierde internet al reservar
 
 ¿Se creó o no?
 
@@ -371,13 +371,13 @@ Necesitás:
 
 ---
 
-## 27. Refresh en medio del pago
+## ❌ 27. Refresh en medio del pago
 
 Muy común.
 
 ---
 
-## 28. App abierta en múltiples pestañas
+## ⚠️ 28. App abierta en múltiples pestañas
 
 Estado viejo en una pestaña.
 
@@ -385,7 +385,7 @@ Estado viejo en una pestaña.
 
 # Negocios reales
 
-## 29. Profesional enfermo
+## ❌ 29. Profesional enfermo
 
 ¿Cómo reprogramás 40 turnos rápido?
 
@@ -393,7 +393,7 @@ Feature MUY valiosa.
 
 ---
 
-## 30. Feriados
+## ⚠️ 30. Feriados
 
 Ejemplo:
 
@@ -402,7 +402,7 @@ Ejemplo:
 
 ---
 
-## 31. Horarios excepcionales
+## ⚠️ 31. Horarios excepcionales
 
 Ejemplo:
 
@@ -410,7 +410,7 @@ Ejemplo:
 
 ---
 
-## 32. Sobreventa intencional
+## ✅ 32. Sobreventa intencional
 
 Algunos negocios aceptan:
 
@@ -423,7 +423,7 @@ Ejemplo:
 
 ---
 
-## 33. Múltiples empleados
+## ✅ 33. Múltiples empleados
 
 Ejemplo:
 
@@ -439,7 +439,7 @@ Edge:
 
 # Seguridad
 
-## 34. Enumeración de reservas
+## ✅ 34. Enumeración de reservas
 
 Ejemplo:
 
@@ -450,7 +450,7 @@ Ejemplo:
 
 ---
 
-## 35. Cancelación sin autenticación
+## ❌ 35. Cancelación sin autenticación
 
 Si el link de cancelación es predecible:
 
@@ -458,7 +458,7 @@ Si el link de cancelación es predecible:
 
 ---
 
-## 36. Rate limiting
+## ⚠️ 36. Rate limiting
 
 Bots golpeando endpoints.
 
@@ -466,7 +466,7 @@ Bots golpeando endpoints.
 
 # UX edge cases
 
-## 37. Usuario cambia de servicio a mitad del flujo
+## ❌ 37. Usuario cambia de servicio a mitad del flujo
 
 Ejemplo:
 
@@ -477,7 +477,7 @@ Recalcular disponibilidad.
 
 ---
 
-## 38. Reserva exactamente al cierre
+## ✅ 38. Reserva exactamente al cierre
 
 Ejemplo:
 
@@ -489,7 +489,7 @@ Ejemplo:
 
 ---
 
-## 39. Horario de verano/invierno
+## ⚠️ 39. Horario de verano/invierno
 
 DST rompe MUCHOS calendarios.
 
@@ -497,7 +497,7 @@ Argentina hoy no usa DST, pero otros países sí.
 
 ---
 
-## 40. Cliente llega tarde
+## ❌ 40. Cliente llega tarde
 
 Feature útil:
 
@@ -508,25 +508,25 @@ Feature útil:
 
 # Edge cases MUY avanzados
 
-## 41. Race conditions distribuidas
+## ✅ 41. Race conditions distribuidas
 
 Si escalás a múltiples instancias serverless.
 
 ---
 
-## 42. Eventual consistency
+## ❌ 42. Eventual consistency
 
 Realtime + cache + DB desincronizados.
 
 ---
 
-## 43. Reintentos automáticos
+## ⚠️ 43. Reintentos automáticos
 
 Vercel puede reintentar funciones.
 
 ---
 
-## 44. Timeouts serverless
+## ❌ 44. Timeouts serverless
 
 Ya encontraste uno con emails.
 
