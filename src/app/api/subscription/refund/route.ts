@@ -5,7 +5,6 @@ import {
   cancelSubscription, 
   refundPayment, 
   isEligibleForRefund,
-  PLANS,
   REFUND_PERIOD_DAYS 
 } from "@/lib/mercadopago";
 
@@ -35,10 +34,10 @@ export async function POST() {
 
     const subscription = business.subscription;
 
-    // Verificar que tenga una suscripción activa PRO
-    if (!subscription || subscription.plan !== "PRO" || subscription.status !== "ACTIVE") {
+    // Verificar que tenga una suscripción activa de pago
+    if (!subscription || subscription.plan === "FREE" || subscription.status !== "ACTIVE") {
       return NextResponse.json(
-        { error: "No tienes una suscripción PRO activa" },
+        { error: "No tienes una suscripción de pago activa" },
         { status: 400 }
       );
     }
@@ -135,7 +134,6 @@ export async function POST() {
       message: "Reembolso procesado correctamente. El dinero será acreditado en tu método de pago original en los próximos días hábiles.",
       refundId: refundResult.refundId,
       amount: refundResult.amount,
-      newPlan: PLANS.FREE,
     });
   } catch (error) {
     console.error("Error processing refund:", error);

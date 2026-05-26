@@ -381,3 +381,133 @@ export async function sendEmailVerification(data: {
     return { success: false, error };
   }
 }
+
+// ─── Suscripción ──────────────────────────────────────────────────────────────
+
+export async function sendSubscriptionActivated(data: {
+  email: string;
+  name: string;
+  planName: string;
+  nextBillingDate: string;
+}) {
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
+      to: data.email,
+      subject: `¡Tu plan ${data.planName} está activo! - MyStack`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #12b5a2 0%, #0ea5e9 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">¡Bienvenido al Plan ${data.planName}! 🎉</h1>
+            </div>
+            <div style="background: #f8f9fa; padding: 30px 20px; border-radius: 0 0 10px 10px;">
+              <p>Hola <strong>${data.name}</strong>,</p>
+              <p>Tu pago fue procesado correctamente. Ya tenés acceso a todas las funciones del plan <strong>${data.planName}</strong>.</p>
+              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #12b5a2;">
+                <p style="margin: 4px 0;"><strong>Plan:</strong> ${data.planName}</p>
+                <p style="margin: 4px 0;"><strong>Próximo cobro:</strong> ${data.nextBillingDate}</p>
+              </div>
+              <div style="text-align: center; margin: 25px 0;">
+                <a href="${process.env.NEXTAUTH_URL || "https://mystack.com.ar"}/dashboard/subscription"
+                   style="background: #12b5a2; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                  Ir a mi dashboard
+                </a>
+              </div>
+            </div>
+            <div style="text-align: center; padding: 16px; color: #999; font-size: 12px;"><p>MyStack - Sistema de Reservas Online</p></div>
+          </body>
+        </html>
+      `,
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error sending subscription activated email:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendSubscriptionPaymentFailed(data: {
+  email: string;
+  name: string;
+  planName: string;
+}) {
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
+      to: data.email,
+      subject: "Problema con tu pago - MyStack",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #dc2626; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">⚠️ Problema con tu pago</h1>
+            </div>
+            <div style="background: #f8f9fa; padding: 30px 20px; border-radius: 0 0 10px 10px;">
+              <p>Hola <strong>${data.name}</strong>,</p>
+              <p>No pudimos procesar el cobro de tu plan <strong>${data.planName}</strong>. MercadoPago reintentará el cobro automáticamente.</p>
+              <p>Para evitar interrupciones en el servicio, verificá que tu método de pago esté vigente.</p>
+              <div style="text-align: center; margin: 25px 0;">
+                <a href="${process.env.NEXTAUTH_URL || "https://mystack.com.ar"}/dashboard/subscription"
+                   style="background: #dc2626; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                  Actualizar método de pago
+                </a>
+              </div>
+            </div>
+            <div style="text-align: center; padding: 16px; color: #999; font-size: 12px;"><p>MyStack - Sistema de Reservas Online</p></div>
+          </body>
+        </html>
+      `,
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error sending payment failed email:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendSubscriptionCancelled(data: {
+  email: string;
+  name: string;
+  planName: string;
+  accessUntil: string;
+}) {
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM || "MyStack <contacto@mystack.com.ar>",
+      to: data.email,
+      subject: "Suscripción cancelada - MyStack",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #64748b; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">Suscripción cancelada</h1>
+            </div>
+            <div style="background: #f8f9fa; padding: 30px 20px; border-radius: 0 0 10px 10px;">
+              <p>Hola <strong>${data.name}</strong>,</p>
+              <p>Cancelaste tu plan <strong>${data.planName}</strong>. Seguirás teniendo acceso completo hasta el <strong>${data.accessUntil}</strong>.</p>
+              <p>Podés reactivar tu plan en cualquier momento desde el dashboard.</p>
+              <div style="text-align: center; margin: 25px 0;">
+                <a href="${process.env.NEXTAUTH_URL || "https://mystack.com.ar"}/dashboard/subscription"
+                   style="background: #12b5a2; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                  Reactivar plan
+                </a>
+              </div>
+            </div>
+            <div style="text-align: center; padding: 16px; color: #999; font-size: 12px;"><p>MyStack - Sistema de Reservas Online</p></div>
+          </body>
+        </html>
+      `,
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error sending subscription cancelled email:", error);
+    return { success: false, error };
+  }
+}

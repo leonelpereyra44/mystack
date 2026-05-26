@@ -15,6 +15,30 @@ export const PLAN_LIMITS = {
 export type PlanType = keyof typeof PLAN_LIMITS;
 
 /**
+ * Resuelve el plan efectivo del negocio teniendo en cuenta:
+ * - ACTIVE → usa el plan contratado
+ * - CANCELLED con currentPeriodEnd en el futuro → el acceso se mantiene hasta que vence
+ * - TRIALING con más de 48 h sin confirmar pago → FREE (pago nunca se acreditó)
+ * - Cualquier otro estado (PAUSED, PAST_DUE, o CANCELLED vencido) → FREE
+ */
+export function resolveEffectivePlan(
+  status: string | undefined,
+  plan: string | undefined,
+  currentPeriodEnd: Date | null | undefined,
+  trialingStartedAt?: Date | null
+): PlanType {
+  if (status === "ACTIVE") return (plan ?? "FREE") as PlanType;
+  if (status === "CANCELLED" && currentPeriodEnd && new Date(currentPeriodEnd) > new Date()) {
+    return (plan ?? "FREE") as PlanType;
+  }
+  if (status === "TRIALING" && trialingStartedAt) {
+    const hoursElapsed = (Date.now() - new Date(trialingStartedAt).getTime()) / (1000 * 60 * 60);
+    if (hoursElapsed < 48) return (plan ?? "FREE") as PlanType;
+  }
+  return "FREE";
+}
+
+/**
  * Obtiene los límites reales del plan desde la BD.
  * Cae al fallback estático si no hay configuración.
  */
@@ -56,8 +80,12 @@ export async function canCreateReservation(businessId: string): Promise<{
     return { allowed: false, reason: "Negocio no encontrado" };
   }
 
-  // Solo aplica el plan pago si la suscripción está ACTIVA (no TRIALING, CANCELLED, etc.)
-  const plan = (business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE") as PlanType;
+  const plan = resolveEffectivePlan(
+    business.subscription?.status,
+    business.subscription?.plan,
+    business.subscription?.currentPeriodEnd,
+    business.subscription?.createdAt
+  );
   const limits = await getDynamicLimits(plan);
 
   // Si no hay límite de reservas (PRO o configurado como ilimitado)
@@ -124,8 +152,12 @@ export async function canCreateStaff(businessId: string): Promise<{
     return { allowed: false, reason: "Negocio no encontrado" };
   }
 
-  // Solo aplica el plan pago si la suscripción está ACTIVA
-  const plan = (business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE") as PlanType;
+  const plan = resolveEffectivePlan(
+    business.subscription?.status,
+    business.subscription?.plan,
+    business.subscription?.currentPeriodEnd,
+    business.subscription?.createdAt
+  );
   const limits = await getDynamicLimits(plan);
 
   // Si no hay límite de staff (ilimitado)
@@ -174,8 +206,12 @@ export async function getPlanUsage(businessId: string) {
     return null;
   }
 
-  // Solo aplica el plan pago si la suscripción está ACTIVA
-  const plan = (business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE") as PlanType;
+  const plan = resolveEffectivePlan(
+    business.subscription?.status,
+    business.subscription?.plan,
+    business.subscription?.currentPeriodEnd,
+    business.subscription?.createdAt
+  );
   const limits = await getDynamicLimits(plan);
 
   // Contar reservas del mes actual

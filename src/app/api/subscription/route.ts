@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createSubscription } from "@/lib/mercadopago";
 import { SubscriptionPlan } from "@prisma/client";
+import { resolveEffectivePlan } from "@/lib/plan-limits";
 
 const VALID_PLANS = Object.values(SubscriptionPlan);
 
@@ -69,12 +70,34 @@ export async function POST(request: Request) {
     }
 
     // Crear la suscripción en Mercado Pago con precio y nombre del plan
+    // Buscar promoción activa para este plan y aplicar descuento si hay una
+    const activePromo = await prisma.promotion.findFirst({
+      where: {
+        isActive: true,
+        appliesTo: { has: planKey as SubscriptionPlan },
+        startsAt: { lte: new Date() },
+        OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }],
+      },
+    });
+
+    let finalPrice = Number(planConfig.price);
+    let promoApplied: { id: string; name: string; originalPrice: number; discountedPrice: number } | null = null;
+
+    if (activePromo) {
+      const discount = Number(activePromo.discountValue);
+      const discounted = activePromo.discountType === "PERCENTAGE"
+        ? finalPrice - (finalPrice * discount) / 100
+        : Math.max(0, finalPrice - discount);
+      promoApplied = { id: activePromo.id, name: activePromo.name, originalPrice: finalPrice, discountedPrice: Math.round(discounted) };
+      finalPrice = Math.round(discounted);
+    }
+
     // El externalReference tiene formato "businessId:planKey" para que el webhook
     // sepa qué plan activar sin necesitar estado en la DB antes del pago
     const result = await createSubscription({
       payerEmail: session.user.email!,
       externalReference: `${business.id}:${planKey}`,
-      price: Number(planConfig.price),
+      price: finalPrice,
       reason: `MyStack ${planConfig.name}`,
     });
 
@@ -85,8 +108,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // NO actualizamos la DB aquí — el webhook de MP activa el plan al confirmar el pago.
-    // Guardamos solo el mpSubscriptionId para poder cancelar si el usuario lo solicita antes de pagar.
+    // Incrementar usedCount de la promo atomicamente si se aplicó
+    if (promoApplied) {
+      await prisma.promotion.update({
+        where: { id: promoApplied.id },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
+    // NO actualizamos el plan en DB aquí — el webhook de MP activa el plan al confirmar el pago.
+    // Guardamos el mpSubscriptionId para poder cancelar si el usuario lo solicita antes de pagar.
     await prisma.subscription.upsert({
       where: { businessId: business.id },
       create: {
@@ -105,6 +136,13 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       initPoint: result.initPoint,
+      ...(promoApplied && {
+        promotion: {
+          name: promoApplied.name,
+          originalPrice: promoApplied.originalPrice,
+          discountedPrice: promoApplied.discountedPrice,
+        },
+      }),
     });
   } catch (error) {
     console.error("Error creating subscription:", error);
@@ -139,8 +177,12 @@ export async function GET() {
       );
     }
 
-    // Solo aplica el plan pago si la suscripción está ACTIVA (no TRIALING, CANCELLED, etc.)
-    const plan = business.subscription?.status === "ACTIVE" ? business.subscription.plan : "FREE";
+    // Resuelve el plan efectivo considerando CANCELLED con período vigente
+    const plan = resolveEffectivePlan(
+      business.subscription?.status,
+      business.subscription?.plan,
+      business.subscription?.currentPeriodEnd
+    );
 
     // Obtener configuración real del plan desde la DB
     const planConfig = await prisma.planConfig.findFirst({

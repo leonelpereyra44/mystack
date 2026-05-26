@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { isReservedSlug } from "@/lib/reserved-slugs";
+import { isReservedSlug, RESERVED_SLUG_ERROR } from "@/lib/reserved-slugs";
 
 function generateSlug(name: string): string {
   return name
@@ -22,11 +22,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { businessName, businessType = "salon" } = await request.json();
+    const body = await request.json();
+    const { businessName, businessType = "salon" } = body;
 
-    if (!businessName?.trim()) {
+    if (
+      !businessName ||
+      typeof businessName !== "string" ||
+      businessName.trim().length < 2
+    ) {
       return NextResponse.json(
-        { error: "El nombre del negocio es requerido" },
+        { error: "El nombre del negocio debe tener al menos 2 caracteres" },
         { status: 400 }
       );
     }
@@ -44,10 +49,7 @@ export async function POST(request: Request) {
     let slug = generateSlug(businessName.trim());
 
     if (isReservedSlug(slug)) {
-      return NextResponse.json(
-        { error: "Ese nombre no está disponible, elegí otro" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: RESERVED_SLUG_ERROR }, { status: 400 });
     }
 
     let counter = 1;

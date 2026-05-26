@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { SubscriptionPlan } from "@prisma/client";
 import crypto from "crypto";
+import {
+  sendSubscriptionActivated,
+  sendSubscriptionPaymentFailed,
+} from "@/lib/email";
 
 // Verificar la firma del webhook de Mercado Pago
 function verifyWebhookSignature(
@@ -50,21 +54,21 @@ export async function POST(request: NextRequest) {
     const xSignature = request.headers.get("x-signature");
     const xRequestId = request.headers.get("x-request-id");
 
-    // Verificar la firma (solo en producción)
-    if (process.env.NODE_ENV === "production" && process.env.MERCADOPAGO_WEBHOOK_SECRET) {
+    // Verificar la firma (siempre en producción — rechazar si falta el secret)
+    if (process.env.NODE_ENV === "production") {
+      if (!process.env.MERCADOPAGO_WEBHOOK_SECRET) {
+        console.error("CRITICAL: MERCADOPAGO_WEBHOOK_SECRET not set in production. Rejecting webhook.");
+        return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+      }
       const isValid = verifyWebhookSignature(
         xSignature,
         xRequestId,
         body.data?.id || "",
         process.env.MERCADOPAGO_WEBHOOK_SECRET
       );
-
       if (!isValid) {
         console.error("Invalid webhook signature");
-        return NextResponse.json(
-          { error: "Invalid signature" },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
       }
     }
 
@@ -141,8 +145,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Actualizar la suscripción en la base de datos
-      // Si se cancela sin haber pagado nunca, volver el plan a FREE
-      const planToSet = subscriptionStatus === "CANCELLED" ? "FREE" : (actualPlan as SubscriptionPlan);
+      // Si se cancela: mantener el plan hasta que currentPeriodEnd caduque (plan-limits lo evalúa).
+      // Si NO hay currentPeriodEnd, bajar a FREE de inmediato.
+      const planToSet = subscriptionStatus === "CANCELLED"
+        ? (actualPlan as SubscriptionPlan) // plan-limits degradará cuando venza
+        : (actualPlan as SubscriptionPlan);
       const pausedAt = subscriptionStatus === "PAUSED" ? new Date() : null;
 
       await prisma.subscription.upsert({
@@ -201,32 +208,70 @@ export async function POST(request: NextRequest) {
             businessId = ref;
           }
 
-          // Obtener el plan real: del externalReference o de la DB como fallback
-          let planToActivate: string;
-          if (planKeyFromRef) {
-            planToActivate = planKeyFromRef;
-          } else {
-            const sub = await prisma.subscription.findFirst({
-              where: { businessId },
-              select: { plan: true },
-            });
-            planToActivate = sub?.plan ?? "PRO";
-          }
-
-          await prisma.subscription.update({
+          // Un solo fetch: plan fallback + idempotencia
+          const existingSub = await prisma.subscription.findFirst({
             where: { businessId },
-            data: {
-              plan: planToActivate as SubscriptionPlan,
-              status: "ACTIVE",
-              lastPaymentId: paymentId.toString(),
-              // Usar next_payment_date de MP si está disponible; fallback a +30 días
-              currentPeriodEnd: payment.date_last_updated
-                ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            },
+            select: { lastPaymentId: true, plan: true },
           });
 
-          console.log(`Payment processed: business=${businessId}, plan=${planToActivate}, paymentId=${paymentId}`);
+          // Idempotencia: si este paymentId ya fue procesado, ignorar el webhook duplicado
+          if (existingSub?.lastPaymentId === paymentId.toString()) {
+            console.log(`Payment ${paymentId} already processed for business ${businessId}, skipping duplicate webhook`);
+          } else {
+            const planToActivate = planKeyFromRef ?? existingSub?.plan ?? "PRO";
+
+            await prisma.subscription.upsert({
+              where: { businessId },
+              create: {
+                businessId,
+                plan: planToActivate as SubscriptionPlan,
+                status: "ACTIVE",
+                lastPaymentId: paymentId.toString(),
+                currentPeriodEnd: payment.date_last_updated
+                  ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
+                  : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              },
+              update: {
+                plan: planToActivate as SubscriptionPlan,
+                status: "ACTIVE",
+                lastPaymentId: paymentId.toString(),
+                // Usar next_payment_date de MP si está disponible; fallback a +30 días
+                currentPeriodEnd: payment.date_last_updated
+                  ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
+                  : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              },
+            });
+
+            console.log(`Payment processed: business=${businessId}, plan=${planToActivate}, paymentId=${paymentId}`);
+
+            // Email de confirmación al dueño del negocio
+            try {
+              const business = await prisma.business.findUnique({
+                where: { id: businessId },
+                select: {
+                  owner: { select: { email: true, name: true } },
+                  subscription: { select: { currentPeriodEnd: true } },
+                },
+              });
+              const planConfig = await prisma.planConfig.findFirst({
+                where: { plan: planToActivate as SubscriptionPlan },
+                select: { name: true },
+              });
+              if (business?.owner.email) {
+                const nextDate = business.subscription?.currentPeriodEnd
+                  ? new Date(business.subscription.currentPeriodEnd).toLocaleDateString("es-AR")
+                  : "—";
+                await sendSubscriptionActivated({
+                  email: business.owner.email,
+                  name: business.owner.name ?? "usuario",
+                  planName: planConfig?.name ?? planToActivate,
+                  nextBillingDate: nextDate,
+                });
+              }
+            } catch (emailErr) {
+              console.error("Error sending subscription activated email:", emailErr);
+            }
+          }
         }
 
         // Pago rechazado → marcar como PAST_DUE

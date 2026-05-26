@@ -13,6 +13,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
       name: "credentials",
@@ -54,14 +55,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     ...authConfig.callbacks,
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
         // Credentials provider attaches role directly on the user object.
         // OAuth providers don't — fetch role from DB instead.
-        const credentialsRole = (user as { role?: string }).role;
-        if (credentialsRole) {
-          token.role = credentialsRole;
+        const directRole = (user as { role?: string }).role;
+        if (directRole) {
+          token.role = directRole;
         } else {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id as string },
@@ -70,12 +71,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.role = dbUser?.role ?? "BUSINESS_OWNER";
         }
       }
+
+      if (account?.provider === "google" && token.id) {
+        const businessCount = await prisma.business.count({
+          where: { ownerId: token.id as string },
+        });
+        token.needsOnboarding = businessCount === 0;
+      }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
         (session.user as { role?: string }).role = token.role as string;
+        (session.user as { needsOnboarding?: boolean }).needsOnboarding =
+          token.needsOnboarding as boolean | undefined;
       }
       return session;
     },

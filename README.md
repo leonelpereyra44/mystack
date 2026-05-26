@@ -29,9 +29,12 @@ Cada negocio tiene su página pública en: `mystack.com.ar/nombre-del-negocio`
 
 ### Monetización
 - ✅ Plan Gratuito: 150 reservas/mes, 1 profesional
-- ✅ Plan Profesional ($15.000 ARS/mes): Ilimitado
+- ✅ Plan Profesional ($15.000 ARS/mes): ilimitado
 - ✅ Pagos con Mercado Pago (suscripciones recurrentes)
-- ✅ Webhooks para sincronización de pagos
+- ✅ Webhooks para sincronización de pagos y estados
+- ✅ Ciclo de vida completo: ACTIVE → PAUSED → CANCELLED → PAST_DUE
+- ✅ Upgrade/downgrade de plan sin cancelar manualmente
+- ✅ Reembolso por derecho de arrepentimiento (Ley 24.240, 10 días)
 - ✅ Avisos de límite de reservas (al 80%)
 
 ### SEO y Marketing
@@ -42,12 +45,12 @@ Cada negocio tiene su página pública en: `mystack.com.ar/nombre-del-negocio`
 - ✅ robots.txt
 
 ### Próximamente
-- [ ] Recordatorios automáticos por email (24h antes)
 - [ ] Recordatorios por WhatsApp
 - [ ] Integración con Google Calendar
-- [ ] Reportes y estadísticas avanzadas
+- [ ] Lista de clientes con historial
+- [ ] Reseñas de clientes
 - [ ] Dominio personalizado
-- [ ] App móvil
+- [ ] App móvil / PWA
 
 ## 🛠️ Tech Stack
 
@@ -59,6 +62,8 @@ Cada negocio tiene su página pública en: `mystack.com.ar/nombre-del-negocio`
 - **Styling**: Tailwind CSS + shadcn/ui
 - **Email**: Resend
 - **Payments**: Mercado Pago
+- **Rate Limiting**: Upstash Redis
+- **Testing**: Vitest (125 tests / 9 suites)
 - **Hosting**: Vercel
 
 ## 📦 Instalación
@@ -132,7 +137,10 @@ src/
 │   │   ├── appointments/ # CRUD turnos
 │   │   ├── services/     # CRUD servicios
 │   │   ├── staff/        # CRUD equipo
-│   │   └── business/     # Config negocio
+│   │   ├── business/     # Config negocio
+│   │   ├── subscription/ # Suscripciones (upgrade, cancel, refund)
+│   │   ├── webhooks/     # Webhooks Mercado Pago
+│   │   └── cron/         # Tareas programadas
 │   ├── dashboard/        # Panel de admin
 │   │   ├── appointments/ # Gestión de turnos
 │   │   ├── services/     # Gestión de servicios
@@ -150,7 +158,11 @@ src/
 ├── lib/
 │   ├── auth.ts           # Config NextAuth
 │   ├── prisma.ts         # Cliente Prisma
+│   ├── mercadopago.ts    # Integración MP (suscripciones, refunds)
+│   ├── email.ts          # Emails con Resend
+│   ├── rate-limit.ts     # Rate limiting (Upstash)
 │   └── utils.ts          # Utilidades
+├── __tests__/            # Tests unitarios e integración
 └── types/                # TypeScript types
 ```
 
@@ -161,6 +173,7 @@ npm run dev      # Desarrollo
 npm run build    # Build producción
 npm run start    # Iniciar producción
 npm run lint     # Linter
+npm test         # Tests (Vitest)
 ```
 
 ## 📝 Licencia
