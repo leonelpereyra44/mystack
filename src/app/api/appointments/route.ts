@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { addMinutes, format, isToday } from "date-fns";
 import { es } from "date-fns/locale";
@@ -423,6 +424,11 @@ function timeToMinutes(time: string): number {
 
 export async function GET(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get("businessId");
 
@@ -433,8 +439,20 @@ export async function GET(request: Request) {
       );
     }
 
+    // Verify the authenticated user owns this business
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, ownerId: session.user.id },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+
     const appointments = await prisma.appointment.findMany({
-      where: { businessId },
+      where: { businessId: business.id },
       include: {
         service: true,
         staff: true,
