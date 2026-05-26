@@ -37,7 +37,7 @@ export default function TerminosPage() {
           <h2 className="text-lg font-semibold mt-0 mb-3">1. Identificación del Proveedor</h2>
           <p className="text-muted-foreground mb-0">
             MyStack es una plataforma de gestión de turnos y reservas operada en la República Argentina. 
-            Para consultas puede contactarnos a través del correo electrónico: <strong>soporte@mystack.com</strong>
+            Para consultas puede contactarnos a través del correo electrónico: <strong>contacto@mystack.com.ar</strong>
           </p>
         </section>
 
@@ -186,7 +186,7 @@ export default function TerminosPage() {
             negociación directa. El usuario puede realizar reclamos a través de:
           </p>
           <ul>
-            <li>Correo electrónico: soporte@mystack.com</li>
+            <li>Correo electrónico: contacto@mystack.com.ar</li>
             <li>
               <strong>Dirección Nacional de Defensa del Consumidor:</strong> Av. Julio A. Roca 651, 
               Planta Baja, Sector 3 - CABA - Tel: 0800-666-1518 - 
@@ -232,40 +232,6 @@ export default function TerminosPage() {
             de cualquier derecho no implica renuncia al mismo.
           </p>
         </article>
-
-        {/* Resumen de derechos */}
-        <div className="mt-8 rounded-xl border-2 border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">Resumen de Derechos del Consumidor</h3>
-          </div>
-          <ul className="grid sm:grid-cols-2 gap-2 text-sm text-green-800 dark:text-green-200">
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Derecho de arrepentimiento: 10 días
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Información clara sobre precios
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Protección de datos (Ley 25.326)
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Acceso a defensa del consumidor
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Notificación de cambios: 30 días
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Factura electrónica (AFIP)
-            </li>
-          </ul>
-        </div>
 
         {/* Links a otras políticas */}
         <div className="mt-6 p-4 rounded-lg border bg-muted/30">

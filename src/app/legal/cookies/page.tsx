@@ -243,36 +243,9 @@ export default function CookiesPage() {
             de seguimiento, puede contactarnos:
           </p>
           <ul>
-            <li><strong>Email:</strong> privacidad@mystack.com</li>
-            <li><strong>Email general:</strong> soporte@mystack.com</li>
+            <li><strong>Email:</strong> contacto@mystack.com.ar</li>
           </ul>
         </article>
-
-        {/* Resumen */}
-        <div className="mt-8 rounded-xl border-2 border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">Resumen</h3>
-          </div>
-          <ul className="grid sm:grid-cols-2 gap-2 text-sm text-green-800 dark:text-green-200">
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Cookies esenciales para funcionar
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              No vendemos datos de cookies
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Gestiona cookies en tu navegador
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Análisis requiere consentimiento
-            </li>
-          </ul>
-        </div>
 
         {/* Links a otras políticas */}
         <div className="mt-6 p-4 rounded-lg border bg-muted/30">

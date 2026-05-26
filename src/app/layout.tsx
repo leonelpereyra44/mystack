@@ -3,7 +3,7 @@ import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
-import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { CookieConsentManager } from "@/components/cookies";
 import { Analytics } from "@vercel/analytics/next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -140,14 +140,12 @@ export default async function RootLayout({
 
   return (
     <html lang="es">
-      <head>
-        <GoogleAnalytics />
-      </head>
       <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>
         <SessionProvider>
           {children}
           <Toaster />
           <Analytics />
+          <CookieConsentManager />
         </SessionProvider>
       </body>
     </html>

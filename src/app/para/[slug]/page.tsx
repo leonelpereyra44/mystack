@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   Sparkles,
+  Instagram,
 } from "lucide-react";
 import { LottiePlayer } from "@/components/ui/lottie-player";
 import { RUBRO_PAGES, RUBRO_SLUGS } from "@/lib/rubro-seo-data";
@@ -552,6 +553,15 @@ export default async function RubroPage({
                 <p className="text-sm text-slate-600">
                   La plataforma de reservas más simple para tu negocio.
                 </p>
+                <a
+                  href="https://www.instagram.com/mystack.com.ar/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-[oklch(0.65_0.14_175)] transition-colors"
+                >
+                  <Instagram className="h-4 w-4" />
+                  @mystack.com.ar
+                </a>
               </div>
               <div>
                 <h4 className="font-semibold text-slate-900 mb-4">Producto</h4>
