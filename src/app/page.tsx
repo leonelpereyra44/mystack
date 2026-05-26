@@ -22,6 +22,7 @@ import {
   Briefcase,
   Camera,
   Music,
+  Instagram,
 } from "lucide-react";
 
 // FAQ Item Component
@@ -646,6 +647,17 @@ export default function HomePage() {
                   <Link href="/contacto" className="hover:text-[oklch(0.65_0.14_175)]">
                     Formulario de Contacto
                   </Link>
+                </li>
+                <li>
+                  <a
+                    href="https://www.instagram.com/mystack.com.ar/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 hover:text-[oklch(0.65_0.14_175)] transition-colors"
+                  >
+                    <Instagram className="h-4 w-4" />
+                    @mystack.com.ar
+                  </a>
                 </li>
               </ul>
             </div>

@@ -40,8 +40,7 @@ export default function PrivacidadPage() {
             de sus datos personales.
           </p>
           <ul className="text-muted-foreground mb-0">
-            <li><strong>Correo electrónico:</strong> privacidad@mystack.com</li>
-            <li><strong>Correo electrónico general:</strong> soporte@mystack.com</li>
+            <li><strong>Correo electrónico:</strong> contacto@mystack.com.ar</li>
           </ul>
         </section>
 
@@ -191,7 +190,7 @@ export default function PrivacidadPage() {
           </p>
           <p>
             <strong>Cómo ejercer sus derechos:</strong> Envíe un correo a{" "}
-            <strong>privacidad@mystack.com</strong> indicando su nombre completo, correo 
+            <strong>contacto@mystack.com.ar</strong> indicando su nombre completo, correo 
             electrónico registrado y el derecho que desea ejercer.
           </p>
 
@@ -280,44 +279,9 @@ export default function PrivacidadPage() {
             Para consultas sobre esta Política de Privacidad o el tratamiento de sus datos:
           </p>
           <ul>
-            <li><strong>Email privacidad:</strong> privacidad@mystack.com</li>
-            <li><strong>Email general:</strong> soporte@mystack.com</li>
+            <li><strong>Email:</strong> contacto@mystack.com.ar</li>
           </ul>
         </article>
-
-        {/* Resumen de derechos ARCO */}
-        <div className="mt-8 rounded-xl border-2 border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">Sus Derechos ARCO (Ley 25.326)</h3>
-          </div>
-          <ul className="grid sm:grid-cols-2 gap-3 text-sm text-green-800 dark:text-green-200">
-            <li className="flex items-start gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 shrink-0" />
-              <span><strong>Acceso:</strong> Conocer qué datos tenemos</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 shrink-0" />
-              <span><strong>Rectificación:</strong> Corregir datos incorrectos</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 shrink-0" />
-              <span><strong>Cancelación:</strong> Solicitar eliminación</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 shrink-0" />
-              <span><strong>Oposición:</strong> Oponerse al tratamiento</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 shrink-0" />
-              <span><strong>Plazo:</strong> 10 días corridos de respuesta</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 shrink-0" />
-              <span><strong>Autoridad:</strong> AAIP - Protección de Datos</span>
-            </li>
-          </ul>
-        </div>
 
         {/* Links a otras políticas */}
         <div className="mt-6 p-4 rounded-lg border bg-muted/30">

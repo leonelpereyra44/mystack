@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, FileText, Shield, Cookie } from "lucide-react";
+import { ArrowLeft, FileText, Shield, Cookie, Instagram } from "lucide-react";
 
 const legalPages = [
   {
@@ -82,6 +82,15 @@ export default function LegalLayout({
                 >
                   contacto@mystack.com.ar
                 </a>
+                <a
+                  href="https://www.instagram.com/mystack.com.ar/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Instagram className="h-3.5 w-3.5" />
+                  @mystack.com.ar
+                </a>
               </div>
             </div>
           </aside>
@@ -108,6 +117,16 @@ export default function LegalLayout({
                   {page.label}
                 </Link>
               ))}
+              <a
+                href="https://www.instagram.com/mystack.com.ar/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+                aria-label="Instagram de MyStack"
+              >
+                <Instagram className="h-4 w-4" />
+                Instagram
+              </a>
             </div>
           </div>
         </div>
