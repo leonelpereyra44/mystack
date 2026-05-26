@@ -17,12 +17,16 @@ export const authConfig: NextAuthConfig = {
       const isOnDashboard = nextUrl.pathname.startsWith("/dashboard");
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
-      const isOnRegister = nextUrl.pathname.startsWith("/register");
       const isOnInvalidSession = nextUrl.pathname.startsWith("/invalid-session");
-      const isOnAuth = isOnLogin || isOnRegister;
+      const isOnOnboarding = nextUrl.pathname.startsWith("/onboarding");
 
       // Permitir /invalid-session siempre (necesario para limpiar sesiones corruptas)
       if (isOnInvalidSession) return true;
+
+      // /onboarding requiere autenticación (redirigir a login si no logueado)
+      if (!isLoggedIn && isOnOnboarding) {
+        return Response.redirect(new URL("/login", nextUrl));
+      }
 
       // Si está logueado y va a login/register, redirigir según rol
       // Si viene con callbackUrl=/admin, dejar pasar para que pueda

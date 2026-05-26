@@ -314,6 +314,31 @@ export async function POST(request: Request) {
       throw txError;
     }
 
+    // Upsert client record (background, fire-and-forget)
+    // Mantiene el directorio de clientes actualizado sin bloquear la respuesta
+    waitUntil(
+      prisma.client
+        .upsert({
+          where: {
+            businessId_email: {
+              businessId,
+              email: customerEmail.toLowerCase(),
+            },
+          },
+          update: {
+            name: customerName,
+            phone: customerPhone || undefined,
+          },
+          create: {
+            businessId,
+            email: customerEmail.toLowerCase(),
+            name: customerName,
+            phone: customerPhone || null,
+          },
+        })
+        .catch(console.error)
+    );
+
     // Send pending confirmation email (background, kept alive via waitUntil)
     waitUntil(sendAppointmentPendingConfirmation({
       customerName,

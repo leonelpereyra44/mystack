@@ -19,6 +19,7 @@ import {
   Store,
   CalendarCog,
   UserCog,
+  ContactRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ export function MobileNav({ business, user }: MobileNavProps) {
     { href: "/dashboard/services", icon: Briefcase, label: "Servicios" },
     { href: "/dashboard/staff", icon: Users, label: "Equipo" },
     { href: "/dashboard/schedule", icon: Clock, label: "Horarios" },
+    { href: "/dashboard/clients", icon: ContactRound, label: "Clientes" },
     { href: "/dashboard/analytics", icon: BarChart3, label: "Reportes" },
     { href: "/dashboard/business", icon: Store, label: "Mi Negocio" },
     { href: "/dashboard/booking", icon: CalendarCog, label: "Reservas" },

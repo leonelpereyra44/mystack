@@ -22,7 +22,7 @@ export default async function DashboardLayout({
   });
 
   if (!business) {
-    redirect("/invalid-session");
+    redirect("/onboarding");
   }
 
   return (
