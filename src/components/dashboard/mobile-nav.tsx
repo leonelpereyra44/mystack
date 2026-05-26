@@ -18,6 +18,7 @@ import {
   Store,
   CalendarCog,
   UserCog,
+  ContactRound,
   CreditCard,
   ChevronDown,
 } from "lucide-react";
@@ -62,6 +63,7 @@ export function MobileNav({ business, user }: MobileNavProps) {
     { href: "/dashboard/services", icon: Briefcase, label: "Servicios" },
     { href: "/dashboard/staff", icon: Users, label: "Equipo" },
     { href: "/dashboard/schedule", icon: Clock, label: "Horarios" },
+    { href: "/dashboard/clients", icon: ContactRound, label: "Clientes" },
     { href: "/dashboard/analytics", icon: BarChart3, label: "Reportes" },
     { href: "/dashboard/business", icon: Store, label: "Mi Negocio" },
     { href: "/dashboard/booking", icon: CalendarCog, label: "Reservas" },

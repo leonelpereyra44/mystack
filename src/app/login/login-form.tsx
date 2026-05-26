@@ -331,7 +331,6 @@ export function LoginForm({ isMaintenance }: { isMaintenance: boolean }) {
             )}
             Continuar con Google
           </Button>
-
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
               ¿No tienes una cuenta?{" "}

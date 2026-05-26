@@ -19,18 +19,23 @@ export const authConfig: NextAuthConfig = {
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
       const isOnRegister = nextUrl.pathname.startsWith("/register");
-      const isOnOnboarding = nextUrl.pathname.startsWith("/register/business");
+      const isOnBusinessOnboarding = nextUrl.pathname.startsWith("/register/business");
       const isOnInvalidSession = nextUrl.pathname.startsWith("/invalid-session");
-      const isOnAuth = isOnLogin || isOnRegister;
+      const isOnOnboarding = nextUrl.pathname.startsWith("/onboarding");
+      const isOnAnyOnboarding = isOnBusinessOnboarding || isOnOnboarding;
 
       // Permitir /invalid-session siempre (necesario para limpiar sesiones corruptas)
       if (isOnInvalidSession) return true;
 
-      // Permitir /register/business siempre que esté logueado (paso de onboarding OAuth)
-      if (isLoggedIn && isOnOnboarding) return true;
+      // Onboarding requiere autenticación
+      if (!isLoggedIn && isOnAnyOnboarding) {
+        return Response.redirect(new URL("/login", nextUrl));
+      }
+
+      if (isLoggedIn && isOnAnyOnboarding) return true;
 
       // Si el usuario de Google no tiene negocio aún, redirigir al onboarding
-      if (isLoggedIn && needsOnboarding && !isOnOnboarding) {
+      if (isLoggedIn && needsOnboarding && !isOnAnyOnboarding) {
         return Response.redirect(new URL("/register/business", nextUrl));
       }
 
@@ -39,8 +44,7 @@ export const authConfig: NextAuthConfig = {
       // cerrar sesión y loguearse con cuenta admin
       const callbackUrl = nextUrl.searchParams.get("callbackUrl") ?? "";
       const wantsAdmin = callbackUrl.includes("/admin");
-      // Permitir /register aunque esté logueado (puede que no tenga negocio aún)
-      if (isLoggedIn && isOnLogin && !wantsAdmin) {
+      if (isLoggedIn && (isOnLogin || isOnRegister) && !wantsAdmin) {
         if (isAdmin) {
           return Response.redirect(new URL("/admin", nextUrl));
         }

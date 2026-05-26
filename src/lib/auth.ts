@@ -56,29 +56,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     ...authConfig.callbacks,
     async jwt({ token, user, account }) {
-      // En login inicial, user está presente
       if (user) {
         token.id = user.id;
-        token.role = (user as { role?: string }).role;
+        // Credentials provider attaches role directly on the user object.
+        // OAuth providers don't — fetch role from DB instead.
+        const directRole = (user as { role?: string }).role;
+        if (directRole) {
+          token.role = directRole;
+        } else {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id as string },
+            select: { role: true },
+          });
+          token.role = dbUser?.role ?? "BUSINESS_OWNER";
+        }
       }
 
-      // Para usuarios OAuth: si no tenemos el role en el token, lo buscamos en DB
-      if (account?.provider === "google" && token.id && !token.role) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { role: true },
-        });
-        token.role = dbUser?.role;
-      }
-
-      // Detectar si el usuario de Google necesita crear su negocio
       if (account?.provider === "google" && token.id) {
         const businessCount = await prisma.business.count({
           where: { ownerId: token.id as string },
         });
         token.needsOnboarding = businessCount === 0;
       }
-
       return token;
     },
     async session({ session, token }) {

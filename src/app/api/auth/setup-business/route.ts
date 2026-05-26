@@ -15,75 +15,83 @@ function generateSlug(name: string): string {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
+  try {
+    const session = await auth();
 
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
 
-  // Verificar que el usuario realmente no tiene negocio (evitar duplicados)
-  const existingBusiness = await prisma.business.findFirst({
-    where: { ownerId: session.user.id },
-  });
+    const body = await request.json();
+    const { businessName, businessType = "salon" } = body;
 
-  if (existingBusiness) {
-    return NextResponse.json(
-      { error: "Ya tienes un negocio registrado" },
-      { status: 400 }
-    );
-  }
+    if (
+      !businessName ||
+      typeof businessName !== "string" ||
+      businessName.trim().length < 2
+    ) {
+      return NextResponse.json(
+        { error: "El nombre del negocio debe tener al menos 2 caracteres" },
+        { status: 400 }
+      );
+    }
 
-  const body = await request.json();
-  const { businessName, businessType = "salon" } = body;
+    // Idempotency: if user already has a business, return it
+    const existing = await prisma.business.findFirst({
+      where: { ownerId: session.user.id },
+    });
 
-  if (!businessName || typeof businessName !== "string" || businessName.trim().length < 2) {
-    return NextResponse.json(
-      { error: "El nombre del negocio debe tener al menos 2 caracteres" },
-      { status: 400 }
-    );
-  }
+    if (existing) {
+      return NextResponse.json({ business: existing });
+    }
 
-  let slug = generateSlug(businessName.trim());
+    // Generate unique slug
+    let slug = generateSlug(businessName.trim());
 
-  if (isReservedSlug(slug)) {
-    return NextResponse.json({ error: RESERVED_SLUG_ERROR }, { status: 400 });
-  }
+    if (isReservedSlug(slug)) {
+      return NextResponse.json({ error: RESERVED_SLUG_ERROR }, { status: 400 });
+    }
 
-  let slugExists = await prisma.business.findUnique({ where: { slug } });
-  let counter = 1;
-  while (slugExists) {
-    slug = `${generateSlug(businessName.trim())}-${counter}`;
-    slugExists = await prisma.business.findUnique({ where: { slug } });
-    counter++;
-  }
+    let counter = 1;
+    while (await prisma.business.findUnique({ where: { slug } })) {
+      slug = `${generateSlug(businessName.trim())}-${counter}`;
+      counter++;
+    }
 
-  await prisma.business.create({
-    data: {
-      name: businessName.trim(),
-      slug,
-      businessType,
-      ownerId: session.user.id,
-      schedules: {
-        createMany: {
-          data: [
-            { dayOfWeek: 1, openTime: "09:00", closeTime: "18:00", isOpen: true },
-            { dayOfWeek: 2, openTime: "09:00", closeTime: "18:00", isOpen: true },
-            { dayOfWeek: 3, openTime: "09:00", closeTime: "18:00", isOpen: true },
-            { dayOfWeek: 4, openTime: "09:00", closeTime: "18:00", isOpen: true },
-            { dayOfWeek: 5, openTime: "09:00", closeTime: "18:00", isOpen: true },
-            { dayOfWeek: 6, openTime: "09:00", closeTime: "14:00", isOpen: true },
-            { dayOfWeek: 0, openTime: "09:00", closeTime: "18:00", isOpen: false },
-          ],
+    const business = await prisma.business.create({
+      data: {
+        name: businessName.trim(),
+        slug,
+        businessType,
+        ownerId: session.user.id,
+        schedules: {
+          createMany: {
+            data: [
+              { dayOfWeek: 1, openTime: "09:00", closeTime: "18:00", isOpen: true },
+              { dayOfWeek: 2, openTime: "09:00", closeTime: "18:00", isOpen: true },
+              { dayOfWeek: 3, openTime: "09:00", closeTime: "18:00", isOpen: true },
+              { dayOfWeek: 4, openTime: "09:00", closeTime: "18:00", isOpen: true },
+              { dayOfWeek: 5, openTime: "09:00", closeTime: "18:00", isOpen: true },
+              { dayOfWeek: 6, openTime: "09:00", closeTime: "14:00", isOpen: true },
+              { dayOfWeek: 0, openTime: "09:00", closeTime: "18:00", isOpen: false },
+            ],
+          },
+        },
+        subscription: {
+          create: {
+            plan: "FREE",
+            status: "ACTIVE",
+          },
         },
       },
-      subscription: {
-        create: {
-          plan: "FREE",
-          status: "ACTIVE",
-        },
-      },
-    },
-  });
+    });
 
-  return NextResponse.json({ success: true, slug });
+    return NextResponse.json({ business }, { status: 201 });
+  } catch (error) {
+    console.error("setup-business error:", error);
+    return NextResponse.json(
+      { error: "Error al crear el negocio" },
+      { status: 500 }
+    );
+  }
 }
