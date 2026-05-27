@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { format, addDays, subDays, isToday as dateFnsIsToday } from "date-fns";
 import { es } from "date-fns/locale";
@@ -10,6 +10,7 @@ import {
   Clock,
   Calendar as CalendarIcon,
   User,
+  Users,
   CheckCircle,
   XCircle,
   RotateCcw,
@@ -167,6 +168,7 @@ interface AppointmentsStaffGridProps {
   appointments: Appointment[];
   staff: StaffMember[];
   schedules: BusinessSchedule[];
+  bookingInterval?: number;
   onDuplicate?: (apt: Appointment) => void;
 }
 
@@ -184,6 +186,71 @@ const MODAL_STATUS_CONFIG = {
   RESCHEDULED_PENDING:  { label: "Reprogramado · Pendiente",  textColor: "text-purple-600 dark:text-purple-400",   icon: CalendarClock },
   RESCHEDULED_CONFIRMED: { label: "Reprogramado · Confirmado", textColor: "text-purple-700 dark:text-purple-400",   icon: CalendarClock },
 };
+
+// Beyond this many concurrent appointments, collapse to an aggregate card
+const MAX_LANES = 3;
+
+// ── Lane assignment for overlapping appointments ──────────────────────────
+
+function timeToMin(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Assigns each appointment a horizontal lane so overlapping appointments
+ * are rendered side-by-side instead of on top of each other.
+ * Returns a map of id → { laneIdx, totalLanes }.
+ */
+function assignLanes(
+  apts: Appointment[]
+): Map<string, { laneIdx: number; totalLanes: number }> {
+  const laneMap = new Map<string, number>(); // id → lane index
+
+  // Process in start-time order
+  const sorted = [...apts].sort(
+    (a, b) => timeToMin(a.startTime) - timeToMin(b.startTime)
+  );
+
+  for (const apt of sorted) {
+    const start = timeToMin(apt.startTime);
+    const end = start + apt.service.duration;
+
+    // Collect lanes already taken by overlapping appointments
+    const usedLanes = new Set<number>();
+    for (const [otherId, otherLane] of laneMap) {
+      const other = apts.find((a) => a.id === otherId)!;
+      const oStart = timeToMin(other.startTime);
+      const oEnd = oStart + other.service.duration;
+      if (start < oEnd && end > oStart) usedLanes.add(otherLane);
+    }
+
+    // First free lane
+    let lane = 0;
+    while (usedLanes.has(lane)) lane++;
+    laneMap.set(apt.id, lane);
+  }
+
+  // totalLanes for each appointment = highest lane index in its overlap group + 1
+  const result = new Map<string, { laneIdx: number; totalLanes: number }>();
+  for (const apt of apts) {
+    const start = timeToMin(apt.startTime);
+    const end = start + apt.service.duration;
+    let maxLane = laneMap.get(apt.id) ?? 0;
+    for (const [otherId, otherLane] of laneMap) {
+      const other = apts.find((a) => a.id === otherId)!;
+      const oStart = timeToMin(other.startTime);
+      const oEnd = oStart + other.service.duration;
+      if (start < oEnd && end > oStart) maxLane = Math.max(maxLane, otherLane);
+    }
+    result.set(apt.id, {
+      laneIdx: laneMap.get(apt.id) ?? 0,
+      totalLanes: maxLane + 1,
+    });
+  }
+
+  return result;
+}
 
 function getGridStatusConfig(apt: Appointment) {
   if (apt.rescheduledFromId) {
@@ -205,6 +272,7 @@ export function AppointmentsStaffGrid({
   appointments,
   staff,
   schedules,
+  bookingInterval = 60,
   onDuplicate,
 }: AppointmentsStaffGridProps) {
   const router = useRouter();
@@ -215,6 +283,7 @@ export function AppointmentsStaffGrid({
   const [isUpdating, setIsUpdating] = useState(false);
   const [draggedAptId, setDraggedAptId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [groupAppointments, setGroupAppointments] = useState<Appointment[] | null>(null);
 
   const dateKey = format(selectedDate, "yyyy-MM-dd");
   const isCurrentDay = dateFnsIsToday(selectedDate);
@@ -289,38 +358,42 @@ export function AppointmentsStaffGrid({
     [appointments, dateKey]
   );
 
-  // Determine hourly range: prefer configured business schedule for the day,
-  // fall back to appointment times, then 8–20 default.
+  // Determine time range in minutes: prefer configured business schedule for
+  // the day, fall back to appointment times, then 8:00–20:00 default.
   const timeRange = useMemo(() => {
     const dow = selectedDate.getDay(); // 0=Sun … 6=Sat
     const schedule = schedules.find((s) => s.dayOfWeek === dow && s.isOpen);
     if (schedule) {
-      const start = parseInt(schedule.openTime.split(":")[0]);
-      const closeHour = parseInt(schedule.closeTime.split(":")[0]);
-      const closeMin = parseInt(schedule.closeTime.split(":")[1]);
-      // If closeTime has minutes (e.g. "18:30"), include that partial hour
-      const end = closeMin > 0 ? closeHour + 1 : closeHour;
-      return { start, end };
+      const [startH, startM] = schedule.openTime.split(":").map(Number);
+      const [endH, endM] = schedule.closeTime.split(":").map(Number);
+      return { start: startH * 60 + startM, end: endH * 60 + endM };
     }
     // Fallback: derive from existing appointments
-    if (dayAppointments.length === 0) return { start: 8, end: 20 };
-    const startHours = dayAppointments.map((apt) =>
-      parseInt(apt.startTime.split(":")[0])
-    );
-    const endHours = dayAppointments.map((apt) => {
+    if (dayAppointments.length === 0) return { start: 8 * 60, end: 20 * 60 };
+    const starts = dayAppointments.map((apt) => {
+      const [h, m] = apt.startTime.split(":").map(Number);
+      return h * 60 + m;
+    });
+    const ends = dayAppointments.map((apt) => {
       const [h, m] = apt.endTime.split(":").map(Number);
-      return h + (m > 0 ? 1 : 0);
+      return h * 60 + m;
     });
     return {
-      start: Math.max(0, Math.min(...startHours)),
-      end: Math.min(23, Math.max(...endHours)),
+      start: Math.max(0, Math.min(...starts)),
+      end: Math.min(23 * 60 + 59, Math.max(...ends)),
     };
   }, [selectedDate, schedules, dayAppointments]);
 
-  const timeSlots = Array.from(
-    { length: Math.max(0, timeRange.end - timeRange.start) },
-    (_, i) => timeRange.start + i
-  );
+  // One slot per bookingInterval minutes
+  const timeSlots = useMemo(() => {
+    const slots: number[] = [];
+    let cur = timeRange.start;
+    while (cur < timeRange.end) {
+      slots.push(cur);
+      cur += bookingInterval;
+    }
+    return slots;
+  }, [timeRange, bookingInterval]);
 
   // Show "Sin asignar" column whenever there are unassigned appointments.
   const hasUnassigned = dayAppointments.some((apt) => !apt.staffId);
@@ -332,21 +405,10 @@ export function AppointmentsStaffGrid({
       : []),
   ];
 
-  // Index: `${staffId}_${hour}` → Appointment[]
-  const appointmentIndex = useMemo(() => {
-    const idx: Record<string, Appointment[]> = {};
-    dayAppointments.forEach((apt) => {
-      const staffKey = apt.staffId ?? "__none__";
-      const hour = parseInt(apt.startTime.split(":")[0]);
-      const key = `${staffKey}_${hour}`;
-      if (!idx[key]) idx[key] = [];
-      idx[key].push(apt);
-    });
-    return idx;
-  }, [dayAppointments]);
-
   const colWidth = 200;
   const timeColWidth = 72;
+  // Row height scales with interval so cards always have usable height
+  const ROW_HEIGHT = bookingInterval <= 30 ? 56 : bookingInterval <= 60 ? 64 : 80;
   const containerMinWidth = timeColWidth + staffColumns.length * colWidth;
 
   return (
@@ -435,58 +497,188 @@ export function AppointmentsStaffGrid({
               </div>
             )}
 
-            {/* ── Time slot rows ─── */}
-            {timeSlots.map((hour) => (
+            {/* ── Grid body: single CSS grid so appointment cards can span rows ─── */}
+            {timeSlots.length > 0 && (
               <div
-                key={hour}
-                className="grid border-b last:border-b-0 hover:bg-muted/10 transition-colors"
                 style={{
+                  display: "grid",
                   gridTemplateColumns: `${timeColWidth}px repeat(${staffColumns.length}, 1fr)`,
+                  gridTemplateRows: `repeat(${timeSlots.length}, ${ROW_HEIGHT}px)`,
                 }}
               >
-                {/* Time label — sticky left so it stays visible on horizontal scroll */}
-                <div className="px-3 py-2.5 flex items-start justify-end border-r sticky left-0 z-[5] bg-background">
-                  <span className="text-xs font-mono text-muted-foreground mt-0.5">
-                    {String(hour).padStart(2, "0")}:00
-                  </span>
-                </div>
+                {/* ── Time label column ─── */}
+                {timeSlots.map((slotMin, rowIdx) => (
+                  <div
+                    key={slotMin}
+                    className="px-3 flex items-start justify-end border-r border-b sticky left-0 z-[5] bg-background"
+                    style={{ gridColumn: 1, gridRow: rowIdx + 1 }}
+                  >
+                    <span className="text-xs font-mono text-muted-foreground mt-1.5">
+                      {String(Math.floor(slotMin / 60)).padStart(2, "0")}:{String(slotMin % 60).padStart(2, "0")}
+                    </span>
+                  </div>
+                ))}
 
-                {/* Staff cells */}
+                {/* ── Staff columns ─── */}
                 {staffColumns.map((member, colIdx) => {
-                  const cellApts = (
-                    appointmentIndex[`${member.id}_${hour}`] ?? []
-                  ).filter((a) => a.status !== "RESCHEDULED");
+                  // Pre-filter appointments for this column and compute lane layout
+                  const staffApts = dayAppointments.filter(
+                    (apt) =>
+                      (apt.staffId ?? "__none__") === member.id &&
+                      apt.status !== "RESCHEDULED"
+                  );
+                  const laneData = assignLanes(staffApts);
+
                   return (
-                    <div
-                      key={member.id}
-                      className={cn(
-                        "min-h-[80px] p-1.5 border-l space-y-1 transition-colors",
-                        colIdx % 2 === 1 ? "bg-muted/5" : "",
-                        dropTarget === member.id && "bg-blue-50 dark:bg-blue-950/30 ring-2 ring-inset ring-blue-300"
-                      )}
-                      onDragOver={(e) => { e.preventDefault(); setDropTarget(member.id); }}
-                      onDragLeave={() => setDropTarget(null)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setDropTarget(null);
-                        if (draggedAptId) {
-                          assignStaff(draggedAptId, member.id === "__none__" ? null : member.id);
-                          setDraggedAptId(null);
-                        }
-                      }}
-                    >
-                      {cellApts.length > 0 ? (
-                        cellApts.map((apt) => {
-                          const cfg = getGridStatusConfig(apt);
+                    <Fragment key={member.id}>
+                      {/* Background cells: grid lines + drag-and-drop targets */}
+                      {timeSlots.map((slotMin, rowIdx) => (
+                        <div
+                          key={`bg_${slotMin}`}
+                          className={cn(
+                            "border-b border-l transition-colors",
+                            colIdx % 2 === 1 ? "bg-muted/5" : "",
+                            dropTarget === member.id && "bg-blue-50 dark:bg-blue-950/30 ring-2 ring-inset ring-blue-300"
+                          )}
+                          style={{ gridColumn: colIdx + 2, gridRow: rowIdx + 1 }}
+                          onDragOver={(e) => { e.preventDefault(); setDropTarget(member.id); }}
+                          onDragLeave={() => setDropTarget(null)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setDropTarget(null);
+                            if (draggedAptId) {
+                              assignStaff(draggedAptId, member.id === "__none__" ? null : member.id);
+                              setDraggedAptId(null);
+                            }
+                          }}
+                        />
+                      ))}
+
+                      {/* Appointment cards — span rows by duration, split columns when overlapping */}
+                      {staffApts.map((apt) => {
+                        const { laneIdx, totalLanes } =
+                          laneData.get(apt.id) ?? { laneIdx: 0, totalLanes: 1 };
+
+                        const startMin = timeToMin(apt.startTime);
+                        const startRow =
+                          Math.round((startMin - timeRange.start) / bookingInterval) + 1;
+                        if (startRow < 1 || startRow > timeSlots.length) return null;
+
+                        const cfg = getGridStatusConfig(apt);
+
+                        // ── AGGREGATE MODE: 4+ concurrent → single summary card ──────────────
+                        if (totalLanes > MAX_LANES) {
+                          if (laneIdx !== 0) return null; // render once per group
+
+                          // All appointments that overlap with this one
+                          const groupApts = staffApts.filter((a) => {
+                            const aStart = timeToMin(a.startTime);
+                            const aEnd = aStart + a.service.duration;
+                            return (
+                              startMin < aEnd &&
+                              startMin + apt.service.duration > aStart
+                            );
+                          });
+
+                          const groupStartMin = Math.min(
+                            ...groupApts.map((a) => timeToMin(a.startTime))
+                          );
+                          const groupEndMin = Math.max(
+                            ...groupApts.map(
+                              (a) => timeToMin(a.startTime) + a.service.duration
+                            )
+                          );
+                          const aggStartRow =
+                            Math.round(
+                              (groupStartMin - timeRange.start) / bookingInterval
+                            ) + 1;
+                          const aggSpanRows = Math.max(
+                            1,
+                            Math.ceil((groupEndMin - groupStartMin) / bookingInterval)
+                          );
+
                           return (
-                            <button
+                            <div
                               key={apt.id}
+                              className="z-[6] p-[3px]"
+                              style={{
+                                gridColumn: colIdx + 2,
+                                gridRow: `${aggStartRow} / span ${aggSpanRows}`,
+                              }}
+                            >
+                              <button
+                                onClick={() => setGroupAppointments(groupApts)}
+                                className={cn(
+                                  "w-full h-full text-left rounded-md border px-2 py-1.5 text-xs",
+                                  "hover:brightness-95 dark:hover:brightness-110 transition-[filter] cursor-pointer",
+                                  cfg.cardCls
+                                )}
+                              >
+                                <div className="flex items-center gap-1 font-semibold mb-0.5">
+                                  <Users className="h-3 w-3 shrink-0" />
+                                  <span>{groupApts.length} turnos</span>
+                                  <span
+                                    className={cn(
+                                      "ml-auto shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-semibold leading-tight",
+                                      cfg.badgeCls
+                                    )}
+                                  >
+                                    {cfg.label}
+                                  </span>
+                                </div>
+                                <div
+                                  className={cn(
+                                    "truncate text-[11px] mb-1",
+                                    cfg.textCls
+                                  )}
+                                >
+                                  {apt.service.name}
+                                </div>
+                                <div className="space-y-px text-[10px] text-muted-foreground">
+                                  {groupApts.slice(0, 4).map((a) => (
+                                    <div key={a.id} className="truncate">
+                                      · {a.customerName}
+                                    </div>
+                                  ))}
+                                  {groupApts.length > 4 && (
+                                    <div>+{groupApts.length - 4} más</div>
+                                  )}
+                                </div>
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        // ── LANE MODE: 1–3 concurrent → side-by-side ──────────────────
+                        const spanRows = Math.max(
+                          1,
+                          Math.ceil(apt.service.duration / bookingInterval)
+                        );
+                        const laneWidth = 100 / totalLanes;
+                        const pl = laneIdx * laneWidth;
+                        const pr = (totalLanes - laneIdx - 1) * laneWidth;
+                        const isNarrow = totalLanes >= 2;
+
+                        return (
+                          <div
+                            key={apt.id}
+                            className="z-[6]"
+                            style={{
+                              gridColumn: colIdx + 2,
+                              gridRow: `${startRow} / span ${spanRows}`,
+                              paddingTop: "3px",
+                              paddingBottom: "3px",
+                              paddingLeft: `calc(${pl.toFixed(1)}% + 2px)`,
+                              paddingRight: `calc(${pr.toFixed(1)}% + 2px)`,
+                            }}
+                          >
+                            <button
                               draggable
                               onDragStart={() => setDraggedAptId(apt.id)}
                               onDragEnd={() => { setDraggedAptId(null); setDropTarget(null); }}
                               onClick={() => setSelectedAppointment(apt)}
                               className={cn(
-                                "w-full text-left rounded-md border px-2 py-1.5 text-xs",
+                                "w-full h-full text-left rounded-md border px-2 py-1.5 text-xs",
                                 "hover:brightness-95 dark:hover:brightness-110 transition-[filter] cursor-pointer",
                                 draggedAptId === apt.id && "opacity-50",
                                 cfg.cardCls
@@ -496,45 +688,104 @@ export function AppointmentsStaffGrid({
                                 <span className="font-semibold truncate leading-tight">
                                   {apt.customerName}
                                 </span>
-                                <span
-                                  className={cn(
-                                    "shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-semibold leading-tight whitespace-nowrap",
-                                    cfg.badgeCls
-                                  )}
-                                >
-                                  {cfg.label}
-                                </span>
-                              </div>
-                              <div
-                                className={cn(
-                                  "truncate text-[11px]",
-                                  cfg.textCls
+                                {!isNarrow && (
+                                  <span
+                                    className={cn(
+                                      "shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-semibold leading-tight whitespace-nowrap",
+                                      cfg.badgeCls
+                                    )}
+                                  >
+                                    {cfg.label}
+                                  </span>
                                 )}
-                              >
+                              </div>
+                              <div className={cn("truncate text-[11px]", cfg.textCls)}>
                                 {apt.service.name}
                               </div>
                               <div className="text-muted-foreground text-[10px] mt-0.5">
                                 {apt.startTime} – {apt.endTime}
                               </div>
                             </button>
-                          );
-                        })
-                      ) : (
-                        <div className="h-full min-h-[60px] rounded border border-dashed border-muted-foreground/15 flex items-center justify-center">
-                          <span className="text-[10px] text-muted-foreground/40 select-none">
-                            libre
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                          </div>
+                        );
+                      })}
+                    </Fragment>
                   );
                 })}
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
+      {/* ── Group appointments list dialog ────────────────── */}
+      <Dialog open={!!groupAppointments} onOpenChange={() => setGroupAppointments(null)}>
+        <DialogContent className="sm:max-w-lg">
+          {groupAppointments && (() => {
+            const first = groupAppointments[0];
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    {groupAppointments.length} turnos
+                  </DialogTitle>
+                  <DialogDescription>
+                    {first.service.name} · {first.startTime} – {first.endTime}
+                  </DialogDescription>
+                </DialogHeader>
 
+                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                  {groupAppointments.map((apt) => {
+                    const statusCfg = getModalStatusConfig(apt);
+                    const StatusIcon = statusCfg.icon;
+                    return (
+                      <div
+                        key={apt.id}
+                        className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-muted/30"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm truncate">
+                            {apt.customerName}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {apt.customerEmail}
+                          </div>
+                          {apt.customerPhone && (
+                            <div className="text-xs text-muted-foreground">
+                              {apt.customerPhone}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div
+                            className={cn(
+                              "flex items-center gap-1 text-xs",
+                              statusCfg.textColor
+                            )}
+                          >
+                            <StatusIcon className="h-3 w-3" />
+                            <span className="hidden sm:inline">{statusCfg.label}</span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setGroupAppointments(null);
+                              setSelectedAppointment(apt);
+                            }}
+                          >
+                            Ver detalle
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
       {/* ── Appointment detail dialog ───────────────────────── */}
       <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedAppointment(null)}>
         <DialogContent className="sm:max-w-md">

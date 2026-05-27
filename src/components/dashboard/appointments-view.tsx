@@ -73,6 +73,7 @@ interface AppointmentsViewProps {
   businessId: string;
   terminology: BusinessTerminology;
   schedules?: BusinessSchedule[];
+  bookingInterval?: number;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ export function AppointmentsView({
   businessId,
   terminology,
   schedules,
+  bookingInterval,
 }: AppointmentsViewProps) {
   const [view, setView] = useState<"list" | "calendar" | "grid">(
     () => (staff && staff.length > 0 ? "grid" : "list")
@@ -194,6 +196,7 @@ export function AppointmentsView({
           appointments={appointments}
           staff={staff ?? []}
           schedules={schedules ?? []}
+          bookingInterval={bookingInterval ?? 60}
           onDuplicate={handleDuplicate}
         />
       )}

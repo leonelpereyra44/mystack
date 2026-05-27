@@ -54,6 +54,7 @@ export default async function AppointmentsPage() {
       businessId={business.id}
       terminology={terminology}
       schedules={business.schedules}
+      bookingInterval={business.bookingInterval}
     />
   );
 }

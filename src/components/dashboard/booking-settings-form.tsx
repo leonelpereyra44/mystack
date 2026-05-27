@@ -30,7 +30,6 @@ interface Business {
   allowMultipleBookings: boolean;
   bookingInterval: number;
   slotCapacity: number;
-  bufferTime: number;
   showPrices: boolean;
   showDurations: boolean;
   minBookingNotice: number;
@@ -49,8 +48,6 @@ export function BookingSettingsForm({ business }: BookingSettingsFormProps) {
   const [savingInterval, setSavingInterval] = useState(false);
   const [slotCapacity, setSlotCapacity] = useState(business.slotCapacity);
   const [savingCapacity, setSavingCapacity] = useState(false);
-  const [bufferTime, setBufferTime] = useState(business.bufferTime);
-  const [savingBufferTime, setSavingBufferTime] = useState(false);
   const [showPrices, setShowPrices] = useState(business.showPrices);
   const [showDurations, setShowDurations] = useState(business.showDurations);
   const [minBookingNotice, setMinBookingNotice] = useState(business.minBookingNotice);
@@ -126,28 +123,6 @@ export function BookingSettingsForm({ business }: BookingSettingsFormProps) {
       toast.error("Error al guardar");
     } finally {
       setSavingCapacity(false);
-    }
-  };
-
-  const handleBufferTimeChange = async (value: number) => {
-    setSavingBufferTime(true);
-    try {
-      const response = await fetch("/api/business", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bufferTime: value }),
-      });
-      if (response.ok) {
-        setBufferTime(value);
-        toast.success("Buffer actualizado");
-        router.refresh();
-      } else {
-        toast.error("Error al guardar");
-      }
-    } catch {
-      toast.error("Error al guardar");
-    } finally {
-      setSavingBufferTime(false);
     }
   };
 
@@ -279,7 +254,7 @@ export function BookingSettingsForm({ business }: BookingSettingsFormProps) {
         <CardHeader>
           <CardTitle>Tiempos y capacidad</CardTitle>
           <CardDescription>
-            Define los intervalos, la capacidad máxima y el tiempo de descanso entre turnos
+            Define los intervalos de reserva y la capacidad máxima por turno
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -343,41 +318,6 @@ export function BookingSettingsForm({ business }: BookingSettingsFormProps) {
                   }
                 }}
               />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label className="text-base">Buffer entre turnos</Label>
-              <p className="text-sm text-muted-foreground">
-                Minutos de descanso/limpieza entre cada turno
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {savingBufferTime && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  min={0}
-                  max={60}
-                  value={bufferTime}
-                  disabled={savingBufferTime}
-                  className="w-[80px] text-center"
-                  onChange={(e) => {
-                    const val = Math.min(60, Math.max(0, parseInt(e.target.value) || 0));
-                    setBufferTime(val);
-                  }}
-                  onBlur={(e) => {
-                    const val = Math.min(60, Math.max(0, parseInt(e.target.value) || 0));
-                    if (val !== business.bufferTime) {
-                      handleBufferTimeChange(val);
-                    }
-                  }}
-                />
-                <span className="text-sm text-muted-foreground">min</span>
-              </div>
             </div>
           </div>
 
