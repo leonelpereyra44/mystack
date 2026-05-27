@@ -156,54 +156,47 @@ export function ClientsList({ initialClients, total }: ClientsListProps) {
     });
   }, [filtered, sortField, sortDir]);
 
+  const totalRevenue = initialClients.reduce((sum, c) => sum + c.totalSpent, 0);
+  const frequentCount = initialClients.filter((c) => c.totalAppointments >= 5).length;
+
   return (
     <div className="space-y-4">
-      {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-2xl font-bold">{total}</p>
-                <p className="text-xs text-muted-foreground">Clientes únicos</p>
+      {/* Stats row — mobile: horizontal scroll chips / desktop: grid cards */}
+      <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0 sm:grid sm:grid-cols-3 sm:gap-3 scrollbar-none">
+        {[
+          {
+            icon: <Users className="h-4 w-4 text-muted-foreground" />,
+            value: total,
+            label: "Clientes",
+          },
+          {
+            icon: <Star className="h-4 w-4 text-amber-500" />,
+            value: frequentCount,
+            label: "Frecuentes",
+          },
+          {
+            icon: <TrendingUp className="h-4 w-4 text-emerald-500" />,
+            value: formatCurrency(totalRevenue),
+            label: "Ingresos",
+          },
+        ].map((stat) => (
+          <Card key={stat.label} className="flex-shrink-0 min-w-[110px] sm:min-w-0">
+            <CardContent className="pt-3 pb-3 px-3 sm:pt-4 sm:pb-4 sm:px-4">
+              <div className="flex items-center gap-2">
+                {stat.icon}
+                <div>
+                  <p className="text-lg sm:text-2xl font-bold leading-none">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2">
-              <Star className="h-4 w-4 text-amber-500" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {initialClients.filter((c) => c.totalAppointments >= 5).length}
-                </p>
-                <p className="text-xs text-muted-foreground">Clientes frecuentes</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="col-span-2 sm:col-span-1">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(
-                    initialClients.reduce((sum, c) => sum + c.totalSpent, 0)
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground">Ingresos totales</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Search + sort */}
-      <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-        <div className="relative flex-1 w-full">
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre, email o teléfono..."
@@ -212,8 +205,27 @@ export function ClientsList({ initialClients, total }: ClientsListProps) {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-xs text-muted-foreground mr-1 hidden sm:inline">Ordenar:</span>
+
+        {/* Mobile: native select for sort */}
+        <select
+          className="sm:hidden h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring flex-shrink-0"
+          value={`${sortField}-${sortDir}`}
+          onChange={(e) => {
+            const [field, dir] = e.target.value.split("-") as [SortField, SortDir];
+            setSortField(field);
+            setSortDir(dir);
+          }}
+        >
+          <option value="lastAppointment-desc">Último turno ↓</option>
+          <option value="lastAppointment-asc">Último turno ↑</option>
+          <option value="totalAppointments-desc">Más turnos</option>
+          <option value="totalSpent-desc">Mayor gasto</option>
+          <option value="name-asc">Nombre A–Z</option>
+        </select>
+
+        {/* Desktop: sort buttons */}
+        <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+          <span className="text-xs text-muted-foreground mr-1">Ordenar:</span>
           <SortButton
             field="lastAppointment"
             label="Último turno"
@@ -270,17 +282,83 @@ export function ClientsList({ initialClients, total }: ClientsListProps) {
           const isFrequent = client.totalAppointments >= 5;
           return (
             <Card key={client.id} className="transition-shadow hover:shadow-sm">
-              <CardContent className="py-4 px-4 sm:px-6">
-                <div className="flex items-start gap-3 sm:gap-4">
+              <CardContent className="py-3 px-4 sm:py-4 sm:px-6">
+
+                {/* ── Mobile layout ── */}
+                <div className="sm:hidden">
+                  {/* Row 1: avatar + name + badge */}
+                  <div className="flex items-center gap-3">
+                    <AvatarInitial name={client.name} index={index} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold truncate">{client.name}</span>
+                        {isFrequent && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs gap-1 bg-amber-100 text-amber-700 border-amber-200 flex-shrink-0"
+                          >
+                            <Star className="h-3 w-3" />
+                            Frecuente
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 2: contact info as tappable links */}
+                  <div className="mt-2 ml-[52px] space-y-1">
+                    <a
+                      href={`mailto:${client.email}`}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground active:text-primary"
+                    >
+                      <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="truncate">{client.email}</span>
+                    </a>
+                    {client.phone && (
+                      <a
+                        href={`tel:${client.phone}`}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground active:text-primary"
+                      >
+                        <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>{client.phone}</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Row 3: stats strip */}
+                  <div className="mt-3 ml-[52px] flex items-center gap-3 text-xs text-muted-foreground">
+                    {client.lastAppointmentDate && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3 flex-shrink-0" />
+                        {formatDistanceToNow(new Date(client.lastAppointmentDate), {
+                          locale: es,
+                          addSuffix: true,
+                        })}
+                      </span>
+                    )}
+                    <span className="font-medium text-foreground">
+                      {client.totalAppointments}{" "}
+                      {client.totalAppointments === 1 ? "turno" : "turnos"}
+                    </span>
+                    {client.totalSpent > 0 && (
+                      <span className="font-semibold text-emerald-600">
+                        {formatCurrency(client.totalSpent)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Desktop layout (unchanged) ── */}
+                <div className="hidden sm:flex items-start gap-4">
                   <AvatarInitial name={client.name} index={index} />
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                    <div className="flex items-center gap-2">
                       <span className="font-semibold truncate">{client.name}</span>
                       {isFrequent && (
                         <Badge
                           variant="secondary"
-                          className="text-xs w-fit gap-1 bg-amber-100 text-amber-700 border-amber-200"
+                          className="text-xs gap-1 bg-amber-100 text-amber-700 border-amber-200"
                         >
                           <Star className="h-3 w-3" />
                           Frecuente
@@ -291,9 +369,7 @@ export function ClientsList({ initialClients, total }: ClientsListProps) {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                       <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Mail className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate max-w-[180px] sm:max-w-none">
-                          {client.email}
-                        </span>
+                        {client.email}
                       </span>
                       {client.phone && (
                         <span className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -320,7 +396,6 @@ export function ClientsList({ initialClients, total }: ClientsListProps) {
                     )}
                   </div>
 
-                  {/* Stats */}
                   <div className="flex flex-col items-end gap-2 flex-shrink-0 text-right">
                     <div>
                       <p className="text-base font-bold leading-none">
@@ -340,6 +415,7 @@ export function ClientsList({ initialClients, total }: ClientsListProps) {
                     )}
                   </div>
                 </div>
+
               </CardContent>
             </Card>
           );
