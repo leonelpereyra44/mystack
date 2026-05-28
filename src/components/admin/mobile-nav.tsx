@@ -15,6 +15,7 @@ import {
   Menu,
   Tag,
   Layers,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,46 +35,35 @@ interface AdminMobileNavProps {
   };
 }
 
-const navItems = [
+const navGroups = [
   {
-    title: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
+    label: "General",
+    items: [
+      { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
+      { title: "Actividad", href: "/admin/activity", icon: Activity },
+      { title: "Estadísticas", href: "/admin/analytics", icon: BarChart3 },
+    ],
   },
   {
-    title: "Usuarios",
-    href: "/admin/users",
-    icon: Users,
+    label: "Clientes",
+    items: [
+      { title: "Usuarios", href: "/admin/users", icon: Users },
+      { title: "Negocios", href: "/admin/businesses", icon: Building2 },
+    ],
   },
   {
-    title: "Negocios",
-    href: "/admin/businesses",
-    icon: Building2,
+    label: "Monetización",
+    items: [
+      { title: "Suscripciones", href: "/admin/subscriptions", icon: CreditCard },
+      { title: "Planes", href: "/admin/plans", icon: Layers },
+      { title: "Promociones", href: "/admin/promotions", icon: Tag },
+    ],
   },
   {
-    title: "Suscripciones",
-    href: "/admin/subscriptions",
-    icon: CreditCard,
-  },
-  {
-    title: "Estadísticas",
-    href: "/admin/analytics",
-    icon: BarChart3,
-  },
-  {
-    title: "Planes",
-    href: "/admin/plans",
-    icon: Layers,
-  },
-  {
-    title: "Promociones",
-    href: "/admin/promotions",
-    icon: Tag,
-  },
-  {
-    title: "Configuración",
-    href: "/admin/settings",
-    icon: Settings,
+    label: "Sistema",
+    items: [
+      { title: "Configuración", href: "/admin/settings", icon: Settings },
+    ],
   },
 ];
 
@@ -103,33 +93,41 @@ export function AdminMobileNav({ user }: AdminMobileNavProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-3">
-          {navItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/admin" && pathname.startsWith(item.href));
-
-            return (
-              <SheetClose
-                key={item.href}
-                nativeButton={false}
-                render={
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.title}
-                  </Link>
-                }
-              />
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-4">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href !== "/admin" && pathname.startsWith(item.href));
+                  return (
+                    <SheetClose
+                      key={item.href}
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                            isActive
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          {item.title}
+                        </Link>
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Quick link */}
