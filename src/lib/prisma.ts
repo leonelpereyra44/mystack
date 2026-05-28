@@ -16,7 +16,10 @@ function createPrismaClient() {
     throw new Error("DATABASE_URL or DIRECT_URL is not defined");
   }
 
-  const pool = new Pool({ connectionString });
+  // max: 1 — en serverless cada instancia maneja 1 request a la vez,
+  // no necesita más de 1 conexión. Sin este límite, cada lambda puede
+  // abrir hasta 10 conexiones por defecto, agotando el pool de Supabase.
+  const pool = new Pool({ connectionString, max: 1 });
   const adapter = new PrismaPg(pool);
 
   return new PrismaClient({
