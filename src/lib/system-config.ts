@@ -30,12 +30,33 @@ export async function getSystemConfigs(keys: ConfigKey[]): Promise<Record<string
   }
 }
 
+/**
+ * Syncs maintenance_mode to Upstash Redis so the edge middleware can read it
+ * without hitting Prisma. Uses raw fetch (HTTP REST) to stay edge-compatible.
+ */
+async function syncMaintenanceModeToRedis(value: string): Promise<void> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return;
+  try {
+    await fetch(`${url}/set/maintenance_mode/${encodeURIComponent(value)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    // Non-critical: maintenance mode persists in DB and will be synced on next write
+    console.error("Failed to sync maintenance_mode to Redis");
+  }
+}
+
 export async function setSystemConfig(key: ConfigKey, value: string): Promise<void> {
   await prisma.systemConfig.upsert({
     where: { key },
     update: { value },
     create: { key, value },
   });
+  if (key === CONFIG_KEYS.MAINTENANCE_MODE) {
+    await syncMaintenanceModeToRedis(value);
+  }
 }
 
 export async function setSystemConfigs(data: Partial<Record<ConfigKey, string>>): Promise<void> {

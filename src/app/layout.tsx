@@ -5,10 +5,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
 import { CookieConsentManager } from "@/components/cookies";
 import { Analytics } from "@vercel/analytics/next";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { isMaintenanceMode } from "@/lib/system-config";
-import { auth } from "@/lib/auth";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -114,30 +110,11 @@ export const metadata: Metadata = {
   category: "technology",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Maintenance mode check — skip for admins and the /maintenance + /admin paths
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "";
-  const isMaintenancePath = pathname.startsWith("/maintenance");
-  const isAdminPath = pathname.startsWith("/admin");
-  const isApiPath = pathname.startsWith("/api");
-  const isLoginPath = pathname.startsWith("/login");
-
-  if (!isMaintenancePath && !isAdminPath && !isApiPath && !isLoginPath) {
-    const [maintenance, session] = await Promise.all([
-      isMaintenanceMode(),
-      auth(),
-    ]);
-    const isAdmin = session?.user?.role === "ADMIN";
-    if (maintenance && !isAdmin) {
-      redirect("/maintenance");
-    }
-  }
-
   return (
     <html lang="es">
       <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>

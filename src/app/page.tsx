@@ -5,6 +5,7 @@ import { LottiePlayer } from "@/components/ui/lottie-player";
 import { Card, CardContent } from "@/components/ui/card";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { AnnouncementBanner } from "@/components/landing/announcement-banner";
+import { Suspense } from "react";
 import {
   Calendar,
   Clock,
@@ -200,7 +201,9 @@ export default function HomePage() {
       />
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         {/* Announcement Banner */}
-        <AnnouncementBanner />
+        <Suspense fallback={null}>
+          <AnnouncementBanner />
+        </Suspense>
 
         {/* Navigation */}
         <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
@@ -519,7 +522,9 @@ export default function HomePage() {
       </section>
 
       {/* Pricing Section - Dynamic from DB */}
-      <PricingSection />
+      <Suspense fallback={<div className="py-24 bg-white" />}>
+        <PricingSection />
+      </Suspense>
 
       {/* FAQ Section */}
       <section id="faq" className="py-24 bg-slate-50">
