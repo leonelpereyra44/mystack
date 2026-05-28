@@ -22,12 +22,8 @@ export async function GET(request: Request) {
       take: 20,
     });
 
-    const unreadCount = await prisma.notification.count({
-      where: {
-        userId: session.user.id,
-        isRead: false,
-      },
-    });
+    // Calculado en memoria para evitar una segunda query a DB en cada polling.
+    const unreadCount = notifications.filter((n) => !n.isRead).length;
 
     return NextResponse.json({ notifications, unreadCount });
   } catch (error) {

@@ -73,9 +73,12 @@ export function NotificationsDropdown() {
     return () => { mounted = false; };
   }, []);
 
-  // Poll for updates
+  // Poll for updates cada 60s, pausado si la pestaña no está visible.
+  // Reducido de 30s a 60s para cortar las invocaciones a la mitad.
   useEffect(() => {
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchNotifications();
+    }, 60000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
