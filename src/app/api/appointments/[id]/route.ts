@@ -97,8 +97,12 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       );
     }
 
-    await prisma.appointment.delete({
+    // Soft-delete: se marca como CANCELLED en lugar de eliminar el registro.
+    // Esto garantiza que la reserva siga contando para el límite mensual del plan Free,
+    // evitando que los usuarios abusen creando y eliminando reservas para resetear el contador.
+    await prisma.appointment.update({
       where: { id },
+      data: { status: "CANCELLED" },
     });
 
     return NextResponse.json({ message: "Turno eliminado" });

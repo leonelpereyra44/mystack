@@ -93,7 +93,9 @@ export async function canCreateReservation(businessId: string): Promise<{
     return { allowed: true };
   }
 
-  // Contar reservas del mes actual
+  // Contar TODAS las reservas creadas en el mes actual, sin importar su estado.
+  // Las reservas eliminadas o canceladas siguen contando para evitar que los usuarios
+  // abusen del límite mensual creando y cancelando/eliminando reservas indefinidamente.
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
@@ -104,7 +106,7 @@ export async function canCreateReservation(businessId: string): Promise<{
   const reservationsThisMonth = await prisma.appointment.count({
     where: {
       businessId,
-      status: { not: "CANCELLED" },
+      // Sin filtro de status: canceladas y eliminadas (soft-delete) siguen contando
       createdAt: {
         gte: startOfMonth,
         lt: endOfMonth,

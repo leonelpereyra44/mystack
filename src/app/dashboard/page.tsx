@@ -78,10 +78,10 @@ export default async function DashboardPage() {
       service: { ...apt.service, price: Number(apt.service.price) },
     }));
 
-  // Contar solo reservas no canceladas del mes
-  const monthReservations = business.appointments.filter(
-    (a) => a.status !== "CANCELLED"
-  ).length;
+  // Contar TODAS las reservas del mes (incluyendo canceladas/eliminadas).
+  // El límite mensual representa reservas generadas, no reservas activas.
+  // Esto es consistente con canCreateReservation() en plan-limits.ts.
+  const monthReservations = business.appointments.length;
 
   // Datos para onboarding
   const hasServices = business.services.length > 0;
