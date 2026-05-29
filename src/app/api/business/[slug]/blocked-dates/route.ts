@@ -22,9 +22,9 @@ export async function GET(
       );
     }
 
-    // Obtener bloqueos a partir de hoy
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Obtener bloqueos a partir de hoy (en hora del negocio, no UTC del servidor)
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     const blockedTimes = await prisma.blockedTime.findMany({
       where: {
@@ -58,7 +58,7 @@ export async function GET(
     }> = {};
 
     for (const block of blockedTimes) {
-      const dateKey = block.date.toISOString().split("T")[0];
+      const dateKey = `${block.date.getUTCFullYear()}-${String(block.date.getUTCMonth() + 1).padStart(2, "0")}-${String(block.date.getUTCDate()).padStart(2, "0")}`;
       
       if (!blockedDates[dateKey]) {
         blockedDates[dateKey] = {
