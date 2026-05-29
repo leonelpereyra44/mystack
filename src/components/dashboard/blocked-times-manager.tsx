@@ -260,12 +260,12 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
   };
 
   const parseDate = (dateStr: string): Date => {
-    // Si ya tiene "T", es formato ISO completo
-    if (dateStr.includes("T")) {
-      return new Date(dateStr);
-    }
-    // Si es solo fecha (YYYY-MM-DD), agregar hora para evitar problemas de timezone
-    return new Date(dateStr + "T12:00:00");
+    // Extraer siempre los componentes UTC del Date para crear un mediodía local.
+    // Prisma devuelve @db.Date como medianoche UTC (ej: "2026-05-28T00:00:00.000Z").
+    // Si hacemos `new Date(isoStr)` y luego `format()` con date-fns (que usa hora local),
+    // en Argentina (UTC-3) medianoche UTC = 21hs del día anterior → mostraría el día equivocado.
+    const d = new Date(dateStr);
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
   };
 
   const formatDate = (dateStr: string) => {
@@ -339,7 +339,7 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
                         }
                       }}
                       required
-                      min={new Date().toISOString().split("T")[0]}
+                      min={format(new Date(), "yyyy-MM-dd")}
                     />
                   </div>
                   {isDateRange && (
@@ -351,7 +351,7 @@ export function BlockedTimesManager({ staff }: BlockedTimesManagerProps) {
                         value={dateEnd}
                         onChange={(e) => setDateEnd(e.target.value)}
                         required={isDateRange}
-                        min={date || new Date().toISOString().split("T")[0]}
+                        min={date || format(new Date(), "yyyy-MM-dd")}
                       />
                     </div>
                   )}

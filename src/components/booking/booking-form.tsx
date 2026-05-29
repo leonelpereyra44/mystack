@@ -136,6 +136,8 @@ export function BookingForm({
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [extraFields, setExtraFields] = useState<Record<string, string>>({});
+  // Calculado solo en el cliente para evitar mismatch SSR (servidor usa UTC, cliente usa zona local)
+  const [calendarToday, setCalendarToday] = useState<Date | null>(null);
 
   const EXTRA_FIELDS_BY_TYPE: Record<string, { key: string; label: string; placeholder: string; required?: boolean }[]> = {
     sports: [
@@ -238,6 +240,13 @@ export function BookingForm({
       loadAvailability();
     }
   }, [selectedServiceId, selectedStaffId, loadAvailability]);
+
+  // Inicializar "hoy" en el cliente para evitar que el SSR (UTC) marque como pasado
+  // días que aún son hoy en la zona horaria local (ej: 21-23hs Argentina = siguiente día UTC)
+  useEffect(() => {
+    setCalendarToday(startOfDay(new Date()));
+  }, []);
+
   const selectedStaff = staff.find((s) => s.id === selectedStaffId);
 
   const serviceStaffIds = selectedService?.staff?.map((s) => s.id) ?? [];
@@ -251,7 +260,7 @@ export function BookingForm({
   };
 
   const isDateDisabled = (date: Date) => {
-    if (isBefore(date, startOfDay(new Date()))) return true;
+    if (calendarToday !== null && isBefore(date, calendarToday)) return true;
     const schedule = getDaySchedule(date);
     if (!schedule?.isOpen) return true;
     
@@ -702,8 +711,8 @@ export function BookingForm({
                   selected={selectedDate}
                   onSelect={handleDateSelect}
                   disabled={isDateDisabled}
-                  fromDate={new Date()}
-                  toDate={addDays(new Date(), 60)}
+                  fromDate={calendarToday ?? undefined}
+                  toDate={calendarToday ? addDays(calendarToday, 60) : undefined}
                   locale={es}
                   className="rounded-md border w-full max-w-[320px] lg:max-w-[280px] [&_.rdp-month]:w-full"
                   modifiers={{

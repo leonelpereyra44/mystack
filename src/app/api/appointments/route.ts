@@ -101,7 +101,17 @@ export async function POST(request: Request) {
               code: "EXISTING_APPOINTMENT",
               existingAppointment: {
                 id: existingCustomerAppointment.id,
-                date: format(new Date(existingCustomerAppointment.date), "EEEE d 'de' MMMM", { locale: es }),
+                // @db.Date llega como medianoche UTC — usar componentes UTC para evitar off-by-one
+                date: format(
+                  new Date(
+                    existingCustomerAppointment.date.getUTCFullYear(),
+                    existingCustomerAppointment.date.getUTCMonth(),
+                    existingCustomerAppointment.date.getUTCDate(),
+                    12, 0, 0
+                  ),
+                  "EEEE d 'de' MMMM",
+                  { locale: es }
+                ),
                 startTime: existingCustomerAppointment.startTime,
                 serviceName: existingCustomerAppointment.service.name,
               }

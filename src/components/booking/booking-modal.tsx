@@ -256,6 +256,8 @@ export function BookingModal({
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [extraFields, setExtraFields] = useState<Record<string, string>>({});
+  // Calculado solo en el cliente para evitar mismatch SSR (servidor usa UTC, cliente usa zona local)
+  const [calendarToday, setCalendarToday] = useState<Date | null>(null);
 
   // ── Reset state when modal opens ─────────────────────────────────────────
   useEffect(() => {
@@ -341,10 +343,13 @@ export function BookingModal({
 
   useEffect(() => { loadBlockedDates(); }, [loadBlockedDates]);
   useEffect(() => { if (selectedServiceId) loadAvailability(); }, [selectedServiceId, selectedStaffId, loadAvailability]);
+  // Inicializar "hoy" en el cliente para evitar que el SSR (UTC) marque como pasado
+  // días que aún son hoy en la zona horaria local (ej: 21-23hs Argentina = siguiente día UTC)
+  useEffect(() => { setCalendarToday(startOfDay(new Date())); }, []);
 
   // ── Calendar helpers ──────────────────────────────────────────────────────
   const isDateDisabled = (date: Date) => {
-    if (isBefore(date, startOfDay(new Date()))) return true;
+    if (calendarToday !== null && isBefore(date, calendarToday)) return true;
     const schedule = schedules.find((s) => s.dayOfWeek === date.getDay());
     if (!schedule?.isOpen) return true;
     const key = format(date, "yyyy-MM-dd");
@@ -820,8 +825,8 @@ export function BookingModal({
                         selected={selectedDate}
                         onSelect={handleDateSelect}
                         disabled={isDateDisabled}
-                        fromDate={new Date()}
-                        toDate={addDays(new Date(), 60)}
+                        fromDate={calendarToday ?? undefined}
+                        toDate={calendarToday ? addDays(calendarToday, 60) : undefined}
                         locale={es}
                         className="rounded-md border w-full [&_.rdp-month]:w-full"
                         modifiers={{ available: getDaysWithAvailability() }}

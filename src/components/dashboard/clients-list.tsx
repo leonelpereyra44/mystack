@@ -42,6 +42,13 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
+// Prisma devuelve @db.Date como medianoche UTC. Extraemos componentes UTC y
+// creamos un mediodía local para que date-fns (que usa hora local) muestre el día correcto.
+function parseDbDate(value: string): Date {
+  const d = new Date(value);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+}
+
 function AvatarInitial({ name, index }: { name: string; index: number }) {
   const colors = [
     "bg-violet-100 text-violet-700",
@@ -330,7 +337,7 @@ export function ClientsList({ initialClients, total }: ClientsListProps) {
                     {client.lastAppointmentDate && (
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3 flex-shrink-0" />
-                        {formatDistanceToNow(new Date(client.lastAppointmentDate), {
+                        {formatDistanceToNow(parseDbDate(client.lastAppointmentDate!), {
                           locale: es,
                           addSuffix: true,
                         })}
@@ -383,11 +390,11 @@ export function ClientsList({ initialClients, total }: ClientsListProps) {
                       <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3 flex-shrink-0" />
                         Último turno:{" "}
-                        {format(new Date(client.lastAppointmentDate), "d 'de' MMMM yyyy", {
+                        {format(parseDbDate(client.lastAppointmentDate!), "d 'de' MMMM yyyy", {
                           locale: es,
                         })}{" "}
                         (
-                        {formatDistanceToNow(new Date(client.lastAppointmentDate), {
+                        {formatDistanceToNow(parseDbDate(client.lastAppointmentDate!), {
                           locale: es,
                           addSuffix: true,
                         })}
