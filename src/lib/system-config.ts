@@ -70,6 +70,10 @@ export async function setSystemConfigs(data: Partial<Record<ConfigKey, string>>)
       })
     )
   );
+  // Sync maintenance_mode to Redis if it was updated
+  if (CONFIG_KEYS.MAINTENANCE_MODE in data) {
+    await syncMaintenanceModeToRedis(data[CONFIG_KEYS.MAINTENANCE_MODE]!);
+  }
 }
 
 export async function isMaintenanceMode(): Promise<boolean> {
