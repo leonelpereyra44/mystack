@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { addMinutes, format, isToday } from "date-fns";
+import { addMinutes, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { sendAppointmentPendingConfirmation } from "@/lib/email";
 import { notifyNewAppointmentPending, checkAndNotifyReservationLimit } from "@/lib/notifications";
-import { parseDateString } from "@/lib/utils";
+import { parseDateString, getLocalDateInTz } from "@/lib/utils";
 import { canCreateReservation } from "@/lib/plan-limits";
 import { checkRateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
@@ -73,14 +73,14 @@ export async function POST(request: Request) {
           status: { in: ["PENDING", "CONFIRMED"] },
           // Exclude the appointment being rescheduled
           ...(rescheduleSourceId ? { NOT: { id: rescheduleSourceId } } : {}),
-          // Only future appointments
-          OR: [
-            { date: { gt: new Date() } },
-            {
-              date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-              // Today but future time - we'll filter this in the response
-            },
-          ],
+          // Only today or future appointments (usando timezone del negocio)
+          date: {
+            gte: (() => {
+              const tz = business.timezone ?? "America/Argentina/Buenos_Aires";
+              const nowLocal = getLocalDateInTz(tz);
+              return new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), nowLocal.getUTCDate()));
+            })(),
+          },
         },
         include: {
           service: true,
@@ -89,12 +89,23 @@ export async function POST(request: Request) {
       });
 
       if (existingCustomerAppointment) {
-        // Check if it's actually in the future
-        const aptDate = new Date(existingCustomerAppointment.date);
+        // Verificar si el turno es realmente futuro, usando timezone del negocio.
+        // Construimos ambas fechas con la convención getUTC*() = hora local Argentina.
+        const tz = business.timezone ?? "America/Argentina/Buenos_Aires";
+        const nowLocal = getLocalDateInTz(tz);
+        const dbDate = existingCustomerAppointment.date;
         const [aptHour, aptMin] = existingCustomerAppointment.startTime.split(":").map(Number);
-        aptDate.setHours(aptHour, aptMin, 0, 0);
+        // aptInLocal: fecha+hora del turno representada como "UTC fake" igual que nowLocal
+        const aptInLocal = new Date(Date.UTC(
+          dbDate.getUTCFullYear(),
+          dbDate.getUTCMonth(),
+          dbDate.getUTCDate(),
+          aptHour,
+          aptMin,
+          0
+        ));
 
-        if (aptDate > new Date()) {
+        if (aptInLocal > nowLocal) {
           return NextResponse.json(
             { 
               error: "Ya tenés un turno activo",
@@ -237,7 +248,12 @@ export async function POST(request: Request) {
 
     // Generar token antes de la transacción
     const confirmationToken = crypto.randomBytes(32).toString("hex");
-    const isSameDay = isToday(appointmentDate);
+    const nowLocal = getLocalDateInTz(business.timezone ?? "America/Argentina/Buenos_Aires");
+    const isSameDay = (
+      appointmentDate.getUTCFullYear() === nowLocal.getUTCFullYear() &&
+      appointmentDate.getUTCMonth()    === nowLocal.getUTCMonth() &&
+      appointmentDate.getUTCDate()     === nowLocal.getUTCDate()
+    );
     const expiresInMinutes = isSameDay ? 15 : 60;
     const tokenExpiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
