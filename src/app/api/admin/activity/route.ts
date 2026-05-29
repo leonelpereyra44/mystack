@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getLocalDateInTz } from "@/lib/utils";
 
 type EventType =
   | "user_registered"
@@ -40,12 +41,11 @@ export async function GET(request: NextRequest) {
       200
     );
 
-    // Date ranges
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(todayStart);
-    weekStart.setDate(weekStart.getDate() - 7);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Date ranges en timezone Argentina
+    const nowLocal = getLocalDateInTz("America/Argentina/Buenos_Aires");
+    const todayStart = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), nowLocal.getUTCDate()));
+    const weekStart  = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), nowLocal.getUTCDate() - 7));
+    const monthStart = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), 1));
 
     const periodStart =
       period === "today" ? todayStart
