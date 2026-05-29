@@ -33,7 +33,7 @@ async function getMaintenanceMode(): Promise<boolean> {
 
 const { auth } = NextAuth(authConfig);
 
-export const proxy = auth(async (req) => {
+export default auth(async (req) => {
   const { pathname } = req.nextUrl;
 
   const skipMaintenance = MAINTENANCE_BYPASS.some((p) => pathname.startsWith(p));
