@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 const MAINTENANCE_BYPASS = [
   "/maintenance",
@@ -34,7 +33,7 @@ async function getMaintenanceMode(): Promise<boolean> {
 
 const { auth } = NextAuth(authConfig);
 
-export const proxy = auth(async (req: NextRequest) => {
+export const proxy = auth(async (req) => {
   const { pathname } = req.nextUrl;
 
   const skipMaintenance = MAINTENANCE_BYPASS.some((p) => pathname.startsWith(p));
