@@ -15,7 +15,7 @@ export default async function BookingSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">Configuración de Reservas</h1>
         <p className="text-muted-foreground">
           Controla cómo los clientes pueden hacer reservas en tu negocio

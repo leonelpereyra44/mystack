@@ -8,7 +8,7 @@ import { z } from "zod";
 import { format, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
-import { CalendarIcon, Loader2, Plus } from "lucide-react";
+import { CalendarIcon, Check, CheckCircle2, ChevronDown, Clock, Info, Loader2, Mail, Phone, Plus, Search, Tag, User, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ interface Service {
   name: string;
   duration: number;
   price: number;
+  description?: string | null;
 }
 
 interface Staff {
@@ -45,11 +46,18 @@ interface Staff {
   name: string;
 }
 
+interface ClientOption {
+  name: string;
+  email: string;
+  phone?: string | null;
+}
+
 interface NewAppointmentModalProps {
   businessId: string;
   services: Service[];
   staff: Staff[];
   terminology?: BusinessTerminology;
+  recentClients?: ClientOption[];
   /** Pre-fill the form (used for "Duplicate" flow). Triggers the modal to open. */
   initialValues?: {
     serviceId?: string;
@@ -83,6 +91,7 @@ export function NewAppointmentModal({
   services,
   staff,
   terminology: terminologyProp,
+  recentClients = [],
   initialValues,
   onInitialValuesConsumed,
   rescheduleSourceId,
@@ -133,6 +142,8 @@ export function NewAppointmentModal({
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [daysAvailability, setDaysAvailability] = useState<Record<string, { hasSlots: boolean; slotsCount: number }>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
 
   const {
     register,
@@ -205,6 +216,29 @@ export function NewAppointmentModal({
         .map(([dateStr]) => new Date(dateStr + "T12:00:00")),
     [daysAvailability]
   );
+
+  const customerNameValue = watch("customerName");
+  const customerEmailValue = watch("customerEmail");
+  const isFormReady = !!(
+    selectedServiceId &&
+    selectedDate &&
+    selectedTime &&
+    (customerNameValue?.length ?? 0) >= 2 &&
+    customerEmailValue
+  );
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearch.trim()) return recentClients.slice(0, 5);
+    const q = clientSearch.toLowerCase();
+    return recentClients
+      .filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.email.toLowerCase().includes(q) ||
+          (c.phone && c.phone.toLowerCase().includes(q))
+      )
+      .slice(0, 8);
+  }, [clientSearch, recentClients]);
 
   // Cargar horarios disponibles cuando cambia fecha, servicio o staff
   const loadAvailableSlots = useCallback(async () => {
@@ -349,6 +383,8 @@ export function NewAppointmentModal({
     if (!open) {
       reset();
       setShowCalendar(false);
+      setClientSearch("");
+      setShowClientDropdown(false);
       capturedRescheduleIdRef.current = undefined;
     }
   }, [open, reset]);
@@ -364,226 +400,421 @@ export function NewAppointmentModal({
           </Button>
         }
       />
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{terminology.newAppointment}</DialogTitle>
-          <DialogDescription>
-            Agendá {terminology.appointment === "Clase" ? "una" : "un"} {terminology.appointment.toLowerCase()} manualmente para {terminology.appointment === "Clase" ? "un" : "un"} {terminology.client.toLowerCase()}
-          </DialogDescription>
+      <DialogContent className="sm:max-w-[900px] p-0 gap-0 flex flex-col max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <CalendarIcon className="h-4 w-4" />
+            </div>
+            <div>
+              <DialogTitle className="text-base">{terminology.newAppointment}</DialogTitle>
+              <DialogDescription className="text-xs">
+                Agendá {terminology.appointment === "Clase" ? "una" : "un"} {terminology.appointment.toLowerCase()} manualmente para un {terminology.client.toLowerCase()}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Servicio */}
-          <div className="space-y-2">
-            <Label htmlFor="serviceId">{terminology.service} *</Label>
-            <Select
-              onValueChange={(value) => setValue("serviceId", value as string)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={`Selecciona ${terminology.service === "Clase" ? "una" : "un"} ${terminology.service.toLowerCase()}`}>
-                  {selectedService 
-                    ? `${selectedService.name} - ${selectedService.duration} min - $${selectedService.price}`
-                    : `Selecciona ${terminology.service === "Clase" ? "una" : "un"} ${terminology.service.toLowerCase()}`
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {services.map((service) => (
-                  <SelectItem key={service.id} value={service.id}>
-                    {service.name} - {service.duration} min - ${service.price}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.serviceId && (
-              <p className="text-sm text-destructive">{errors.serviceId.message}</p>
-            )}
-          </div>
+        {/* Two-panel body */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Left: form */}
+          <div className="flex-1 overflow-y-auto">
+            <form id="appointment-form" onSubmit={handleSubmit(onSubmit)} className="px-6 py-5 space-y-5">
 
-          {/* Profesional (opcional) */}
-          {staff.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="staffId">Profesional (opcional)</Label>
-              <Select
-                onValueChange={(value) => setValue("staffId", value === "none" ? undefined : (value as string))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sin asignar">
-                    {selectedStaff ? selectedStaff.name : "Sin asignar"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin asignar</SelectItem>
-                  {staff.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+              {/* ── Datos del turno ──────────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <CalendarIcon className="h-4 w-4 text-emerald-600" />
+                  <h3 className="text-sm font-semibold">Datos del turno</h3>
+                </div>
 
-          {/* Fecha */}
-          <div className="space-y-2">
-            <Label>Fecha *</Label>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-start text-left font-normal"
-              onClick={() => setShowCalendar(!showCalendar)}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate
-                ? format(selectedDate, "PPP", { locale: es })
-                : "Selecciona una fecha"}
-            </Button>
-            {showCalendar && (
-              <div className="rounded-md border p-3">
-                {loadingAvailability && (
-                  <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Cargando disponibilidad...
+                {/* Date + Service row */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="space-y-1.5">
+                    <Label>Fecha *</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-between font-normal"
+                      onClick={() => setShowCalendar(!showCalendar)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                        <span className={selectedDate ? "" : "text-muted-foreground"}>
+                          {selectedDate ? format(selectedDate, "dd/MM/yyyy") : "Selecciona"}
+                        </span>
+                      </div>
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                    {errors.date && (
+                      <p className="text-xs text-destructive">{errors.date.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{terminology.service} *</Label>
+                    <Select onValueChange={(value) => setValue("serviceId", value as string)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecciona uno">
+                          {selectedService ? selectedService.name : "Selecciona uno"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {services.map((service) => (
+                          <SelectItem key={service.id} value={service.id}>
+                            {service.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.serviceId && (
+                      <p className="text-xs text-destructive">{errors.serviceId.message}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Calendar popover */}
+                {showCalendar && (
+                  <div className="rounded-lg border p-3 mb-3">
+                    {loadingAvailability && (
+                      <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Cargando disponibilidad...
+                      </div>
+                    )}
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setValue("date", date);
+                          setShowCalendar(false);
+                        }
+                      }}
+                      locale={es}
+                      disabled={isDateDisabled}
+                      modifiers={{ available: daysWithAvailability }}
+                      modifiersClassNames={{
+                        available: "bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 border border-emerald-200",
+                      }}
+                    />
+                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                      Días con disponibilidad
+                    </p>
                   </div>
                 )}
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => {
-                    if (date) {
-                      setValue("date", date);
-                      setShowCalendar(false);
-                    }
-                  }}
-                  locale={es}
-                  disabled={isDateDisabled}
-                  modifiers={{ available: daysWithAvailability }}
-                  modifiersClassNames={{
-                    available: "bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 border border-emerald-200",
-                  }}
-                />
-                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                  Días con disponibilidad
-                </p>
-              </div>
-            )}
-            {errors.date && (
-              <p className="text-sm text-destructive">{errors.date.message}</p>
-            )}
-          </div>
 
-          {/* Hora */}
-          <div className="space-y-2">
-            <Label htmlFor="startTime">Hora *</Label>
-            {!selectedServiceId ? (
-              <p className="text-sm text-muted-foreground py-2">
-                Selecciona un servicio primero
-              </p>
-            ) : loadingSlots ? (
-              <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Cargando horarios...
-              </div>
-            ) : availableSlots.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">
-                No hay horarios disponibles para esta fecha
-              </p>
-            ) : (
-              <Select onValueChange={(value) => setValue("startTime", value as string)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un horario">
-                    {selectedTime || "Selecciona un horario"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSlots.map((time) => (
-                    <SelectItem key={time} value={time}>
-                      {time}
-                      {slotCapacity > 1 && slotCounts[time] !== undefined && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          · {slotCounts[time]} {slotCounts[time] === 1 ? "lugar" : "lugares"}
-                        </span>
+                {/* Service info card */}
+                {selectedService && (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3.5 py-3 mb-3">
+                    <div className="flex items-center gap-4 mb-1">
+                      <div className="flex items-center gap-1.5 text-sm text-emerald-700">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span className="font-medium">{selectedService.duration} min</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-sm text-emerald-700">
+                        <Tag className="h-3.5 w-3.5" />
+                        <span className="font-medium">${selectedService.price.toLocaleString("es-AR")}</span>
+                      </div>
+                    </div>
+                    {selectedService.description && (
+                      <p className="text-xs text-emerald-600 leading-relaxed">{selectedService.description}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Staff selector */}
+                {staff.length > 0 && (
+                  <div className="space-y-1.5 mb-3">
+                    <Label>Profesional (opcional)</Label>
+                    <div className="relative flex items-center">
+                      <User className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                      <Select
+                        onValueChange={(value) =>
+                          setValue("staffId", value === "none" ? undefined : (value as string))
+                        }
+                      >
+                        <SelectTrigger className="w-full pl-9">
+                          <SelectValue placeholder="Sin asignar">
+                            {selectedStaff ? selectedStaff.name : "Sin asignar"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin asignar</SelectItem>
+                          {staff.map((member) => (
+                            <SelectItem key={member.id} value={member.id}>
+                              {member.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedStaffId && (
+                        <button
+                          type="button"
+                          className="absolute right-8 h-5 w-5 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground z-10"
+                          onClick={(e) => { e.stopPropagation(); setValue("staffId", undefined); }}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {errors.startTime && (
-              <p className="text-sm text-destructive">{errors.startTime.message}</p>
-            )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Time slots */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <Label>Horarios disponibles</Label>
+                  </div>
+                  {!selectedServiceId ? (
+                    <p className="text-sm text-muted-foreground py-1">
+                      Selecciona un {terminology.service.toLowerCase()} primero
+                    </p>
+                  ) : loadingSlots ? (
+                    <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Cargando horarios...
+                    </div>
+                  ) : availableSlots.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-1">
+                      No hay horarios disponibles para esta fecha
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-2">
+                      {availableSlots.map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          onClick={() => setValue("startTime", time)}
+                          className={`relative rounded-lg border px-2 py-2 text-sm font-medium transition-all ${
+                            selectedTime === time
+                              ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                              : "border-border bg-background hover:border-gray-300 hover:bg-muted/50"
+                          }`}
+                        >
+                          {time}
+                          {selectedTime === time && (
+                            <Check className="absolute top-1 right-1 h-2.5 w-2.5 text-white/80" />
+                          )}
+                          {slotCapacity > 1 && slotCounts[time] !== undefined && (
+                            <span
+                              className={`block text-[10px] mt-0.5 ${
+                                selectedTime === time ? "text-white/70" : "text-muted-foreground"
+                              }`}
+                            >
+                              {slotCounts[time]} lugar{slotCounts[time] !== 1 ? "es" : ""}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {errors.startTime && (
+                    <p className="text-xs text-destructive">{errors.startTime.message}</p>
+                  )}
+                  {availableSlots.length > 0 && (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Info className="h-3 w-3 shrink-0" />
+                      Los horarios mostrados ya consideran la duración del tratamiento.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Datos del cliente ──────────────────────────────── */}
+              <div className="border-t pt-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <User className="h-4 w-4 text-emerald-600" />
+                  <h3 className="text-sm font-semibold">Datos del {terminology.client.toLowerCase()}</h3>
+                </div>
+
+                {/* Client search */}
+                {recentClients.length > 0 && (
+                  <div className="space-y-1.5 mb-3">
+                    <Label>Buscar {terminology.client.toLowerCase()} (opcional)</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        className="pl-9"
+                        placeholder="Buscar por nombre, email o teléfono..."
+                        value={clientSearch}
+                        onChange={(e) => {
+                          setClientSearch(e.target.value);
+                          setShowClientDropdown(true);
+                        }}
+                        onFocus={() => setShowClientDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
+                        autoComplete="off"
+                      />
+                      {showClientDropdown && filteredClients.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border bg-background shadow-lg">
+                          {filteredClients.map((client, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              className="w-full px-3 py-2.5 text-left hover:bg-muted transition-colors"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setValue("customerName", client.name);
+                                setValue("customerEmail", client.email);
+                                setValue("customerPhone", client.phone ?? "");
+                                setClientSearch(client.name);
+                                setShowClientDropdown(false);
+                              }}
+                            >
+                              <div className="text-sm font-medium">{client.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {client.email}{client.phone ? ` · ${client.phone}` : ""}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Name */}
+                <div className="space-y-1.5 mb-3">
+                  <Label htmlFor="customerName">Nombre *</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="customerName"
+                      className="pl-9"
+                      placeholder={`Nombre del ${terminology.client.toLowerCase()}`}
+                      {...register("customerName")}
+                    />
+                  </div>
+                  {errors.customerName && (
+                    <p className="text-xs text-destructive">{errors.customerName.message}</p>
+                  )}
+                </div>
+
+                {/* Email + Phone */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customerEmail">Email *</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        id="customerEmail"
+                        type="email"
+                        className="pl-9"
+                        placeholder="cliente@email.com"
+                        {...register("customerEmail")}
+                      />
+                    </div>
+                    {errors.customerEmail && (
+                      <p className="text-xs text-destructive">{errors.customerEmail.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customerPhone">Teléfono (opcional)</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        id="customerPhone"
+                        type="tel"
+                        className="pl-9"
+                        placeholder="+54 11 1234-5678"
+                        {...register("customerPhone")}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="notes">Notas (opcional)</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Notas adicionales sobre el turno o el cliente..."
+                    {...register("notes")}
+                  />
+                </div>
+              </div>
+            </form>
           </div>
 
-          <div className="border-t pt-4">
-            <p className="mb-3 text-sm font-medium text-muted-foreground">
-              Datos del {terminology.client.toLowerCase()}
-            </p>
-
-            {/* Nombre */}
-            <div className="space-y-2">
-              <Label htmlFor="customerName">Nombre *</Label>
-              <Input
-                id="customerName"
-                placeholder={`Nombre del ${terminology.client.toLowerCase()}`}
-                {...register("customerName")}
-              />
-              {errors.customerName && (
-                <p className="text-sm text-destructive">{errors.customerName.message}</p>
+          {/* Right: summary panel */}
+          <div className="hidden sm:flex w-56 shrink-0 flex-col border-l bg-muted/30 px-5 py-5 overflow-y-auto">
+            <div className="flex items-center gap-2 mb-5">
+              <CalendarIcon className="h-4 w-4 text-emerald-600" />
+              <h3 className="text-sm font-semibold">Resumen del turno</h3>
+            </div>
+            <div className="space-y-4 flex-1">
+              {[
+                { icon: <Tag className="h-4 w-4" />, label: "Tratamiento", value: selectedService?.name },
+                { icon: <User className="h-4 w-4" />, label: "Profesional", value: selectedStaff?.name },
+                {
+                  icon: <CalendarIcon className="h-4 w-4" />,
+                  label: "Fecha",
+                  value: selectedDate ? format(selectedDate, "dd/MM/yyyy") : undefined,
+                },
+                { icon: <Clock className="h-4 w-4" />, label: "Hora", value: selectedTime || undefined },
+                {
+                  icon: <Clock className="h-4 w-4" />,
+                  label: "Duración",
+                  value: selectedService ? `${selectedService.duration} min` : undefined,
+                },
+                {
+                  icon: <Tag className="h-4 w-4" />,
+                  label: "Precio",
+                  value: selectedService
+                    ? `$${selectedService.price.toLocaleString("es-AR")}`
+                    : undefined,
+                },
+              ].map((item) => (
+                <div key={item.label} className="flex gap-3">
+                  <div className="mt-0.5 shrink-0 text-muted-foreground">{item.icon}</div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground leading-none mb-0.5">{item.label}</p>
+                    <p className="text-sm font-medium truncate">{item.value ?? "—"}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5">
+              {isFormReady ? (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span className="text-sm font-medium text-emerald-800">Todo listo</span>
+                  </div>
+                  <p className="text-xs text-emerald-600">El turno se creará con los datos ingresados.</p>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-muted px-3 py-3">
+                  <p className="text-xs text-muted-foreground">Completá los campos requeridos para crear el turno.</p>
+                </div>
               )}
-            </div>
-
-            {/* Email */}
-            <div className="mt-3 space-y-2">
-              <Label htmlFor="customerEmail">Email *</Label>
-              <Input
-                id="customerEmail"
-                type="email"
-                placeholder="cliente@email.com"
-                {...register("customerEmail")}
-              />
-              {errors.customerEmail && (
-                <p className="text-sm text-destructive">{errors.customerEmail.message}</p>
-              )}
-            </div>
-
-            {/* Teléfono */}
-            <div className="mt-3 space-y-2">
-              <Label htmlFor="customerPhone">Teléfono (opcional)</Label>
-              <Input
-                id="customerPhone"
-                type="tel"
-                placeholder="+54 11 1234-5678"
-                {...register("customerPhone")}
-              />
-            </div>
-
-            {/* Notas */}
-            <div className="mt-3 space-y-2">
-              <Label htmlFor="notes">Notas (opcional)</Label>
-              <Textarea
-                id="notes"
-                placeholder="Notas adicionales..."
-                {...register("notes")}
-              />
             </div>
           </div>
+        </div>
 
-          <DialogFooter className="gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isLoading}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Crear {terminology.appointment.toLowerCase()}
-            </Button>
-          </DialogFooter>
-        </form>
+        {/* Footer */}
+        <div className="shrink-0 border-t px-6 py-4 flex items-center justify-between bg-background">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={isLoading}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" form="appointment-form" disabled={isLoading}>
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CalendarIcon className="mr-2 h-4 w-4" />
+            )}
+            Crear {terminology.appointment.toLowerCase()}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
 

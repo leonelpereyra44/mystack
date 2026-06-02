@@ -34,7 +34,7 @@ export default async function ServicesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
+        <div className="hidden md:block">
           <h1 className="text-3xl font-bold">{terminology.services}</h1>
           <p className="text-muted-foreground">
             Gestioná los {terminology.services.toLowerCase()} que ofrecés a tus {terminology.clients.toLowerCase()}

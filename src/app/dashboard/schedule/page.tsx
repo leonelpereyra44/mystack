@@ -26,7 +26,7 @@ export default async function SchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">Horarios</h1>
         <p className="text-muted-foreground">
           Configura los horarios de atención de tu negocio

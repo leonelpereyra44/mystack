@@ -69,7 +69,7 @@ export default async function ClientsPage() {
   if (!isProActive) {
     return (
       <div className="space-y-6">
-        <div>
+        <div className="hidden md:block">
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <ContactRound className="h-7 w-7" />
             Clientes
@@ -171,7 +171,7 @@ export default async function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <ContactRound className="h-7 w-7" />
           Clientes

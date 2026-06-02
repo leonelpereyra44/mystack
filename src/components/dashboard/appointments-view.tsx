@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { List, CalendarDays, LayoutGrid } from "lucide-react";
@@ -47,6 +47,7 @@ interface ServiceOption {
   name: string;
   duration: number;
   price: number;
+  description?: string | null;
 }
 
 interface StaffOption {
@@ -96,6 +97,18 @@ export function AppointmentsView({
   );
   const [duplicateSource, setDuplicateSource] = useState<DuplicateSource | null>(null);
 
+  const recentClients = useMemo(() => {
+    const seen = new Set<string>();
+    const clients: Array<{ name: string; email: string; phone?: string | null }> = [];
+    for (const apt of appointments) {
+      if (!seen.has(apt.customerEmail)) {
+        seen.add(apt.customerEmail);
+        clients.push({ name: apt.customerName, email: apt.customerEmail, phone: apt.customerPhone });
+      }
+    }
+    return clients.sort((a, b) => a.name.localeCompare(b.name));
+  }, [appointments]);
+
   const hasStaff = staff && staff.length > 0;
 
   const handleDuplicate = useCallback((apt: Appointment) => {
@@ -116,7 +129,7 @@ export function AppointmentsView({
     <div className="space-y-5">
       {/* ── Top bar ────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="hidden md:block">
           <h1 className="text-2xl font-bold tracking-tight">
             {terminology.appointments}
           </h1>
@@ -163,6 +176,7 @@ export function AppointmentsView({
             services={services ?? []}
             staff={staff ?? []}
             terminology={terminology}
+            recentClients={recentClients}
             initialValues={duplicateSource ?? undefined}
             rescheduleSourceId={duplicateSource?.rescheduleSourceId}
             onInitialValuesConsumed={() => setDuplicateSource(null)}

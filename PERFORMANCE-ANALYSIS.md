@@ -36,54 +36,19 @@
 
 ---
 
-## 🔴 PENDIENTE — CRÍTICO
+## ✅ IMPLEMENTADO (continuación)
 
-### 2. `src/components/dashboard/notifications-dropdown.tsx` — Polling cada 30 segundos
+### 2. `src/components/dashboard/notifications-dropdown.tsx` — Polling cada 30 segundos ✅
 
 Cada llamada a `/api/notifications` ejecuta `auth()` + 2 queries Prisma. Con 50 usuarios activos: **100 invocaciones/minuto** continuas.
 
-**Fix inmediato**: Subir intervalo a 60s + pausar cuando la pestaña no está visible:
+**Implementado**: Intervalo subido a 60s + pausa cuando la pestaña no está visible + `unreadCount` calculado en memoria sin segunda query a DB.
 
-```ts
-useEffect(() => {
-  const interval = setInterval(() => {
-    if (!document.hidden) fetchNotifications();
-  }, 60000);
-  return () => clearInterval(interval);
-}, [fetchNotifications]);
-```
-
-**Fix adicional**: Combinar las dos queries en memoria (sin segunda query a DB):
-
-```ts
-const notifications = await prisma.notification.findMany({ ... take: 20 });
-const unreadCount = notifications.filter(n => !n.isRead).length; // sin segunda query
-```
-
-**Fix largo plazo**: Server-Sent Events o WebSockets.
+**Fix largo plazo pendiente**: Server-Sent Events o WebSockets.
 
 ---
 
-### 3. Double `auth()` + double `prisma.business.findFirst()` en cada página del dashboard
-
-`DashboardLayout` carga session + business, y luego cada página del dashboard repite exactamente lo mismo. Afecta a: `page.tsx`, `appointments/`, `services/`, `clients/`, `staff/`, `schedule/`, `booking/`.
-
-**Fix**: Usar `cache()` de React para deduplicar dentro del mismo request tree:
-
-```ts
-// src/lib/queries.ts
-import { cache } from "react";
-export const getSession = cache(async () => auth());
-export const getBusinessBySession = cache(async () => {
-  const session = await getSession();
-  if (!session?.user?.id) return null;
-  return prisma.business.findFirst({ where: { ownerId: session.user.id } });
-});
-```
-
----
-
-## 🟡 PENDIENTE — IMPORTANTE
+##  PENDIENTE — IMPORTANTE
 
 ### 4. `src/app/[slug]/page.tsx` — Double query en `generateMetadata` + sin ISR
 
@@ -143,19 +108,31 @@ Carga todos los appointments del período y calcula en JS. Costoso para negocios
 
 ## 🔵 PENDIENTE — MENOR
 
+### 3. `src/app/dashboard/layout.tsx` + páginas — double `auth()` por request
+
+El layout y cada página del dashboard llaman a `auth()` por separado. **Las queries de business NO son idénticas** — el layout hace `findFirst` sin includes (solo para el nav), cada página hace su propio `findFirst` con includes distintos. No hay duplicación real de queries pesadas.
+
+Lo que SÍ se duplica: **1 JWT decode extra** por cada carga de página del dashboard (CPU, sin DB) + 1 query liviana sin includes en el layout.
+
+**Fix**: Usar `cache()` solo para `auth()`, el resto no aplica:
+
+```ts
+// src/lib/queries.ts
+import { cache } from "react";
+export const getSession = cache(async () => auth());
+```
+
+---
+
 ### 8. `src/app/api/plans/route.ts` — `headers()` rompe cache de edge
 
 `headers()` hace la route dinámica aunque tiene `Cache-Control: s-maxage=3600`. La función se ejecuta en cada request.
 
 ---
 
-### 10. `src/lib/prisma.ts` — Pool sin límite de conexiones
+### 10. `src/lib/prisma.ts` — Pool sin límite de conexiones ✅
 
-```ts
-const pool = new Pool({ connectionString }); // ← sin max connections
-```
-
-**Fix**: `max: 1` — en serverless, 1 conexión por instancia es lo correcto.
+**Implementado**: `max: 1` — en serverless, 1 conexión por instancia es lo correcto. Evita que 50 lambdas abran 500 conexiones simultáneas agotando el pool de Supabase.
 
 ---
 
@@ -166,11 +143,11 @@ const pool = new Pool({ connectionString }); // ← sin max connections
 | 1 | `src/app/layout.tsx` | `headers()` + `auth()` + Prisma en root layout | ✅ Implementado |
 | 9 | `src/proxy.ts` | Auth + maintenance en el edge | ✅ Implementado |
 | 5a | `page.tsx` (landing) | Suspense para streaming inmediato | ✅ Implementado |
-| 2 | `notifications-dropdown.tsx` | Polling cada 30s, 2 queries por usuario | 🔴 Pendiente |
-| 3 | `dashboard/*/page.tsx` | Double `auth()` + double business query | 🔴 Pendiente |
+| 2 | `notifications-dropdown.tsx` | Polling cada 30s, 2 queries por usuario | ✅ Implementado |
+| 3 | `dashboard/*/page.tsx` | Double `auth()` — 1 JWT decode extra por request | 🔵 Pendiente |
 | 4 | `[slug]/page.tsx` | Double query en `generateMetadata` + sin ISR | 🟡 Pendiente |
 | 5b | `pricing-section.tsx` + `announcement-banner.tsx` | Sin `unstable_cache` | 🟡 Pendiente |
 | 6 | `subscription-card.tsx` | 3 useEffect = 3 API calls en mount | 🟡 Pendiente |
 | 7 | `analytics/page.tsx` | Fetch pesado, cálculos en JS | 🟡 Pendiente |
 | 8 | `api/plans/route.ts` | `headers()` rompe cache | 🔵 Pendiente |
-| 10 | `prisma.ts` | Pool sin `max: 1` | 🔵 Pendiente |
+| 10 | `prisma.ts` | Pool sin `max: 1` | ✅ Implementado |

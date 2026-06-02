@@ -5,6 +5,7 @@ import { DashboardNav } from "@/components/dashboard/nav";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { NotificationsDropdown } from "@/components/dashboard/notifications-dropdown";
 import { SubscriptionStatusToast } from "@/components/dashboard/subscription-status-toast";
+import { DashboardMobileTitle } from "@/components/dashboard/mobile-page-title";
 
 export default async function DashboardLayout({
   children,
@@ -39,9 +40,9 @@ export default async function DashboardLayout({
           {/* Mobile menu button */}
           <MobileNav business={business} user={session.user} />
           
-          {/* Logo for mobile */}
-          <div className="flex items-center gap-2 md:hidden">
-            <span className="font-bold text-lg">MyStack</span>
+          {/* Page title for mobile */}
+          <div className="flex items-center md:hidden">
+            <DashboardMobileTitle />
           </div>
           
           {/* Spacer for desktop */}

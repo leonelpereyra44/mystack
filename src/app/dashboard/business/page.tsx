@@ -15,7 +15,7 @@ export default async function BusinessPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">Mi Negocio</h1>
         <p className="text-muted-foreground">
           Información pública y perfil de tu negocio

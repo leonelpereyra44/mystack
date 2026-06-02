@@ -22,7 +22,7 @@ export default async function AccountPage() {
       {/* Tracker de conversión para suscripción PRO */}
       <SubscriptionConversionTracker businessId={business.id} />
 
-      <div>
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">Cuenta</h1>
         <p className="text-muted-foreground">
           Seguridad, suscripción y opciones avanzadas de tu cuenta
