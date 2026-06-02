@@ -662,7 +662,7 @@ export function AppointmentsStaffGrid({
                         return (
                           <div
                             key={apt.id}
-                            className="z-[6]"
+                            className="z-[6] pointer-events-none"
                             style={{
                               gridColumn: colIdx + 2,
                               gridRow: `${startRow} / span ${spanRows}`,
@@ -678,7 +678,7 @@ export function AppointmentsStaffGrid({
                               onDragEnd={() => { setDraggedAptId(null); setDropTarget(null); }}
                               onClick={() => setSelectedAppointment(apt)}
                               className={cn(
-                                "w-full h-full text-left rounded-md border px-2 py-1.5 text-xs",
+                                "pointer-events-auto w-full h-full text-left rounded-md border px-2 py-1.5 text-xs",
                                 "hover:brightness-95 dark:hover:brightness-110 transition-[filter] cursor-pointer",
                                 draggedAptId === apt.id && "opacity-50",
                                 cfg.cardCls
