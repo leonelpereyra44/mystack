@@ -29,14 +29,14 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen">
-      {/* Desktop Sidebar - hidden on mobile */}
-      <div className="hidden md:block">
+      {/* Desktop Sidebar - fixed on desktop, hidden on mobile */}
+      <div className="hidden md:block md:fixed md:inset-y-0 md:left-0 md:z-30 md:w-64">
         <DashboardNav business={business} user={session.user} />
       </div>
       
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col md:pl-64">
         {/* Top bar */}
-        <header className="h-14 border-b bg-card flex items-center justify-between px-4 md:px-6">
+        <header className="sticky top-0 z-20 h-14 border-b bg-card flex items-center justify-between px-4 md:px-6">
           {/* Mobile menu button */}
           <MobileNav business={business} user={session.user} />
           

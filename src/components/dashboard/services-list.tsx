@@ -6,7 +6,6 @@ import {
   Pencil,
   Trash2,
   MoreHorizontal,
-  Search,
   GripVertical,
   Copy,
   ChevronDown,
@@ -14,6 +13,9 @@ import {
   FolderOpen,
   Check,
   X as XIcon,
+  LayoutGrid,
+  Tag,
+  CirclePlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -59,6 +61,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { getBusinessTerminology } from "@/lib/business-types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -140,9 +143,14 @@ function ServiceRow({
           </p>
         )}
       </div>
-      <span className="shrink-0 text-sm text-muted-foreground">
-        {formatDuration(service.duration)}&nbsp;·&nbsp;{formatPrice(price)}
-      </span>
+      <div className="shrink-0 text-right min-w-[60px]">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide leading-none">Duración</p>
+        <p className="text-sm font-semibold mt-0.5">{formatDuration(service.duration)}</p>
+      </div>
+      <div className="shrink-0 text-right min-w-[72px]">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide leading-none">Precio</p>
+        <p className="text-sm font-semibold mt-0.5">{formatPrice(price)}</p>
+      </div>
       <Button
         variant="ghost"
         size="icon"
@@ -392,6 +400,7 @@ export function ServicesList({
   businessType = "salon",
 }: ServicesListProps) {
   const router = useRouter();
+  const terminology = getBusinessTerminology(businessType);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [services, setServices] = useState(initialServices);
@@ -399,8 +408,7 @@ export function ServicesList({
   const [deleteCategoryName, setDeleteCategoryName] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -414,20 +422,9 @@ export function ServicesList({
   }, [services]);
 
   const filteredServices = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return services.filter((s) => {
-      const matchesSearch =
-        !q ||
-        s.name.toLowerCase().includes(q) ||
-        (s.description?.toLowerCase().includes(q) ?? false) ||
-        (s.category?.toLowerCase().includes(q) ?? false);
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" && s.isActive) ||
-        (statusFilter === "inactive" && !s.isActive);
-      return matchesSearch && matchesStatus;
-    });
-  }, [services, searchTerm, statusFilter]);
+    if (categoryFilter === "all") return services;
+    return services.filter((s) => s.category === categoryFilter);
+  }, [services, categoryFilter]);
 
   const groupedByCategory = useMemo(() => {
     const groups: Record<string, Service[]> = {};
@@ -438,7 +435,7 @@ export function ServicesList({
     return { groups, uncategorized };
   }, [filteredServices, allNamedCategories]);
 
-  const isFiltered = !!searchTerm || statusFilter !== "all";
+  const isFiltered = categoryFilter !== "all";
   const canDragAndDrop = !isFiltered;
 
   const sensors = useSensors(
@@ -663,45 +660,44 @@ export function ServicesList({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* ── Top bar ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar tratamiento..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
+      {/* ── Stats + Actions ── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 border rounded-lg px-3 py-2 bg-card">
+            <LayoutGrid className="h-4 w-4 text-primary shrink-0" />
+            <div>
+              <p className="text-[11px] text-muted-foreground leading-none">Total Servicios</p>
+              <p className="text-lg font-bold leading-tight">{services.length}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 border rounded-lg px-3 py-2 bg-card">
+            <Tag className="h-4 w-4 text-primary shrink-0" />
+            <div>
+              <p className="text-[11px] text-muted-foreground leading-none">Categorías</p>
+              <p className="text-lg font-bold leading-tight">{allNamedCategories.length}</p>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <Select
-            value={statusFilter}
-            onValueChange={(value) =>
-              value && setStatusFilter(value as "all" | "active" | "inactive")
-            }
-          >
-            <SelectTrigger className="w-[130px]">
-              <SelectValue>
-                {{ all: "Todos", active: "Activos", inactive: "Inactivos" }[statusFilter]}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="active">Activos</SelectItem>
-              <SelectItem value="inactive">Inactivos</SelectItem>
-            </SelectContent>
-          </Select>
           <Button
             variant="outline"
             size="sm"
+            className="gap-1.5"
             onClick={() => {
               setIsAddingCategory(true);
               setNewCategoryName("");
             }}
           >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            <CirclePlus className="h-4 w-4" />
             Nueva categoría
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => router.push(`/dashboard/services/new?type=${businessType}`)}
+          >
+            <Plus className="h-4 w-4" />
+            {terminology.newService}
           </Button>
         </div>
       </div>
@@ -733,18 +729,38 @@ export function ServicesList({
         </div>
       )}
 
-      {/* ── DnD hint ── */}
-      {canDragAndDrop && services.length > 1 && (
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mb-3">
-          <GripVertical className="h-3.5 w-3.5" />
-          Arrastra para reordenar dentro de cada categoría
-          {isSavingOrder && <span className="text-primary ml-1">(Guardando...)</span>}
-        </p>
-      )}
+      {/* ── Control bar ── */}
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          {canDragAndDrop && services.length > 1 && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <GripVertical className="h-3.5 w-3.5" />
+              Arrastrá para reordenar servicios dentro de cada categoría
+              {isSavingOrder && <span className="text-primary ml-1">(Guardando...)</span>}
+            </p>
+          )}
+        </div>
+        <Select
+          value={categoryFilter}
+          onValueChange={(value) => value && setCategoryFilter(value)}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue>
+              {categoryFilter === "all" ? "Todas las categorías" : categoryFilter}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las categorías</SelectItem>
+            {allNamedCategories.map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* ── Category sections ── */}
       <div className="space-y-3">
-        {allNamedCategories.map((cat) => (
+        {(categoryFilter === "all" ? allNamedCategories : allNamedCategories.filter((c) => c === categoryFilter)).map((cat) => (
           <CategorySection
             key={cat}
             category={cat}
@@ -766,7 +782,7 @@ export function ServicesList({
         ))}
 
         {/* Sin categoría */}
-        {groupedByCategory.uncategorized.length > 0 && (
+        {categoryFilter === "all" && groupedByCategory.uncategorized.length > 0 && (
           <CategorySection
             category={null}
             services={groupedByCategory.uncategorized}
@@ -785,16 +801,13 @@ export function ServicesList({
         {/* No results */}
         {isFiltered && filteredServices.length === 0 && (
           <div className="flex flex-col items-center py-12 text-muted-foreground">
-            <Search className="h-10 w-10 mb-3 opacity-30" />
+            <FolderOpen className="h-10 w-10 mb-3 opacity-30" />
             <p className="text-sm">No se encontraron tratamientos</p>
             <button
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-              }}
+              onClick={() => setCategoryFilter("all")}
               className="mt-2 text-primary text-xs hover:underline"
             >
-              Limpiar filtros
+              Ver todas las categorías
             </button>
           </div>
         )}

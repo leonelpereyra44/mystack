@@ -71,7 +71,7 @@ export function DashboardNav({ business, user }: DashboardNavProps) {
   ];
 
   return (
-    <aside className="flex w-64 flex-col border-r bg-card">
+    <aside className="flex h-screen w-64 flex-col border-r bg-card overflow-y-auto">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <Image 

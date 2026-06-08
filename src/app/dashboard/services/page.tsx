@@ -2,9 +2,6 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ServicesList } from "@/components/dashboard/services-list";
 import { SuggestedServicesPanel } from "@/components/dashboard/suggested-services-panel";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import Link from "next/link";
 import { getBusinessTerminology } from "@/lib/business-types";
 
 export default async function ServicesPage() {
@@ -33,20 +30,12 @@ export default async function ServicesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="hidden md:block">
+      <div className="hidden md:block">
           <h1 className="text-3xl font-bold">{terminology.services}</h1>
           <p className="text-muted-foreground">
             Gestioná los {terminology.services.toLowerCase()} que ofrecés a tus {terminology.clients.toLowerCase()}
           </p>
         </div>
-        <Link href={`/dashboard/services/new?type=${business.businessType}`}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            {terminology.newService}
-          </Button>
-        </Link>
-      </div>
 
       <SuggestedServicesPanel
         businessType={business.businessType}
