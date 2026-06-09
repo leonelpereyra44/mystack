@@ -123,38 +123,47 @@ function ServiceRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors group/row",
+        "flex items-center gap-2 px-3 py-3 sm:px-4 hover:bg-muted/30 transition-colors group/row",
         isDragging && "bg-muted/50 shadow-lg"
       )}
     >
       {dragHandle}
+      {/* Name + meta (always visible) */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {!service.isActive && (
             <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" title="Inactivo" />
           )}
-          <span className={cn("font-medium text-sm", !service.isActive && "text-muted-foreground")}>
+          <span className={cn("font-medium text-sm leading-snug", !service.isActive && "text-muted-foreground")}>
             {service.name}
           </span>
         </div>
-        {service.description && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {service.description}
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {formatDuration(service.duration)}
+          <span className="mx-1">·</span>
+          {formatPrice(price)}
+          {service.description && (
+            <>
+              <span className="mx-1 hidden sm:inline">·</span>
+              <span className="hidden sm:inline truncate">{service.description}</span>
+            </>
+          )}
+        </p>
       </div>
-      <div className="shrink-0 text-right min-w-[60px]">
+      {/* Duración + Precio columns — desktop only */}
+      <div className="hidden sm:block shrink-0 text-right min-w-[60px]">
         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide leading-none">Duración</p>
         <p className="text-sm font-semibold mt-0.5">{formatDuration(service.duration)}</p>
       </div>
-      <div className="shrink-0 text-right min-w-[72px]">
+      <div className="hidden sm:block shrink-0 text-right min-w-[72px]">
         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide leading-none">Precio</p>
         <p className="text-sm font-semibold mt-0.5">{formatPrice(price)}</p>
       </div>
+      {/* Edit — desktop only; on mobile goes into dropdown */}
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8 shrink-0"
+        className="hidden sm:flex h-8 w-8 shrink-0"
         onClick={onEdit}
         title="Editar"
       >
@@ -169,6 +178,10 @@ function ServiceRow({
           }
         />
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Editar
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={onClone}>
             <Copy className="mr-2 h-4 w-4" />
             Duplicar
@@ -312,7 +325,7 @@ function CategorySection({
               }}
             >
               <Plus className="h-3 w-3" />
-              Agregar
+              <span className="hidden sm:inline">Agregar</span>
             </Button>
             {!isUncategorized && (
               <DropdownMenu>
@@ -661,7 +674,7 @@ export function ServicesList({
   return (
     <>
       {/* ── Stats + Actions ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2.5 border rounded-lg px-3 py-2 bg-card">
             <LayoutGrid className="h-4 w-4 text-primary shrink-0" />
@@ -682,18 +695,18 @@ export function ServicesList({
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className="gap-1.5 flex-1 sm:flex-none"
             onClick={() => {
               setIsAddingCategory(true);
               setNewCategoryName("");
             }}
           >
             <CirclePlus className="h-4 w-4" />
-            Nueva categoría
+            <span className="sm:inline">Nueva categoría</span>
           </Button>
           <Button
             size="sm"
-            className="gap-1.5"
+            className="gap-1.5 flex-1 sm:flex-none"
             onClick={() => router.push(`/dashboard/services/new?type=${businessType}`)}
           >
             <Plus className="h-4 w-4" />
@@ -744,7 +757,7 @@ export function ServicesList({
           value={categoryFilter}
           onValueChange={(value) => value && setCategoryFilter(value)}
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue>
               {categoryFilter === "all" ? "Todas las categorías" : categoryFilter}
             </SelectValue>

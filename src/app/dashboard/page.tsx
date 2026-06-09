@@ -3,7 +3,6 @@ import prisma from "@/lib/prisma";
 import { LimitWarningBanner } from "@/components/dashboard/limit-warning-banner";
 import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
-import { GettingStartedCards } from "@/components/dashboard/getting-started-cards";
 import { DashboardInteractive } from "@/components/dashboard/dashboard-interactive";
 
 import { getBusinessTerminology } from "@/lib/business-types";
@@ -97,12 +96,32 @@ export default async function DashboardPage() {
     staffCount: business.staff.length,
   };
 
+  // Actividad reciente: las últimas 4 reservas del mes ordenadas por fecha desc
+  const recentActivity = [...business.appointments]
+    .sort((a, b) => parseUTCDate(b.date).getTime() - parseUTCDate(a.date).getTime())
+    .slice(0, 4)
+    .map((apt) => ({
+      id: apt.id,
+      type: apt.status,
+      customerName: apt.customerName,
+      serviceName: apt.service.name,
+      date: apt.date,
+      startTime: apt.startTime,
+    }));
+
+  const sessionUser = {
+    name: session?.user?.name ?? null,
+    email: session?.user?.email ?? null,
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="hidden md:block">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Bienvenido de vuelta, {session?.user?.name}
+        <h1 className="text-2xl font-bold">
+          Bienvenido de vuelta, {session?.user?.name?.split(" ")[0]} 👋
+        </h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          Aquí tienes un resumen de lo que está sucediendo hoy en MyStack.
         </p>
       </div>
 
@@ -127,18 +146,12 @@ export default async function DashboardPage() {
         />
       )}
 
-      {/* Getting Started Cards */}
-      <GettingStartedCards
-        businessSlug={business.slug}
-        hasServices={hasServices}
-        hasStaff={hasStaff}
-        hasSchedule={hasSchedule}
-      />
-
       <DashboardInteractive
         stats={stats}
         upcomingAppointments={upcomingAppointments}
+        recentActivity={recentActivity}
         terminology={terminology}
+        user={sessionUser}
       />
     </div>
   );
