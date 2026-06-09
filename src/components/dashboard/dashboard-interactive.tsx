@@ -6,7 +6,23 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
-import { Calendar, Clock, Users, TrendingUp, CheckCircle, XCircle, AlertCircle, Phone, Mail, User, Scissors } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  Users,
+  TrendingUp,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Phone,
+  Mail,
+  User,
+  Scissors,
+  ArrowRight,
+  MoreVertical,
+  Star,
+  HelpCircle,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +32,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ContactModal } from "@/components/dashboard/contact-modal";
+import { cn } from "@/lib/utils";
 
 function parseUTCDate(dateValue: Date | string): Date {
   const d = new Date(dateValue);
@@ -29,6 +54,28 @@ const statusConfig = {
   COMPLETED: { label: "Completado", variant: "outline" as const, icon: CheckCircle },
   NO_SHOW: { label: "No asistió", variant: "destructive" as const, icon: XCircle },
 };
+
+const AVATAR_COLORS = [
+  "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  "bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300",
+  "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+  "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300",
+  "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300",
+];
+
+function getAvatarColor(name: string): string {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 interface Appointment {
   id: string;
@@ -44,6 +91,15 @@ interface Appointment {
   staff: { name: string } | null;
 }
 
+interface RecentActivityItem {
+  id: string;
+  type: string;
+  customerName: string;
+  serviceName: string;
+  date: Date;
+  startTime: string;
+}
+
 interface Stats {
   todayCount: number;
   monthCount: number;
@@ -54,13 +110,17 @@ interface Stats {
 interface DashboardInteractiveProps {
   stats: Stats;
   upcomingAppointments: Appointment[];
+  recentActivity: RecentActivityItem[];
   terminology: { appointments: string; services: string; clients: string };
+  user: { name?: string | null; email?: string | null };
 }
 
 export function DashboardInteractive({
   stats,
   upcomingAppointments,
+  recentActivity,
   terminology,
+  user,
 }: DashboardInteractiveProps) {
   const router = useRouter();
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
@@ -94,95 +154,290 @@ export function DashboardInteractive({
     ? statusConfig[selectedApt.status as keyof typeof statusConfig] ?? statusConfig.PENDING
     : null;
 
+  const statsCards = [
+    {
+      label: `${terminology.appointments} Hoy`,
+      value: stats.todayCount,
+      icon: Calendar,
+      href: "/dashboard/appointments",
+      iconBg: "bg-primary/10",
+      iconColor: "text-primary",
+    },
+    {
+      label: "Este Mes",
+      value: stats.monthCount,
+      icon: TrendingUp,
+      href: "/dashboard/appointments",
+      iconBg: "bg-blue-100 dark:bg-blue-950",
+      iconColor: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      label: terminology.services,
+      value: stats.servicesCount,
+      icon: Clock,
+      href: "/dashboard/services",
+      iconBg: "bg-amber-100 dark:bg-amber-950",
+      iconColor: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      label: "Empleados",
+      value: stats.staffCount,
+      icon: Users,
+      href: "/dashboard/staff",
+      iconBg: "bg-green-100 dark:bg-green-950",
+      iconColor: "text-green-600 dark:text-green-400",
+    },
+  ];
+
   return (
     <>
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-        <Link href="/dashboard/appointments" className="group">
-          <Card className="p-0 transition-colors hover:border-primary/50 hover:bg-muted/40 cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-              <CardTitle className="text-xs lg:text-sm font-medium">{terminology.appointments} Hoy</CardTitle>
-              <Calendar className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
-              <div className="text-xl lg:text-2xl font-bold">{stats.todayCount}</div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/appointments" className="group">
-          <Card className="p-0 transition-colors hover:border-primary/50 hover:bg-muted/40 cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-              <CardTitle className="text-xs lg:text-sm font-medium">Este Mes</CardTitle>
-              <TrendingUp className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
-              <div className="text-xl lg:text-2xl font-bold">{stats.monthCount}</div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/services" className="group">
-          <Card className="p-0 transition-colors hover:border-primary/50 hover:bg-muted/40 cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-              <CardTitle className="text-xs lg:text-sm font-medium">{terminology.services}</CardTitle>
-              <Clock className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
-              <div className="text-xl lg:text-2xl font-bold">{stats.servicesCount}</div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/staff" className="group">
-          <Card className="p-0 transition-colors hover:border-primary/50 hover:bg-muted/40 cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between p-3 pb-1 lg:p-6 lg:pb-2">
-              <CardTitle className="text-xs lg:text-sm font-medium">Empleados</CardTitle>
-              <Users className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="p-3 pt-0 lg:p-6 lg:pt-0">
-              <div className="text-xl lg:text-2xl font-bold">{stats.staffCount}</div>
-            </CardContent>
-          </Card>
-        </Link>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {statsCards.map((card) => (
+          <Link key={card.label} href={card.href} className="group">
+            <Card className="transition-all hover:border-primary/40 hover:shadow-sm cursor-pointer h-full">
+              <CardContent className="p-4 lg:p-5">
+                <div className={cn("inline-flex rounded-lg p-2", card.iconBg)}>
+                  <card.icon className={cn("h-4 w-4 lg:h-5 lg:w-5", card.iconColor)} />
+                </div>
+                <div className="mt-3">
+                  <p className="text-xs lg:text-sm text-muted-foreground font-medium">
+                    {card.label}
+                  </p>
+                  <p className="text-2xl lg:text-3xl font-bold mt-0.5 tabular-nums">
+                    {card.value}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
 
-      {/* Upcoming Appointments */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Próximos {terminology.appointments}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {upcomingAppointments.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              No hay {terminology.appointments.toLowerCase()} próximos
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {upcomingAppointments.map((apt) => (
-                <button
-                  key={apt.id}
-                  onClick={() => setSelectedApt(apt)}
-                  className="w-full flex items-center justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50 hover:border-primary/50 cursor-pointer"
-                >
-                  <div>
-                    <p className="font-medium">{apt.customerName}</p>
-                    <p className="text-sm text-muted-foreground">{apt.customerEmail}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {format(parseUTCDate(apt.date), "d MMM", { locale: es })}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {apt.startTime} - {apt.endTime}
-                    </p>
-                  </div>
-                </button>
-              ))}
+      {/* Main content — 2 columns on large screens */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        {/* Upcoming Appointments */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                Próximos {terminology.appointments}
+              </CardTitle>
+              <Link
+                href="/dashboard/appointments"
+                className="flex items-center gap-1 text-sm text-primary hover:underline underline-offset-4"
+              >
+                Ver calendario
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {upcomingAppointments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Calendar className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  No hay {terminology.appointments.toLowerCase()} próximos
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {upcomingAppointments.map((apt) => {
+                  const sc =
+                    statusConfig[apt.status as keyof typeof statusConfig] ??
+                    statusConfig.PENDING;
+                  return (
+                    <div
+                      key={apt.id}
+                      className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                      {/* Time */}
+                      <span className="text-sm font-semibold text-muted-foreground w-11 shrink-0 tabular-nums">
+                        {apt.startTime}
+                      </span>
+
+                      {/* Avatar */}
+                      <div
+                        className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                          getAvatarColor(apt.customerName)
+                        )}
+                      >
+                        {getInitials(apt.customerName)}
+                      </div>
+
+                      {/* Name + service */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-none">
+                          {apt.customerName}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {apt.service.name}
+                        </p>
+                      </div>
+
+                      {/* Status badge */}
+                      <Badge
+                        variant={sc.variant}
+                        className="shrink-0 hidden sm:flex text-xs"
+                      >
+                        {sc.label}
+                      </Badge>
+
+                      {/* Action menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Opciones</span>
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setSelectedApt(apt)}>
+                            Ver detalles
+                          </DropdownMenuItem>
+                          {apt.status === "PENDING" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => updateStatus(apt.id, "CONFIRMED")}
+                              >
+                                Confirmar
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {(apt.status === "PENDING" ||
+                            apt.status === "CONFIRMED") && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => updateStatus(apt.id, "COMPLETED")}
+                              >
+                                Marcar completado
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => updateStatus(apt.id, "NO_SHOW")}
+                              >
+                                No asistió
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => updateStatus(apt.id, "CANCELLED")}
+                              >
+                                Cancelar turno
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity + Help */}
+        <Card className="lg:col-span-2 flex flex-col">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Actividad Reciente</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 flex flex-col flex-1">
+            <div className="flex-1">
+              {recentActivity.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  Sin actividad reciente
+                </p>
+              ) : (
+                <div className="divide-y">
+                  {recentActivity.map((item) => {
+                    const isNew =
+                      item.type === "CONFIRMED" || item.type === "PENDING";
+                    const isCancelled =
+                      item.type === "CANCELLED" || item.type === "NO_SHOW";
+                    const isCompleted = item.type === "COMPLETED";
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+                      >
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                            isNew && "bg-green-100 dark:bg-green-950",
+                            isCancelled && "bg-red-100 dark:bg-red-950",
+                            isCompleted && "bg-primary/10",
+                            !isNew &&
+                              !isCancelled &&
+                              !isCompleted &&
+                              "bg-muted"
+                          )}
+                        >
+                          {isNew && (
+                            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          )}
+                          {isCancelled && (
+                            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                          )}
+                          {isCompleted && (
+                            <Star className="h-4 w-4 text-primary" />
+                          )}
+                          {!isNew && !isCancelled && !isCompleted && (
+                            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-tight">
+                            {isNew && "Nuevo turno agendado"}
+                            {isCancelled && "Turno cancelado"}
+                            {isCompleted && "Turno completado"}
+                            {!isNew &&
+                              !isCancelled &&
+                              !isCompleted &&
+                              "Turno actualizado"}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {format(parseUTCDate(item.date), "d MMM", {
+                              locale: es,
+                            })}{" "}
+                            · {item.startTime} · {item.customerName}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Help section */}
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-start gap-2 mb-3">
+                <HelpCircle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-sm text-muted-foreground">
+                  ¿Necesitas ayuda con los reportes?
+                </p>
+              </div>
+              <ContactModal
+                user={user}
+                trigger={
+                  <Button variant="outline" size="sm" className="w-full">
+                    Ir al centro de ayuda
+                  </Button>
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Appointment Detail Modal */}
       <Dialog open={!!selectedApt} onOpenChange={() => setSelectedApt(null)}>
@@ -203,7 +458,11 @@ export function DashboardInteractive({
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-4 w-4 shrink-0" />
                   <span>
-                    {format(parseUTCDate(selectedApt.date), "EEEE, d 'de' MMMM", { locale: es })}
+                    {format(
+                      parseUTCDate(selectedApt.date),
+                      "EEEE, d 'de' MMMM",
+                      { locale: es }
+                    )}
                     {" · "}
                     {selectedApt.startTime} – {selectedApt.endTime}
                   </span>
@@ -237,12 +496,15 @@ export function DashboardInteractive({
                 )}
               </div>
 
-              {(selectedApt.status === "PENDING" || selectedApt.status === "CONFIRMED") && (
+              {(selectedApt.status === "PENDING" ||
+                selectedApt.status === "CONFIRMED") && (
                 <div className="flex flex-wrap gap-2 pt-2 border-t">
                   {selectedApt.status === "PENDING" && (
                     <Button
                       size="sm"
-                      onClick={() => updateStatus(selectedApt.id, "CONFIRMED")}
+                      onClick={() =>
+                        updateStatus(selectedApt.id, "CONFIRMED")
+                      }
                       disabled={isUpdating}
                     >
                       <CheckCircle className="mr-1 h-3 w-3" />
