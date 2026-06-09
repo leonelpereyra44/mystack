@@ -286,16 +286,18 @@ export function DashboardInteractive({
 
                       {/* Action menu */}
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                            <span className="sr-only">Opciones</span>
-                          </Button>
-                        </DropdownMenuTrigger>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Opciones</span>
+                            </Button>
+                          }
+                        />
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setSelectedApt(apt)}>
                             Ver detalles
