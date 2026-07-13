@@ -46,6 +46,9 @@ beforeEach(() => {
   // Mocks para los queries adicionales del handler de pago aprobado
   (mockPrisma.business.findUnique as never as ReturnType<typeof vi.fn>).mockResolvedValue(null);
   (mockPrisma.planConfig.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+  // Mocks para PaymentEvent (tabla de auditoría)
+  (mockPrisma.paymentEvent.create as never as ReturnType<typeof vi.fn>).mockResolvedValue({});
+  (mockPrisma.paymentEvent.updateMany as never as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
 });
 
 // ─── Firma ────────────────────────────────────────────────────────────────────
@@ -507,5 +510,192 @@ describe("payment events (type=payment, action=created)", () => {
 
     expect(mockPrisma.subscription.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+  });
+
+  // ─── PaymentEvent: idempotencia real por (paymentId, action) ───────────────
+  it("PaymentEvent.create marca el evento como recibido", async () => {
+    mswServer.use(
+      http.get("https://api.mercadopago.com/v1/payments/pay_audit", () =>
+        HttpResponse.json({
+          id: "pay_audit",
+          status: "approved",
+          transaction_amount: 15000,
+          external_reference: "biz-audit:PRO",
+          date_last_updated: new Date().toISOString(),
+        })
+      )
+    );
+
+    const req = makeWebhookRequest({
+      type: "payment",
+      action: "created",
+      data: { id: "pay_audit" },
+    });
+    await POST(req);
+
+    expect(mockPrisma.paymentEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          paymentId: "pay_audit",
+          action: "created",
+          status: "approved",
+          amount: 15000,
+          externalReference: "biz-audit:PRO",
+        }),
+      })
+    );
+  });
+
+  it("PaymentEvent duplicado (unique violation P2002) → no re-procesa", async () => {
+    mswServer.use(
+      http.get("https://api.mercadopago.com/v1/payments/pay_dup", () =>
+        HttpResponse.json({
+          id: "pay_dup",
+          status: "approved",
+          transaction_amount: 15000,
+          external_reference: "biz-dup:PRO",
+          date_last_updated: new Date().toISOString(),
+        })
+      )
+    );
+    (mockPrisma.paymentEvent.create as never as ReturnType<typeof vi.fn>).mockRejectedValue({
+      code: "P2002",
+    });
+
+    const req = makeWebhookRequest({
+      type: "payment",
+      action: "created",
+      data: { id: "pay_dup" },
+    });
+    await POST(req);
+
+    // PaymentEvent.create falla por unique → ignoredReason="duplicate"
+    expect(mockPrisma.paymentEvent.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { paymentId: "pay_dup", action: "created" },
+        data: { ignoredReason: "duplicate" },
+      })
+    );
+    // No reactiva la suscripción
+    expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+  });
+
+  // ─── cancel_protected: NO reviva la suscripción cancelada ──────────────────
+  it("pago aprobado para suscripción CANCELLED → marca ignoredReason='cancel_protected' y NO hace upsert", async () => {
+    mswServer.use(
+      http.get("https://api.mercadopago.com/v1/payments/pay_cancelled", () =>
+        HttpResponse.json({
+          id: "pay_cancelled",
+          status: "approved",
+          transaction_amount: 15000,
+          external_reference: "biz-c:PRO",
+          date_last_updated: new Date().toISOString(),
+        })
+      )
+    );
+    (mockPrisma.subscription.findFirst as never as ReturnType<typeof vi.fn>).mockResolvedValue({
+      lastPaymentId: null,
+      plan: "PRO",
+      status: "CANCELLED",
+      cancelledAt: new Date(),
+      mpSubscriptionId: "pa_old",
+      currentPeriodEnd: null,
+    });
+
+    const req = makeWebhookRequest({
+      type: "payment",
+      action: "created",
+      data: { id: "pay_cancelled" },
+    });
+    await POST(req);
+
+    // NO revive la suscripción
+    expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+    // Marca lastPaymentId en la suscripción cancelada para no retratar
+    expect(mockPrisma.subscription.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { businessId: "biz-c" },
+        data: { lastPaymentId: "pay_cancelled" },
+      })
+    );
+    // PaymentEvent queda marcado como cancel_protected
+    expect(mockPrisma.paymentEvent.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { ignoredReason: "cancel_protected" },
+      })
+    );
+  });
+
+  // ─── next_payment_date del preapproval se usa para currentPeriodEnd ────────
+  it("pago aprobado usa next_payment_date del preapproval (no +30d fallback)", async () => {
+    const expectedDate = new Date(Date.now() + 27 * 86400000); // 27 días, distinto de +30
+    mswServer.use(
+      http.get("https://api.mercadopago.com/v1/payments/pay_np", () =>
+        HttpResponse.json({
+          id: "pay_np",
+          status: "approved",
+          transaction_amount: 15000,
+          external_reference: "biz-np:PRO",
+          date_last_updated: new Date().toISOString(),
+          order: { id: "pa_np_123" },
+        })
+      ),
+      http.get("https://api.mercadopago.com/preapproval/pa_np_123", () =>
+        HttpResponse.json({
+          id: "pa_np_123",
+          next_payment_date: expectedDate.toISOString(),
+        })
+      )
+    );
+
+    const req = makeWebhookRequest({
+      type: "payment",
+      action: "created",
+      data: { id: "pay_np" },
+    });
+    await POST(req);
+
+    expect(mockPrisma.subscription.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { businessId: "biz-np" },
+        update: expect.objectContaining({
+          currentPeriodEnd: expectedDate,
+          mpSubscriptionId: "pa_np_123",
+        }),
+        create: expect.objectContaining({
+          mpSubscriptionId: "pa_np_123",
+          currentPeriodEnd: expectedDate,
+        }),
+      })
+    );
+  });
+
+  it("pago aprobado sin order.id ni mpSubscriptionId → fallback +30d", async () => {
+    mswServer.use(
+      http.get("https://api.mercadopago.com/v1/payments/pay_nofk", () =>
+        HttpResponse.json({
+          id: "pay_nofk",
+          status: "approved",
+          transaction_amount: 15000,
+          external_reference: "biz-nofk:PRO",
+          date_last_updated: new Date().toISOString(),
+        })
+      )
+    );
+
+    const req = makeWebhookRequest({
+      type: "payment",
+      action: "created",
+      data: { id: "pay_nofk" },
+    });
+    await POST(req);
+
+    const call = (mockPrisma.subscription.upsert as never as ReturnType<typeof vi.fn>).mock.calls[0][0] as {
+      update: { currentPeriodEnd: Date };
+    };
+    const expectedEnd = new Date(Date.now() + 30 * 86400000);
+    // permitir margen de 5 segundos
+    expect(call.update.currentPeriodEnd.getTime()).toBeGreaterThan(expectedEnd.getTime() - 5000);
+    expect(call.update.currentPeriodEnd.getTime()).toBeLessThan(expectedEnd.getTime() + 5000);
   });
 });

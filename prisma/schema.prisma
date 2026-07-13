@@ -122,6 +122,7 @@ model Business {
   appointments Appointment[]
   schedules   BusinessSchedule[]
   subscription Subscription?
+  paymentEvents  PaymentEvent[]
   blockedTimes BlockedTime[]
   clients      Client[]
 
@@ -367,6 +368,41 @@ enum SubscriptionStatus {
   PAST_DUE
   TRIALING
   PAUSED
+}
+
+// ============================================
+// PAYMENT EVENTS (Auditoría de webhooks de MP)
+// ============================================
+// Registro inmutable de cada evento de pago recibido desde Mercado Pago.
+// Sirve para:
+//   - Idempotencia real (unique[preapprovalId, paymentId, action])
+//   - Auditoría: ¿qué pasó con este usuario? SELECT * WHERE businessId=...
+//   - Detectar huérfanos / pagos duplicados / webhooks perdidos.
+
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  businessId      String
+  preapprovalId   String?  // MP preapproval.id (de metadata del pago)
+  paymentId       String?  // MP payment.id
+  action          String   // "created" | "updated" | "authorized" | "cancelled" | ...
+  status          String   // "approved" | "rejected" | "pending" | "cancelled" | ...
+  amount          Float?
+  currency        String?
+  externalReference String?
+  rawPayload      Json?    // body crudo del webhook para auditoría
+
+  // Resultado del procesamiento
+  processedAt     DateTime @default(now())
+  ignoredReason   String?  // "duplicate" | "orphan" | "auto_refunded" | "cancel_protected" | null si aplicado
+
+  // Relación
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Idempotencia: mismo evento (mismo pago + mismo action) → no duplicar
+  @@unique([paymentId, action])
+  @@index([businessId, processedAt])
+  @@index([preapprovalId])
+  @@map("payment_events")
 }
 
 // ============================================

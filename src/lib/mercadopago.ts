@@ -95,7 +95,7 @@ export async function createSubscription(params: {
   }
 }
 
-// Cancelar una suscripción
+// Cancelar una suscripción. Verifica el estado real en MP post-update.
 export async function cancelSubscription(subscriptionId: string) {
   try {
     await preApproval.update({
@@ -105,6 +105,16 @@ export async function cancelSubscription(subscriptionId: string) {
       },
     });
 
+    // Verificar que MP efectivamente procesó la cancelación
+    const verify = await preApproval.get({ id: subscriptionId });
+    if (verify.status !== "cancelled") {
+      console.error(`MP did not honour cancel: ${subscriptionId} status=${verify.status}`);
+      return {
+        success: false,
+        error: `Mercado Pago no procesó la cancelación (status actual: ${verify.status})`,
+      };
+    }
+
     return { success: true };
   } catch (error) {
     console.error("Error cancelling MP subscription:", error);
@@ -113,6 +123,49 @@ export async function cancelSubscription(subscriptionId: string) {
       error: error instanceof Error ? error.message : "Error desconocido",
     };
   }
+}
+
+// Lista todos los preapprovals activos de un payer (para detectar huérfanos).
+// Devuelve los preapprovals cuyo status no es "cancelled" ni "ended".
+export async function listActivePreapprovalsByPayer(
+  mpCustomerId: string
+): Promise<Array<{ id: string; status: string; external_reference: string | null }>> {
+  try {
+    const res = await fetch(
+      `https://api.mercadopago.com/preapproval/search?payer_id=${encodeURIComponent(mpCustomerId)}`,
+      { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` } }
+    );
+    if (!res.ok) {
+      console.error("Error listing preapprovals:", await res.text());
+      return [];
+    }
+    const data = (await res.json()) as {
+      results?: Array<{ id: string; status: string; external_reference: string | null }>;
+    };
+    const all = data.results ?? [];
+    return all.filter((p) => p.status !== "cancelled" && p.status !== "ended");
+  } catch (error) {
+    console.error("Error listing active preapprovals:", error);
+    return [];
+  }
+}
+
+// Cancela todos los preapprovals activos del payer EXCEPTO el indicado en keepId
+// (útil para limpiar huérfanos sin afectar la suscripción legítima).
+export async function cancelOrphanPreapprovals(
+  mpCustomerId: string,
+  keepId: string | null
+): Promise<{ cancelled: string[]; failed: string[] }> {
+  const active = await listActivePreapprovalsByPayer(mpCustomerId);
+  const orphans = keepId ? active.filter((p) => p.id !== keepId) : active;
+  const cancelled: string[] = [];
+  const failed: string[] = [];
+  for (const p of orphans) {
+    const r = await cancelSubscription(p.id);
+    if (r.success) cancelled.push(p.id);
+    else failed.push(p.id);
+  }
+  return { cancelled, failed };
 }
 
 // Obtener estado de una suscripción

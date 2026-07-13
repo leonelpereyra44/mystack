@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createSubscription } from "@/lib/mercadopago";
+import { createSubscription, cancelSubscription, cancelOrphanPreapprovals } from "@/lib/mercadopago";
 import { SubscriptionPlan } from "@prisma/client";
 import { resolveEffectivePlan } from "@/lib/plan-limits";
 
@@ -67,6 +67,26 @@ export async function POST(request: Request) {
         { error: `Ya tienes una suscripción activa al plan ${planConfig.name}` },
         { status: 400 }
       );
+    }
+
+    // Pre-cancelar cualquier preapproval previo en MP antes de crear uno nuevo.
+    // MP no elimina los preapprovals abandonados (el usuario navegó sin pagar),
+    // y dejarlos activos genera huérfanos que siguen cobrando.
+    if (business.subscription?.mpSubscriptionId && business.subscription.status !== "CANCELLED") {
+      const prevCancel = await cancelSubscription(business.subscription.mpSubscriptionId);
+      if (!prevCancel.success) {
+        console.warn(
+          `[SUBSCRIPTION] No se pudo pre-cancelar ${business.subscription.mpSubscriptionId}:`,
+          prevCancel.error
+        );
+      }
+    }
+    if (business.subscription?.mpCustomerId) {
+      try {
+        await cancelOrphanPreapprovals(business.subscription.mpCustomerId, null);
+      } catch (e) {
+        console.warn("[SUBSCRIPTION] Error cancelling orphan preapprovals before new sub:", e);
+      }
     }
 
     // Crear la suscripción en Mercado Pago con precio y nombre del plan

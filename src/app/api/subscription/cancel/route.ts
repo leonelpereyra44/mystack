@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { cancelSubscription } from "@/lib/mercadopago";
+import { cancelSubscription, cancelOrphanPreapprovals } from "@/lib/mercadopago";
 import { sendSubscriptionCancelled } from "@/lib/email";
 
 // POST - Cancelar suscripción
@@ -35,7 +35,7 @@ export async function POST() {
       );
     }
 
-    // Cancelar en Mercado Pago
+    // Cancelar en Mercado Pago (con verificación post-cancel)
     const result = await cancelSubscription(business.subscription.mpSubscriptionId);
 
     if (!result.success) {
@@ -43,6 +43,55 @@ export async function POST() {
         { error: result.error },
         { status: 500 }
       );
+    }
+
+    // Cancelar también preapprovals huérfanos del payer (no se eliminan al re-suscribirse).
+    // Esto previene futuros cobros de preapprovals abandonados que MP mantiene activos.
+    let mpCustomerId = business.subscription.mpCustomerId ?? null;
+    if (!mpCustomerId && business.subscription.mpSubscriptionId) {
+      try {
+        const preApprovalRes = await fetch(
+          `https://api.mercadopago.com/preapproval/${business.subscription.mpSubscriptionId}`,
+          {
+            headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` },
+          }
+        );
+        if (preApprovalRes.ok) {
+          const pre = await preApprovalRes.json();          
+          mpCustomerId = (pre?.payer_id as string | number | undefined)?.toString() ?? null;
+          if (mpCustomerId) {
+            await prisma.subscription.update({
+              where: { businessId: business.id },
+              data: { mpCustomerId },
+            }).catch(() => {});
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching preapproval for payer_id:", e);
+      }
+    }
+
+    if (mpCustomerId) {
+      try {
+        const orphanReport = await cancelOrphanPreapprovals(
+          mpCustomerId,
+          business.subscription.mpSubscriptionId
+        );
+        if (orphanReport.cancelled.length > 0) {
+          console.log(
+            `[CANCEL] Orphan preapprovals cancelled for payer=${mpCustomerId}:`,
+            orphanReport.cancelled
+          );
+        }
+        if (orphanReport.failed.length > 0) {
+          console.error(
+            `[CANCEL] Failed to cancel orphan preapprovals for payer=${mpCustomerId}:`,
+            orphanReport.failed
+          );
+        }
+      } catch (e) {
+        console.error("Error cancelling orphan preapprovals:", e);
+      }
     }
 
     // Actualizar el registro de suscripción:

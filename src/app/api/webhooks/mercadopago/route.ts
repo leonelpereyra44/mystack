@@ -152,34 +152,52 @@ export async function POST(request: NextRequest) {
         : (actualPlan as SubscriptionPlan);
       const pausedAt = subscriptionStatus === "PAUSED" ? new Date() : null;
 
-      await prisma.subscription.upsert({
+      // Verificar estado actual antes de sobrescribir.
+      // Si la suscripción local está CANCELLED y el evento entrante es "authorized"
+      // (no "cancelled"), viene de un preapproval huérfano: NO reactivar.
+      const currentSub = await prisma.subscription.findUnique({
         where: { businessId },
-        create: {
-          businessId,
-          plan: planToSet,
-          status: subscriptionStatus,
-          mpSubscriptionId: preapprovalId,
-          mpCustomerId: preapproval.payer_id?.toString(),
-          currentPeriodStart: preapproval.date_created ? new Date(preapproval.date_created) : null,
-          currentPeriodEnd: preapproval.next_payment_date ? new Date(preapproval.next_payment_date) : null,
-        },
-        update: {
-          plan: planToSet,
-          status: subscriptionStatus,
-          mpCustomerId: preapproval.payer_id?.toString(),
-          currentPeriodStart: preapproval.date_created ? new Date(preapproval.date_created) : undefined,
-          currentPeriodEnd: preapproval.next_payment_date ? new Date(preapproval.next_payment_date) : undefined,
-          cancelledAt: subscriptionStatus === "CANCELLED" ? new Date() : null,
-          pausedAt,
-        },
+        select: { status: true, cancelledAt: true, mpSubscriptionId: true },
       });
 
-      console.log(`Subscription updated: business=${businessId}, plan=${actualPlan}, status=${subscriptionStatus}`);
+      if (
+        currentSub?.status === "CANCELLED" &&
+        subscriptionStatus !== "CANCELLED"
+      ) {
+        console.warn(
+          `[AUDIT] Preapproval ${preapprovalId} event ${preapproval.status} for CANCELLED business ${businessId}. ` +
+          `localMpSubscriptionId=${currentSub.mpSubscriptionId ?? "none"}. NOT reactivating.`
+        );
+      } else {
+        await prisma.subscription.upsert({
+          where: { businessId },
+          create: {
+            businessId,
+            plan: planToSet,
+            status: subscriptionStatus,
+            mpSubscriptionId: preapprovalId,
+            mpCustomerId: preapproval.payer_id?.toString(),
+            currentPeriodStart: preapproval.date_created ? new Date(preapproval.date_created) : null,
+            currentPeriodEnd: preapproval.next_payment_date ? new Date(preapproval.next_payment_date) : null,
+          },
+          update: {
+            plan: planToSet,
+            status: subscriptionStatus,
+            mpCustomerId: preapproval.payer_id?.toString(),
+            currentPeriodStart: preapproval.date_created ? new Date(preapproval.date_created) : undefined,
+            currentPeriodEnd: preapproval.next_payment_date ? new Date(preapproval.next_payment_date) : undefined,
+            cancelledAt: subscriptionStatus === "CANCELLED" ? new Date() : null,
+            pausedAt,
+          },
+        });
+
+        console.log(`Subscription updated: business=${businessId}, plan=${actualPlan}, status=${subscriptionStatus}`);
+      }
     }
 
     // Manejar pagos de suscripción
-    // MP envía type="payment" y action="created" (no "payment.created")
-    if (type === "payment" && action === "created") {
+    // MP envía type="payment" y action="created" o "updated"
+    if (type === "payment" && (action === "created" || action === "updated")) {
       const paymentId = data.id;
 
       // Obtener detalles del pago desde MP
@@ -195,30 +213,144 @@ export async function POST(request: NextRequest) {
       if (mpResponse.ok) {
         const payment = await mpResponse.json();
         console.log("Payment received:", payment.status, "amount:", payment.transaction_amount);
-        
-        // Si el pago está aprobado y tiene external_reference
-        if (payment.status === "approved" && payment.external_reference) {
-          // external_reference tiene formato "businessId:planKey" (nuevo) o solo "businessId" (legacy)
-          let businessId: string;
-          let planKeyFromRef: string | null = null;
-          const ref = payment.external_reference as string;
-          if (ref.includes(":")) {
-            [businessId, planKeyFromRef] = ref.split(":", 2);
-          } else {
-            businessId = ref;
-          }
 
-          // Un solo fetch: plan fallback + idempotencia
+        // external_reference (formato "businessId:planKey" o "businessId" legacy)
+        const ref = (payment.external_reference as string) ?? "";
+        let businessId: string;
+        let planKeyFromRef: string | null = null;
+        if (ref.includes(":")) {
+          [businessId, planKeyFromRef] = ref.split(":", 2);
+        } else {
+          businessId = ref;
+        }
+
+        // IDEMPOTENCIA REAL: insertar PaymentEvent con unique[paymentId, action].
+        // Si viola unique → duplicado, ignoramos el webhook.
+        let alreadyProcessed = false;
+        let ignoredReason: string | null = null;
+        try {
+          await prisma.paymentEvent.create({
+            data: {
+              businessId: businessId || "unknown",
+              preapprovalId: payment.order?.id?.toString() ?? null,
+              paymentId: paymentId.toString(),
+              action: action ?? "unknown",
+              status: payment.status ?? "unknown",
+              amount: payment.transaction_amount ? Number(payment.transaction_amount) : null,
+              currency: payment.currency_id ?? null,
+              externalReference: ref || null,
+              rawPayload: payment as object,
+            },
+          });
+        } catch (e) {
+          if ((e as { code?: string }).code === "P2002") {
+            alreadyProcessed = true;
+            ignoredReason = "duplicate";
+          } else {
+            console.error("Error creating PaymentEvent:", e);
+          }
+        }
+
+        if (alreadyProcessed) {
+          console.log(`Payment ${paymentId}/${action} already processed, skipping`);
+        }
+        // Si el pago está aprobado y tiene external_reference
+        else if (payment.status === "approved" && payment.external_reference) {
+          // Un solo fetch: plan fallback + verificación de cancelación
           const existingSub = await prisma.subscription.findFirst({
             where: { businessId },
-            select: { lastPaymentId: true, plan: true },
+            select: {
+              lastPaymentId: true,
+              plan: true,
+              status: true,
+              cancelledAt: true,
+              mpSubscriptionId: true,
+              currentPeriodEnd: true,
+            },
           });
 
-          // Idempotencia: si este paymentId ya fue procesado, ignorar el webhook duplicado
-          if (existingSub?.lastPaymentId === paymentId.toString()) {
-            console.log(`Payment ${paymentId} already processed for business ${businessId}, skipping duplicate webhook`);
+          if (existingSub?.status === "CANCELLED") {
+            // CRÍTICO: no revivir una suscripción cancelada.
+            // El pago proviene de un preapproval huérfano en MP o MP no procesó la cancelación.
+            ignoredReason = "cancel_protected";
+            console.warn(
+              `[AUDIT] Payment ${paymentId} received for CANCELLED subscription business=${businessId}. ` +
+              `possible orphan preapproval or MP didn't honour cancellation. ` +
+              `localMpSubscriptionId=${existingSub.mpSubscriptionId ?? "none"}, ` +
+              `cancelledAt=${existingSub.cancelledAt?.toISOString() ?? "none"}. ` +
+              `NOT reactivating subscription.`
+            );
+
+            // Reembolso automático si está dentro del derecho de arrepentimiento (10 días desde el pago)
+            try {
+              const paymentDate = payment.date_last_updated
+                ? new Date(payment.date_last_updated)
+                : new Date();
+              const hoursSincePayment = (Date.now() - paymentDate.getTime()) / (1000 * 60 * 60);
+              if (hoursSincePayment <= 240) {
+                const refundRes = await fetch(
+                  `https://api.mercadopago.com/v1/payments/${paymentId}/refunds`,
+                  {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({}),
+                  }
+                );
+                if (refundRes.ok) {
+                  const refund = await refundRes.json();
+                  ignoredReason = "auto_refunded";
+                  console.warn(
+                    `[AUDIT] Auto-refunded payment ${paymentId} for CANCELLED business ${businessId}. refundId=${refund.id}`
+                  );
+                } else {
+                  console.error(
+                    `[AUDIT] Failed to auto-refund payment ${paymentId}:`,
+                    await refundRes.text()
+                  );
+                }
+              }
+            } catch (refundErr) {
+              console.error(`[AUDIT] Error during auto-refund of payment ${paymentId}:`, refundErr);
+            }
+
+            // Marcar el paymentId como visto para no re-procesar (sin cambiar status)
+            await prisma.subscription
+              .update({
+                where: { businessId },
+                data: { lastPaymentId: paymentId.toString() },
+              })
+              .catch((e: unknown) => console.error("Error marking paymentId for cancelled sub:", e));
           } else {
             const planToActivate = planKeyFromRef ?? existingSub?.plan ?? "PRO";
+
+            // Obtener next_payment_date del preapproval para calcular currentPeriodEnd correctamente
+            const preapprovalIdOfPayment =
+              payment.order?.id?.toString() ?? existingSub?.mpSubscriptionId ?? null;
+            let nextPaymentDate: Date | null = null;
+            if (preapprovalIdOfPayment) {
+              try {
+                const paRes = await fetch(
+                  `https://api.mercadopago.com/preapproval/${preapprovalIdOfPayment}`,
+                  { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` } }
+                );
+                if (paRes.ok) {
+                  const pa = await paRes.json();
+                  if (pa.next_payment_date) {
+                    nextPaymentDate = new Date(pa.next_payment_date);
+                  }
+                }
+              } catch (paErr) {
+                console.error("Error fetching preapproval for next_payment_date:", paErr);
+              }
+            }
+            const fallbackEnd = new Date(
+              (payment.date_last_updated ? new Date(payment.date_last_updated).getTime() : Date.now()) +
+                30 * 24 * 60 * 60 * 1000
+            );
+            const currentPeriodEnd = nextPaymentDate ?? fallbackEnd;
 
             await prisma.subscription.upsert({
               where: { businessId },
@@ -227,22 +359,22 @@ export async function POST(request: NextRequest) {
                 plan: planToActivate as SubscriptionPlan,
                 status: "ACTIVE",
                 lastPaymentId: paymentId.toString(),
-                currentPeriodEnd: payment.date_last_updated
-                  ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
-                  : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                mpSubscriptionId: preapprovalIdOfPayment,
+                currentPeriodEnd,
               },
               update: {
                 plan: planToActivate as SubscriptionPlan,
                 status: "ACTIVE",
                 lastPaymentId: paymentId.toString(),
-                // Usar next_payment_date de MP si está disponible; fallback a +30 días
-                currentPeriodEnd: payment.date_last_updated
-                  ? new Date(new Date(payment.date_last_updated).getTime() + 30 * 24 * 60 * 60 * 1000)
-                  : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                currentPeriodEnd,
+                ...(preapprovalIdOfPayment && { mpSubscriptionId: preapprovalIdOfPayment }),
               },
             });
 
-            console.log(`Payment processed: business=${businessId}, plan=${planToActivate}, paymentId=${paymentId}`);
+            console.log(
+              `Payment processed: business=${businessId}, plan=${planToActivate}, paymentId=${paymentId}, ` +
+              `currentPeriodEnd=${currentPeriodEnd.toISOString()} (source=${nextPaymentDate ? "next_payment_date" : "fallback+30d"})`
+            );
 
             // Email de confirmación al dueño del negocio
             try {
@@ -274,22 +406,32 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Registrar el ignoredReason en PaymentEvent si corresponde
+        if (ignoredReason) {
+          await prisma.paymentEvent
+            .updateMany({
+              where: { paymentId: paymentId.toString(), action: action ?? "unknown" },
+              data: { ignoredReason },
+            })
+            .catch((e: unknown) => console.error("Error updating ignoredReason:", e));
+        }
+
         // Pago rechazado → marcar como PAST_DUE
         if (payment.status === "rejected" && payment.external_reference) {
-          let businessId: string;
-          const ref = payment.external_reference as string;
-          if (ref.includes(":")) {
-            [businessId] = ref.split(":", 2);
+          let bizId: string;
+          const r = payment.external_reference as string;
+          if (r.includes(":")) {
+            [bizId] = r.split(":", 2);
           } else {
-            businessId = ref;
+            bizId = r;
           }
 
           await prisma.subscription.updateMany({
-            where: { businessId, status: { in: ["ACTIVE", "PAUSED"] } },
+            where: { businessId: bizId, status: { in: ["ACTIVE", "PAUSED"] } },
             data: { status: "PAST_DUE" },
           });
 
-          console.log(`Payment rejected: business=${businessId}, paymentId=${paymentId}`);
+          console.log(`Payment rejected: business=${bizId}, paymentId=${paymentId}`);
         }
       }
     }

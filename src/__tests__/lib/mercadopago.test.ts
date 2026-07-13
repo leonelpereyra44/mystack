@@ -150,10 +150,12 @@ describe("createSubscription", () => {
 describe("cancelSubscription", () => {
   beforeEach(() => {
     mockPreApprovalUpdate.mockReset();
+    mockPreApprovalGet.mockReset();
   });
 
-  it("devuelve { success: true } y envía status: cancelled al SDK", async () => {
+  it("devuelve { success: true } y envía status: cancelled al SDK (verifica post-cancel)", async () => {
     mockPreApprovalUpdate.mockResolvedValue({});
+    mockPreApprovalGet.mockResolvedValue({ id: "sub_abc123", status: "cancelled" });
 
     const result = await cancelSubscription("sub_abc123");
 
@@ -162,6 +164,17 @@ describe("cancelSubscription", () => {
       id: "sub_abc123",
       body: { status: "cancelled" },
     });
+    expect(mockPreApprovalGet).toHaveBeenCalledWith({ id: "sub_abc123" });
+  });
+
+  it("devuelve { success: false } si MP no efectiviza la cancelación (status != cancelled)", async () => {
+    mockPreApprovalUpdate.mockResolvedValue({});
+    mockPreApprovalGet.mockResolvedValue({ id: "sub_abc123", status: "authorized" });
+
+    const result = await cancelSubscription("sub_abc123");
+
+    expect(result.success).toBe(false);
+    expect((result as { error: string }).error).toMatch(/no procesó la cancelación/);
   });
 
   it("devuelve { success: false, error } si el SDK lanza un error", async () => {
